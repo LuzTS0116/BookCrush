@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image";
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { BookOpen, Home, BookMarked, Users, Calendar, Bell, Search } from "lucide-react"
@@ -29,7 +30,7 @@ export function MainNav() {
   const routes = [
     {
       href: "/dashboard",
-      label: "Dashboard",
+      label: "Home",
       icon: Home,
       active: pathname === "/dashboard",
     },
@@ -54,11 +55,15 @@ export function MainNav() {
   ]
 
   return (
-    <div className="border-b border-border bg-card/80 backdrop-blur-sm">
+    <div className="bg-card/80 backdrop-blur-sm">
       <div className="flex h-16 items-center px-4 container mx-auto">
-        <Link href="/dashboard" className="flex items-center gap-2 mr-6">
-          <BookOpen className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold text-foreground hidden md:block">BookCircle</h1>
+        <Link href="/dashboard" className="flex items-center gap-2 mr-6 w-[40vw] max-w-[250px]">
+          <Image 
+              src="/images/main-logo.svg"
+              alt="Reading a Book in a Castle | BookCrush"
+              width={400}
+              height={200}
+          />
         </Link>
         <nav className="flex items-center space-x-4 lg:space-x-6 mx-6">
           {routes.map((route) => (
@@ -70,7 +75,7 @@ export function MainNav() {
                 route.active ? "text-primary" : "text-muted-foreground",
               )}
             >
-              <route.icon className="h-4 w-4" />
+              <route.icon className="h-4 w-4 md:inline hidden" />
               <span className="hidden md:block">{route.label}</span>
             </Link>
           ))}
@@ -111,7 +116,7 @@ export function MainNav() {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
-              <Button onClick={ handleSignOut}>
+              <Button onClick={handleSignOut}>
         Sign out
       </Button>
               </DropdownMenuItem>

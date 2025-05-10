@@ -8,6 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { BookMarked, Mail, Pencil, Save, X } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
@@ -16,6 +18,37 @@ export default function ProfilePage() {
     "Book lover, coffee enthusiast, and aspiring writer. I enjoy fiction, fantasy, and historical novels.",
   )
   const [kindleEmail, setKindleEmail] = useState("jane_kindle@kindle.com")
+  const [selectedGenre, setSelectedGenre] = useState("")
+  const [favoriteGenres, setFavoriteGenres] = useState<string[]>(["Fiction", "Fantasy", "Historical Fiction"])
+
+  const genres = [
+    "Fiction",
+    "Non-Fiction",
+    "Science Fiction",
+    "Fantasy",
+    "Mystery",
+    "Thriller",
+    "Romance",
+    "Historical Fiction",
+    "Biography",
+    "Self-Help",
+    "Horror",
+    "Poetry",
+    "Young Adult",
+    "Children's",
+    "Classics",
+  ]
+
+  const addGenre = () => {
+    if (selectedGenre && !favoriteGenres.includes(selectedGenre)) {
+      setFavoriteGenres([...favoriteGenres, selectedGenre])
+      setSelectedGenre("")
+    }
+  }
+
+  const removeGenre = (genre: string) => {
+    setFavoriteGenres(favoriteGenres.filter((g) => g !== genre))
+  }
 
   return (
     <div className="container mx-auto py-8">
@@ -77,6 +110,47 @@ export default function ProfilePage() {
                     <div className="flex items-center">
                       <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
                       <span className="text-sm">{kindleEmail}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-medium mb-2">Favorite Genres</h3>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {favoriteGenres.map((genre) => (
+                      <Badge key={genre} variant="secondary" className="px-3 py-1 bg-primary/10 text-primary">
+                        {genre}
+                        {isEditing && (
+                          <button
+                            type="button"
+                            onClick={() => removeGenre(genre)}
+                            className="ml-2 text-primary hover:text-primary-light"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </Badge>
+                    ))}
+                  </div>
+                  {isEditing && (
+                    <div className="flex gap-2">
+                      <Select value={selectedGenre} onValueChange={setSelectedGenre}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Select a genre" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {genres
+                            .filter((genre) => !favoriteGenres.includes(genre))
+                            .map((genre) => (
+                              <SelectItem key={genre} value={genre}>
+                                {genre}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <Button type="button" onClick={addGenre} disabled={!selectedGenre}>
+                        Add
+                      </Button>
                     </div>
                   )}
                 </div>

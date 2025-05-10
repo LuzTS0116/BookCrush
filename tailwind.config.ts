@@ -26,14 +26,14 @@ const config = {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "#bc9ab5",
+          DEFAULT: "#cab1c6",
           foreground: "hsl(var(--primary-foreground))",
-          light: "#cab1c6",
+          dark: "#bc9ab5",
         },
         secondary: {
-          DEFAULT: "#2e3d6a",
+          DEFAULT: "#18203f",
           foreground: "hsl(var(--secondary-foreground))",
-          light: "#6c9db8",
+          light: "#2e3d6a",
         },
         accent: {
           DEFAULT: "#e0b75e",
@@ -56,7 +56,11 @@ const config = {
           foreground: "hsl(var(--card-foreground))",
         },
         bookBlack: "#1b1d24",
-        bookWhite: "#e4eaed",
+        bookWhite: "#faf4e7",
+      },
+      fontFamily: {
+        sans: ['var(--font-sans)', 'sans-serif'],
+        serif: ['var(--font-serif)', 'serif'],
       },
       borderRadius: {
         lg: "var(--radius)",

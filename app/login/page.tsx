@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image";
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -52,84 +53,93 @@ export default function LoginPage() {
   }, [status, router]);
 
 
-  
-
-  
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-bookWhite to-primary/10 p-4">
-      <Link href="/" className="flex items-center gap-2 mb-8">
-        <BookOpen className="h-8 w-8 text-primary" />
-        <h1 className="text-2xl font-bold text-bookBlack">BookCircle</h1>
-      </Link>
+    <div className="relative w-full h-auto overflow-hidden px-4">
+      <Image 
+        src="/images/background.png"
+        alt="Create and Manage your Book Clubs | BookCrush"
+        width={1622}
+        height={2871}
+        className="absolute inset-0 w-auto h-full lg:w-full lg:h-auto object-cover z-[-1]"
+      />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-transparent p-4">
+        <Link href="/" className="flex items-center gap-2 mb-8 w-[40vw] max-w-[250px]">
+          <Image 
+              src="/images/main-logo.svg"
+              alt="Reading a Book in a Castle | BookCrush"
+              width={400}
+              height={200}
+          />
+        </Link>
 
-      <Card className="w-full max-w-md border-primary/20">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Welcome back</CardTitle>
-          <CardDescription className="text-center">Enter your credentials to access your account</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  className="pl-10"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
+        <Card className="w-full max-w-md bg-secondary-light/30 backdrop-blur-md border-secondary-light/20">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold text-center">Welcome back</CardTitle>
+            <CardDescription className="text-center font-serif">Enter your credentials to access your account</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    className="pl-10"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <Link href="/forgot-password" className="text-xs text-primary hover:underline">
+                    Forgot password?
+                  </Link>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    type="password"
+                    className="pl-10"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+              <Button type="submit" className="w-full bg-primary hover:bg-primary-light">
+                Log in
+              </Button>
+            </form>
+
+            <div className="relative my-6">
+              <Separator />
+              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground">
+                OR CONTINUE WITH
+              </span>
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link href="/forgot-password" className="text-xs text-primary hover:underline">
-                  Forgot password?
-                </Link>
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type="password"
-                  className="pl-10"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-            </div>
-            <Button type="submit" className="w-full bg-primary hover:bg-primary-light">
-              Sign in
+
+            <Button variant="outline" className="w-full" onClick={handleSignIn}>
+              <Image src="/images/g.webp=s48-fcrop64=1,00000000ffffffff-rw" alt="Google" width={20} height={20} className="mr-2 h-4 w-4" />
+              Google
             </Button>
-          </form>
-
-          <div className="relative my-6">
-            <Separator />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground">
-              OR CONTINUE WITH
-            </span>
-          </div>
-
-          <Button variant="outline" className="w-full" onClick={handleSignIn}>
-            <img src="/placeholder.svg?height=20&width=20" alt="Google" className="mr-2 h-4 w-4" />
-            Google
-          </Button>
-        </CardContent>
-        <CardFooter className="flex justify-center">
-          <p className="text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-primary hover:underline">
-              Sign up
-            </Link>
-          </p>
-        </CardFooter>
-      </Card>
+          </CardContent>
+          <CardFooter className="flex justify-center">
+            <p className="text-sm text-muted-foreground">
+              Don&apos;t have an account?{" "}
+              <Link href="/signup" className="text-primary hover:underline">
+                Sign up
+              </Link>
+            </p>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   )
 }
