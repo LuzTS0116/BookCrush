@@ -3,9 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function ClubActivityCard() {
   return (
-    <Card>
+    <Card className="bg-primary">
       <CardHeader>
-        <CardTitle>Club Activity</CardTitle>
+        <CardTitle>Book Clubs Activity</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">

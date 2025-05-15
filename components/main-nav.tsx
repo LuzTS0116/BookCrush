@@ -55,7 +55,7 @@ export function MainNav() {
   ]
 
   return (
-    <div className="bg-card/80 backdrop-blur-sm">
+    <div className="bg-card/80 rounded-bl-2xl rounded-br-2xl backdrop-blur-sm">
       <div className="flex h-16 items-center px-4 container mx-auto">
         <Link href="/dashboard" className="flex items-center gap-2 mr-6 w-[40vw] max-w-[250px]">
           <Image 

@@ -105,7 +105,7 @@ export function MobileNav() {
                 href={route.href}
                 className={cn(
                     "relative flex flex-col items-center justify-center transition-colors group",
-                    isActive ? "text-secondary" : "text-muted-foreground"
+                    isActive ? "text-secondary" : "text-accent"
                 )}
                 >
                 {isActive && (
