@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function ClubActivityCard() {
   return (
-    <div className="container mx-auto bg-accent/90 py-5 rounded-3xl pb-20 md:pb-6">
+    <div className="container mx-auto bg-accent/90 py-5 px-2 rounded-3xl pb-20 md:pb-6">
         <div className="space-y-8">
             <div className="grid gap-6 md:grid-cols-2">
               <Card className="bg-transparent shadow-none">

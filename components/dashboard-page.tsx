@@ -15,19 +15,24 @@ import {Dialog,
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-export default function DashboardPage() {
+interface Quote {
+  quote: string;
+  author: string;
+}
+
+export default function DashboardPage(props:Quote) {
   return (
-    <div className="container mx-auto pt-12 pb-8 px-4 mt-[-10px] bg-card/80 rounded-b-3xl">
+    <div className="container mx-auto pt-8 pb-6 px-4 mt-[-10px] mb-4 bg-secondary-light rounded-b-3xl">
       <div className="space-y-8">
-        <div className="flex flex-col md:flex-row justify-between gap-4">
+        <div className="flex flex-col md:flex-row justify-between gap-2">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Hello, Lulu!</h1>
-            <p className="text-muted-foreground font-serif">Good to see you again! Let's get reading.</p>
+            <h1 className="text-2xl font-bold tracking-tight text-bookWhite pb-0">Hello, Lulu!</h1>
+            <p className="text-bookWhite/70 font-serif">Good to see you again! Let's get reading.</p>
           </div>
           <div className="flex items-center gap-2">
             <Dialog>
               <DialogTrigger asChild>
-                <Button className="bg-bookWhite/40 hover:bg-primary-light text-bookWhite">
+                <Button className="bg-bookWhite/20 hover:bg-primary-light text-bookWhite rounded-full">
                   <Plus className="mr-2 h-4 w-4" /> Add Book
                 </Button>
               </DialogTrigger>
@@ -101,7 +106,7 @@ export default function DashboardPage() {
           <div className="grid gap-4 grid-cols-5">
             {/* Left Column */}
             <div className="flex flex-col gap-4 col-span-3">
-              <Card className="flex-1 bg-accent">
+              <Card className="flex-1 bg-[url('/images/today-bg.svg')] bg-cover">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pt-3 pb-2">
                   <CardTitle className="text-sm font-medium">Today's Recommendation</CardTitle>
                 </CardHeader>
@@ -110,7 +115,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-bookBlack">here goes genre tag</p>
                 </CardContent>
               </Card>
-              <Card className="flex-1 bg-primary">
+              <Card className="flex-1 bg-[url('/images/meeting-bg.svg')] bg-cover rounded-bl-3xl">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pt-3 pb-2">
                   <CardTitle className="text-sm font-medium">Next Meeting</CardTitle>
                 </CardHeader>
@@ -122,27 +127,26 @@ export default function DashboardPage() {
             </div>
 
             {/* Right Column */}
-            <Card className="h-full flex flex-col col-span-2 justify-between bg-bookWhite">
+            <Card className="h-full flex flex-col col-span-2 justify-between bg-[url('/images/quote-bg.svg')] bg-cover rounded-br-3xl">
               <CardContent className="flex-1 flex flex-col justify-center pt-4 px-3">
-                <blockquote className="text-[16px]/4 text-center font-semibold text-bookBlack">
-                  A reader lives a thousand lives before he dies
+                <blockquote className="text-[13px]/4 text-center font-semibold text-bookBlack">
+                  {props.quote}
                 </blockquote>
-                <p className="text-xs mt-2 text-center text-bookBlack">George R.R. Martin</p>
+                <p className="text-xs mt-2 text-center text-bookBlack">{props.author}</p>
               </CardContent>
             </Card>
           </div>
 
           {/* Bottom full-width card */}
-          <Card className="bg-accent-variant">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          {/* <Card className="bg-accent-variant text-bookWhite">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pt-3 pb-2">
               <CardTitle className="text-sm font-medium">Recently added book</CardTitle>
-              <BookMarked className="h-4 w-4 text-bookBlack" />
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 pb-3">
               <div className="text-2xl font-bold">The Midnight Library</div>
               <p className="text-xs text-bookBlack">by Matt Haig</p>
             </CardContent>
-          </Card>
+          </Card> */}
         </div>
       </div>
     </div>

@@ -1,3 +1,4 @@
+'use server'
 import type React from "react"
 import Image from "next/image";
 import { MainNav } from "@/components/main-nav"
@@ -13,9 +14,19 @@ import { cookies } from 'next/headers';
 
 
 
-async function getQuote() {
-  const cookieStore = cookies();
+
+
+export default async function DashboardLayout() {
+  const cookieStore = await cookies();
   const quoteCookie = cookieStore.get('daily-quote');
+  const session = await getServerSession(authOptions);
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  async function getQuote() {
+  
   
   if (quoteCookie) {
     return JSON.parse(quoteCookie.value);
@@ -35,12 +46,12 @@ async function getQuote() {
     const expires = new Date();
     expires.setHours(23, 59, 59, 999);
     
-    cookieStore.set('daily-quote', JSON.stringify(data), {
-      expires,
-      path: '/',
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production'
-    });
+    // cookieStore.set('daily-quote', JSON.stringify(data), {
+    //   expires,
+    //   path: '/',
+    //   httpOnly: true,
+    //   secure: process.env.NODE_ENV === 'production'
+    // });
 
     return data;
   } catch (error) {
@@ -51,13 +62,6 @@ async function getQuote() {
     };
   }
 }
-
-export default async function DashboardLayout() {
-  const session = await getServerSession(authOptions);
-
-  if (!session) {
-    redirect("/login");
-  }
 
   const { quote, author } = await getQuote();
 
@@ -71,7 +75,7 @@ export default async function DashboardLayout() {
         className="absolute inset-0 w-auto h-full lg:w-full lg:h-auto object-cover z-[-1]"
       />
       <MainNav />
-      <DashboardPage />
+      <DashboardPage quote={quote} author={author}/>
       <DashboardReading />
       <ClubActivityCard />
       <MobileNav />
