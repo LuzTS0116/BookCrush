@@ -1,3 +1,4 @@
+// /app/clubs/[id]/postulate/page.tsx
 "use client"
 
 import { useState } from "react"

@@ -1,4 +1,3 @@
-'use server'
 import type React from "react"
 import Image from "next/image";
 import { MainNav } from "@/components/main-nav"
@@ -11,59 +10,30 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 import { cookies } from 'next/headers';
 
-
-
-
-
-
 export default async function DashboardLayout() {
-  const cookieStore = await cookies();
-  const quoteCookie = cookieStore.get('daily-quote');
+  
   const session = await getServerSession(authOptions);
-
-  if (!session) {
-    redirect("/login");
-  }
-
-  async function getQuote() {
+  if (!session) redirect('/login');
   
-  
-  if (quoteCookie) {
-    return JSON.parse(quoteCookie.value);
-  }
+  const cookieJar  = await cookies();
+  const stored     = cookieJar.get('daily-quote');
 
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/quotes`, {
-      cache: 'no-store'
-    });
-    const data = await response.json();
-    
-    if (data.error) {
-      throw new Error(data.error);
+  let quote:  string|null;
+  let author: string|null;
+
+  if (stored) {
+    // Use the cached value
+    ({ quote, author } = JSON.parse(stored.value));
+  } else {
+    // pass null so the client components calls de API and sets the cookie
+     {
+      quote  = null;
+      author = null;
     }
-
-    // Set the quote in a cookie that expires at the end of the day
-    const expires = new Date();
-    expires.setHours(23, 59, 59, 999);
-    
-    // cookieStore.set('daily-quote', JSON.stringify(data), {
-    //   expires,
-    //   path: '/',
-    //   httpOnly: true,
-    //   secure: process.env.NODE_ENV === 'production'
-    // });
-
-    return data;
-  } catch (error) {
-    console.error('Error fetching quote:', error);
-    return {
-      quote: "A reader lives a thousand lives before he dies...",
-      author: "George R.R. Martin"
-    };
   }
-}
 
-  const { quote, author } = await getQuote();
+
+
 
   return (
     <div className="min-h-screen relative w-full h-auto overflow-hidden">

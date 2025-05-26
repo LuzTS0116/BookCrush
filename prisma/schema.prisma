@@ -1,0 +1,238 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../lib/generated/prisma"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["public", "auth"]
+}
+
+model User {
+  id      String   @id @db.Uuid
+  email   String   @db.VarChar
+
+  profile Profile?                      // One-to-one relation with Profile
+
+  // Relations for FriendRequest
+  sentRequests     FriendRequest[] @relation("SentRequests")
+  receivedRequests FriendRequest[] @relation("ReceivedRequests")
+
+  // Relations for Friendship
+  friendshipsAsUser1 Friendship[] @relation("FriendshipAsUser1")
+  friendshipsAsUser2 Friendship[] @relation("FriendshipAsUser2")
+
+  // Relations for ClubMembership
+  ownedClubs     Club[]             // Clubs where this user is the owner
+  memberships    ClubMembership[]
+
+  // Relations for Reactions
+  reactions Reaction[]
+
+  // Relations for UserBook
+  userBooks UserBook[]
+
+  @@map("users")
+  @@schema("auth")
+}
+
+model Profile {
+  id              String   @id @db.Uuid          // PK *and* FK
+  display_name    String
+  about           String?  @db.Text
+  kindle_email    String?  @db.Text
+  favorite_genres String[]
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @updatedAt      @db.Timestamptz(6)
+
+  user            User     @relation(fields: [id], references: [id])
+
+  @@map("profiles")
+  @@schema("public")
+}
+
+model Book {
+  id             String   @id @default(uuid()) @db.Uuid
+  title          String
+  author         String?
+  cover_url      String?
+  description    String?
+  reading_time   String?  // <-- Changed to String? to match common "reading time" formats
+  pages          Int?
+  genres         String[]
+  published_date String?
+  rating         Float?
+  added_by       String?  @db.Uuid
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  file     BookFile[] @relation("BookToBookFile") // <-- Added explicit relation name
+  UserBook UserBook[]
+
+  @@map("books")
+  @@schema("public")
+}
+
+model BookFile {
+  id            String  @id @default(uuid()) @db.Uuid
+  book_id       String  @db.Uuid
+  storage_key   String
+  original_name String?
+  mime_type     String?
+  size_bytes    Int?
+
+  book          Book    @relation("BookToBookFile", fields: [book_id], references: [id]) // <-- Used same explicit relation name
+  // REMOVED: If you had @@unique([book_id]) here previously, remove it. It's incorrect for one-to-many.
+
+  @@map("book_files")
+  @@schema("public")
+}
+
+model FriendRequest {
+  id         String   @id @default(uuid()) @db.Uuid
+  senderId   String   @db.Uuid
+  receiverId String   @db.Uuid
+  status     FriendRequestStatus @default(PENDING)
+  sentAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(6)
+
+  sender   User @relation("SentRequests", fields: [senderId], references: [id])
+  receiver User @relation("ReceivedRequests", fields: [receiverId], references: [id])
+
+  @@unique([senderId, receiverId])
+  @@map("friend_requests")
+  @@schema("public")
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  @@schema("public")
+}
+
+model Friendship {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId1       String   @db.Uuid
+  userId2       String   @db.Uuid
+  establishedAt DateTime @default(now()) @db.Timestamptz(6)
+
+  user_one User @relation("FriendshipAsUser1", fields: [userId1], references: [id])
+  user_two User @relation("FriendshipAsUser2", fields: [userId2], references: [id])
+
+  // Ensure userId1 is always less than userId2 for a canonical pair
+  // (Enforcement logic for userId1 < userId2 needs to be in application code)
+  @@unique([userId1, userId2])
+  @@map("friendships")
+  @@schema("public")
+}
+
+model Club {
+  id          String         @id @default(uuid()) @db.Uuid
+  name        String         @unique
+  description String?
+  owner_id    String         @db.Uuid
+  memberCount Int            @default(0)
+  created_at  DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime       @updatedAt @db.Timestamptz(6)
+  is_private  Boolean
+
+  owner       User           @relation(fields: [owner_id], references: [id])
+  memberships ClubMembership[]
+
+  @@map("clubs")
+  @@schema("public")
+}
+
+model ClubMembership {
+  id           String             @id @default(uuid()) @db.Uuid
+  user_id       String             @db.Uuid
+  club_id     String             @db.Uuid
+  role         ClubRole           @default(MEMBER)
+  status       ClubMembershipStatus @default(ACTIVE)
+  joined_at    DateTime           @default(now()) @db.Timestamptz(6)
+
+  user         User               @relation(fields: [user_id], references: [id])
+  club         Club               @relation(fields: [club_id], references: [id])
+
+  @@unique([user_id, club_id])
+  @@map("club_memberships")
+  @@schema("public")
+}
+
+enum ClubRole {
+  MEMBER
+  ADMIN
+  OWNER
+  @@schema("public")
+}
+
+enum ClubMembershipStatus {
+  ACTIVE
+  PENDING
+  REJECTED
+  LEFT
+  SUSPENDED
+  @@schema("public")
+}
+
+model Reaction {
+  id         String       @id @default(uuid()) @db.Uuid
+  user_id     String       @db.Uuid
+  target_type ReactionTargetType
+  target_id   String       @db.Uuid
+  type       ReactionType
+  created_at  DateTime     @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@unique([user_id, target_type, target_id, type])
+  @@map("reactions")
+  @@schema("public")
+}
+
+enum ReactionTargetType {
+  BOOK
+  COMMENT
+  @@schema("public")
+}
+
+enum ReactionType {
+  LIKE      // Added LIKE as a common reaction type
+  HEART
+  THUMBS_UP
+  THUMBS_DOWN
+  @@schema("public")
+}
+
+enum shelf_type {
+  favorite
+  currently_reading
+  queue
+  @@schema("public")
+}
+
+enum status_type {
+  in_progress
+  almost_done
+  finished
+  @@schema("public")
+}
+
+model UserBook {
+  user_id  String     @db.Uuid
+  book_id  String     @db.Uuid
+  shelf    shelf_type
+  status   status_type
+  position Int?
+  added_at DateTime   @default(now()) @db.Timestamptz(6)
+  comment  String?
+
+  book Book @relation(fields: [book_id], references: [id])
+  user User @relation(fields: [user_id], references: [id]) // Explicit relation to User
+
+  @@id([user_id, book_id, shelf])
+  @@map("user_books")
+  @@schema("public")
+}

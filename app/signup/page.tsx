@@ -12,20 +12,59 @@ import { Label } from "@/components/ui/label"
 import { BookOpen, Mail, Lock, User } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { useRouter } from 'next/navigation'
+import { signIn } from 'next-auth/react'
+// import { createClient } from '@/lib/supabaseClient';
+import { createClient } from '@/lib/supabaseClient';
 
 export default function SignupPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [nickname, setNickname] = useState("")
+  const router = useRouter()
+//   const supabase = supabaseBrowser()
+  const supabase = createClient()
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Handle signup logic here
-    console.log({ email, password, confirmPassword, nickname })
-    // Redirect to profile creation page after successful signup
-    window.location.href = "/profile-setup"
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+   console.log("Starting Supabase signup process...")
+    console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL, email, password, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) // Should not be undefined
+  try {
+    // First sign up with Supabase
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ 
+      email, 
+      password
+    });
+    
+    if (signUpError) throw signUpError;
+    
+    // Then explicitly sign in to create the Supabase session
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    
+    if (signInError) throw signInError;
+    
+    // Use NextAuth sign in with the Supabase tokens
+    const result = await signIn('credentials', {
+      redirect: false,
+      access_token: signInData.session.access_token,
+      refresh_token: signInData.session.refresh_token,
+    });
+    
+    if (result?.error) {
+      throw new Error(result.error);
+    }
+    
+    // Only redirect after successful sign in
+    router.push('/profile-setup');
+  } catch (error) {
+    console.error('Authentication error:', error);
+    alert(error.message);
   }
+};
 
   return (
     <div className="relative w-full h-auto overflow-hidden px-4">
@@ -48,20 +87,20 @@ export default function SignupPage() {
 
         <Card className="w-full max-w-md bg-secondary-light/30 backdrop-blur-md border-secondary-light/20">
             <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
-            <CardDescription className="text-center font-serif">Enter your details to sign up for BookCrush</CardDescription>
+            <CardTitle className="text-2xl font-bold text-center text-bookWhite">Create an account</CardTitle>
+            <CardDescription className="text-center font-serif text-bookWhite">Enter your details to sign up for BookCrush</CardDescription>
             </CardHeader>
             <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-bookWhite">Email</Label>
                 <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Mail className="absolute left-3 top-3 h-4 w-4 text-bookWhite" />
                     <Input
                     id="email"
                     type="email"
                     placeholder="you@example.com"
-                    className="pl-10"
+                    className="pl-10 text-bookWhite"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -69,14 +108,14 @@ export default function SignupPage() {
                 </div>
                 </div>
                 <div className="space-y-2">
-                <Label htmlFor="nickname">Nickname</Label>
+                <Label htmlFor="nickname" className="text-bookWhite">Nickname</Label>
                 <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <User className="absolute left-3 top-3 h-4 w-4 text-bookWhite" />
                     <Input
                     id="nickname"
                     type="text"
                     placeholder="Your nickname"
-                    className="pl-10"
+                    className="pl-10 text-bookWhite"
                     value={nickname}
                     onChange={(e) => setNickname(e.target.value)}
                     required
@@ -84,13 +123,13 @@ export default function SignupPage() {
                 </div>
                 </div>
                 <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-bookWhite">Password</Label>
                 <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-bookWhite" />
                     <Input
                     id="password"
                     type="password"
-                    className="pl-10"
+                    className="pl-10 text-bookWhite"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -98,13 +137,13 @@ export default function SignupPage() {
                 </div>
                 </div>
                 <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <Label htmlFor="confirmPassword" className="text-bookWhite">Confirm Password</Label>
                 <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-3 h-4 w-4 text-bookWhite" />
                     <Input
                     id="confirmPassword"
                     type="password"
-                    className="pl-10"
+                    className="pl-10 text-bookWhite"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
@@ -123,7 +162,7 @@ export default function SignupPage() {
                 </span>
             </div>
 
-            <Button variant="outline" className="w-full" onClick={handleSignIn}>
+            <Button variant="outline" className="w-full text-bookWhite" onClick={handleSignIn}>
                 <Image src="/images/g.webp=s48-fcrop64=1,00000000ffffffff-rw" alt="Google" width={20} height={20} className="mr-2 h-4 w-4" />
                 Google
             </Button>

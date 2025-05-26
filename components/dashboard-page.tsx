@@ -1,3 +1,4 @@
+"use client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -14,19 +15,54 @@ import {Dialog,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { useEffect, useState } from 'react';
+import { useSession } from "next-auth/react";
 
-interface Quote {
-  quote: string;
-  author: string;
+
+interface QuoteProps {
+  quote:  string | null;
+  author: string | null;
 }
 
-export default function DashboardPage(props:Quote) {
+export default function DashboardPage({
+  quote:  initialQuote,
+  author: initialAuthor,
+}: QuoteProps) {
+
+  const { data: session, status } = useSession(); 
+   // local state seeded with whatever the server gave us
+  const [quote,  setQuote]  = useState(initialQuote);
+  const [author, setAuthor] = useState(initialAuthor);
+
+  useEffect(() => {
+    // Nothing to do if the server already provided a quote
+    if (quote && author) return;
+
+    (async () => {
+      try {
+        const res  = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/quotes`, {
+          credentials: 'same-origin',
+          cache: 'no-store',
+        });
+        if (!res.ok) throw new Error('API error');
+
+        const data: { quote: string; author: string } = await res.json();
+        setQuote(data.quote);
+        setAuthor(data.author);
+      } catch {
+        setQuote('A reader lives a thousand lives before he dies…');
+        setAuthor('George R. R. Martin');
+      }
+    })();
+  }, []);                // ← effect runs exactly once (prod) / twice (dev-strict)
+  
+
   return (
     <div className="container mx-auto pt-8 pb-6 px-4 mt-[-10px] mb-4 bg-secondary-light rounded-b-3xl">
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row justify-between gap-2">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-bookWhite pb-0">Hello, Lulu!</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-bookWhite pb-0">Hello, {session?.user?.name ?? "mysterious reader"}!</h1>
             <p className="text-bookWhite/70 font-serif">Good to see you again! Let's get reading.</p>
           </div>
           <div className="flex items-center gap-2">
@@ -130,9 +166,9 @@ export default function DashboardPage(props:Quote) {
             <Card className="h-full flex flex-col col-span-2 justify-between bg-[url('/images/quote-bg.svg')] bg-cover rounded-br-3xl">
               <CardContent className="flex-1 flex flex-col justify-center pt-4 px-3">
                 <blockquote className="text-[13px]/4 text-center font-semibold text-bookBlack">
-                  {props.quote}
+                  {quote}
                 </blockquote>
-                <p className="text-xs mt-2 text-center text-bookBlack">{props.author}</p>
+                <p className="text-xs mt-2 text-center text-bookBlack">{author}</p>
               </CardContent>
             </Card>
           </div>

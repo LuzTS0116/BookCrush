@@ -15,21 +15,76 @@ import { handleSignIn } from '@/lib/auth';
 import { useEffect } from "react";
 import { useSession } from 'next-auth/react';
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
+// import { createClient } from "@/lib/supabaseClient";
+import { createClient } from '@/lib/supabaseClient';
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const supabase = createClient();
+  const { status } = useSession();
+  const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Handle login logic here
-    console.log({ email, password })
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+    
+    try {
+      // 1. Sign in with Supabase to get the tokens
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (signInError) throw signInError;
+      
+      // 2. Use NextAuth signIn with the Supabase tokens
+      const result = await signIn("credentials", {
+        redirect: false,
+        access_token: signInData.session.access_token,
+        refresh_token: signInData.session.refresh_token,
+      });
+      
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+
+      // 3. Check if user profile is complete by fetching profile data
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles") // Replace with your actual profile table name
+        .select("display_name")
+        .eq("id", signInData.user.id)
+        .single();
+      
+      if (profileError && profileError.code !== "PGRST116") { // PGRST116 is "no rows returned" error
+        console.warn("Error checking profile:", profileError);
+        // Continue with login even if profile check fails
+      }
+      
+      // 4. Determine where to redirect the user
+      if (!profileData || !profileData.display_name) {
+        // Profile is incomplete or doesn't exist - redirect to profile setup
+        router.push("/profile-setup");
+      } else {
+        // Profile is complete - redirect to dashboard
+        router.push("/dashboard");
+      }
+      
+    } catch (err) {
+      console.error("Login error:", err);
+      setError(err.message || "Failed to sign in");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // 1. Session + router hooks
    
-  const { status } = useSession();
-  const router = useRouter();
+  
 
   console.log(status);
 
@@ -74,20 +129,20 @@ export default function LoginPage() {
 
         <Card className="w-full max-w-md bg-secondary-light/30 backdrop-blur-md border-secondary-light/20">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center">Welcome back</CardTitle>
-            <CardDescription className="text-center font-serif">Enter your credentials to access your account</CardDescription>
+            <CardTitle className="text-2xl font-bold text-center text-bookWhite">Welcome back</CardTitle>
+            <CardDescription className="text-center font-serif text-bookWhite">Enter your credentials to access your account</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-bookWhite">Email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-bookWhite" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="you@example.com"
-                    className="pl-10"
+                    className="pl-10 text-bookWhite"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -96,25 +151,25 @@ export default function LoginPage() {
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password" className="text-bookWhite">Password</Label>
                   <Link href="/forgot-password" className="text-xs text-primary hover:underline">
                     Forgot password?
                   </Link>
                 </div>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-bookWhite" />
                   <Input
                     id="password"
                     type="password"
-                    className="pl-10"
+                    className="pl-10 text-bookWhite"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full bg-primary hover:bg-primary-light">
-                Log in
+              <Button type="submit" className="w-full bg-primary hover:bg-primary-light" disabled={isLoading}>
+                {isLoading ? "Loggin in..." : "Log in"}
               </Button>
             </form>
 
@@ -125,7 +180,7 @@ export default function LoginPage() {
               </span>
             </div>
 
-            <Button variant="outline" className="w-full" onClick={handleSignIn}>
+            <Button variant="outline" className="w-full text-bookWhite" onClick={handleSignIn}>
               <Image src="/images/g.webp=s48-fcrop64=1,00000000ffffffff-rw" alt="Google" width={20} height={20} className="mr-2 h-4 w-4" />
               Google
             </Button>

@@ -95,7 +95,7 @@ export function MobileNav() {
   ]
 
   return (
-    <div className="fixed bottom-0 left-1/2 z-50 w-[65vw] max-w-[420px] -translate-x-1/2 h-[60px] bg-secondary/95 backdrop-blur-md text-muted-foreground md:hidden rounded-t-[2rem] overflow-visible shadow-[0_0_10px_3px_rgba(202,177,198,0.05)] px-2">
+    <div className="fixed bottom-0 left-1/2 z-50 w-[70vw] max-w-[420px] -translate-x-1/2 h-[60px] bg-secondary/95 backdrop-blur-md text-muted-foreground md:hidden rounded-t-[2rem] overflow-visible shadow-[0_0_10px_3px_rgba(202,177,198,0.05)] px-2">
         <div className="grid grid-cols-4 h-full pt-1 z-70">
             {routes.map((route) => {
             const isActive = route.active
