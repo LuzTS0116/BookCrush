@@ -5,6 +5,7 @@ import { MobileNav } from "@/components/mobile-nav"
 import DashboardPage from "@/components/dashboard-page";
 import DashboardReading from "@/components/dashboard-reading";
 import { ClubActivityCard } from "@/components/club-activity-card"
+import { SupportSection } from "@/components/buy-me-a-coffee";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
@@ -32,9 +33,6 @@ export default async function DashboardLayout() {
     }
   }
 
-
-
-
   return (
     <div className="min-h-screen relative w-full h-auto overflow-hidden">
       <Image 
@@ -48,6 +46,7 @@ export default async function DashboardLayout() {
       <DashboardPage quote={quote} author={author}/>
       <DashboardReading />
       <ClubActivityCard />
+      {/* <SupportSection /> */}
       <MobileNav />
     </div>
   )

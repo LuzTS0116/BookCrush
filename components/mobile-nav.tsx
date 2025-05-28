@@ -62,6 +62,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { BookMarked, Calendar, Home, Users } from "lucide-react"
+import { Coffee } from "@phosphor-icons/react";
 import { motion, AnimatePresence } from "framer-motion"
 
 export function MobileNav() {
@@ -87,10 +88,10 @@ export function MobileNav() {
       active: pathname === "/clubs" || pathname.startsWith("/clubs/"),
     },
     {
-      href: "/calendar",
-      label: "Calendar",
-      icon: Calendar,
-      active: pathname === "/calendar",
+      href: "/friends",
+      label: "Friends",
+      icon: Coffee,
+      active: pathname === "/friends",
     },
   ]
 

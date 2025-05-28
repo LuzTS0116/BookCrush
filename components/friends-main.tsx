@@ -1,9 +1,8 @@
-// app/dashboard/social/page.tsx
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, User } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FriendRequestCard } from '@/components/social/friend-request-card';
@@ -33,15 +32,14 @@ function ExploreUserCard({ user, onFriendRequestSent }: ExploreUserCardProps) {
   };
 
   return (
-    <Card className="p-4 flex flex-col h-full"> {/* Use flex-col and h-full for consistent card height */}
+    <Card className="p-3 flex flex-col h-full"> {/* Use flex-col and h-full for consistent card height */}
       <CardHeader className="flex-shrink-0">
-        <CardTitle>{user.profile.display_name}</CardTitle>
-        <CardDescription>{user.email}</CardDescription>
+        <CardTitle className='text-sm text-secondary-light'>{user.profile.display_name}</CardTitle>
       </CardHeader>
-      <CardContent className="flex-grow space-y-2 overflow-auto"> {/* Use flex-grow and overflow-auto for scrollable content */}
-        {user.profile.about && <p className="text-sm text-muted-foreground">**About:** {user.profile.about}</p>}
+      <CardContent className="flex flex-col">
+        <p className="text-sm text-muted-foreground">24 mutual friends</p>
         {user.profile.favorite_genres && <p className="text-sm text-muted-foreground">**Genres:** {user.profile.favorite_genres}</p>}
-        {/* You can add more profile details here */}
+        <p className="text-sm text-muted-foreground">Friends since May,2025</p>
       </CardContent>
       <div className="mt-4 flex-shrink-0"> {/* Use flex-shrink-0 to keep button at bottom */}
         <AddFriendButton targetUser={targetUserForAddFriendButton} onFriendRequestSent={onFriendRequestSent} />
@@ -50,7 +48,7 @@ function ExploreUserCard({ user, onFriendRequestSent }: ExploreUserCardProps) {
   );
 }
 
-export default function DashboardSocial() {
+export default function FriendsMain() {
   const { data: session, status: sessionStatus } = useSession();
   const currentUserId = session?.user?.id;
 
@@ -144,6 +142,11 @@ export default function DashboardSocial() {
     }
   };
 
+  const formatDate = (date: Date | string) => {
+  const d = new Date(date);
+  return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
+}
+
   // Callback for when a friend request is sent from the Explore Users tab
   const handleFriendRequestSent = () => {
     // Re-fetch all data to update the 'sent' requests list and remove the user from 'explore'
@@ -177,32 +180,29 @@ export default function DashboardSocial() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      <h1 className="text-3xl font-bold mb-6">Social Dashboard</h1>
-
-    
-
+    <div className="mx-auto py-2 px-0 w-full">
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="space-y-4">
-        <TabsList className="bg-secondary-light text-primary rounded-full">
-          <TabsTrigger value="friends" className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full">
-            My Friends ({friends.length})
-          </TabsTrigger>
-          <TabsTrigger value="received" className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full">
-            Friend Requests ({receivedRequests.length})
-          </TabsTrigger>
-          <TabsTrigger value="sent" className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full">
-            Sent Requests ({sentRequests.length})
-          </TabsTrigger>
-          {/* New Tab Trigger for Explore Users */}
-          <TabsTrigger value="explore" className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full">
-            Explore Users ({exploreUsers.length})
-          </TabsTrigger>
-        </TabsList>
+        <div className='flex justify-center'>
+            <TabsList className="bg-secondary-light text-primary h-8 rounded-full items-center">
+            <TabsTrigger value="friends" className="data-[state=active]:bg-bookWhite h-6 data-[state=active]:text-primary-foreground rounded-full">
+                Friends ({friends.length})
+            </TabsTrigger>
+            <TabsTrigger value="sent" className="data-[state=active]:bg-bookWhite h-6 data-[state=active]:text-primary-foreground rounded-full">
+                Sent ({sentRequests.length})
+            </TabsTrigger>
+            <TabsTrigger value="received" className="data-[state=active]:bg-bookWhite h-6 data-[state=active]:text-primary-foreground rounded-full">
+                Pending ({receivedRequests.length})
+            </TabsTrigger>
+            {/* New Tab Trigger for Explore Users */}
+                      {/* <TabsTrigger value="explore" className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full">
+                        Explore Users ({exploreUsers.length})
+                      </TabsTrigger> */}
+            </TabsList>
+        </div>
 
-        <TabsContent value="friends" className="space-y-4">
-          <h2 className="text-2xl font-semibold mb-4">My Friends</h2>
+        <TabsContent value="friends" className="space-y-3">
           {friends.length === 0 ? (
-            <p className="text-muted-foreground">You don't have any friends yet.</p>
+            <p className="text-muted-foreground text-center">You don't have any friends yet.</p>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {friends.map((friendship) => (
@@ -215,9 +215,8 @@ export default function DashboardSocial() {
         </TabsContent>
 
         <TabsContent value="received" className="space-y-4">
-          <h2 className="text-2xl font-semibold mb-4">Friend Requests</h2>
           {receivedRequests.length === 0 ? (
-            <p className="text-muted-foreground">No pending friend requests.</p>
+            <p className="text-muted-foreground text-center">No received friend requests pending.</p>
           ) : (
             <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
               {receivedRequests.map((request) => (
@@ -228,15 +227,29 @@ export default function DashboardSocial() {
         </TabsContent>
 
         <TabsContent value="sent" className="space-y-4">
-          <h2 className="text-2xl font-semibold mb-4">Sent Requests</h2>
           {sentRequests.length === 0 ? (
-            <p className="text-muted-foreground">No sent friend requests.</p>
+            <p className="text-muted-foreground text-center">No sent friend requests pending.</p>
           ) : (
             <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
               {sentRequests.map((request) => (
-                <Card key={request.id} className="p-4">
-                  <CardTitle>{request.receiver?.profile?.display_name || request.receiver?.email || 'Unknown User'}</CardTitle>
-                  <CardDescription>Request pending since {new Date(request.sentAt).toLocaleDateString()}</CardDescription>
+                <Card className="flex items-center p-1 w-full">
+                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-bookWhite mr-4">
+                        <User className="h-6 w-6 text-gray-500" />
+                    </div>
+                    <div className="flex flex-col w-full">
+                        <div className="flex flex-col">
+                            <CardTitle>{request.receiver?.profile?.display_name || request.receiver?.email || 'Unknown User'}</CardTitle>
+                            <p className="text-xs/3 text-secondary font-serif">24 mutual friends</p>
+                            <div className='flex justify-between w-full items-end'>
+                                <CardDescription className='text-xs/3 text-secondary font-serif'>request sent {formatDate(request.sentAt)}</CardDescription>
+                                <div className=''>
+                                    <Button disabled={isLoading} size="sm" variant="outline" className="rounded-full text-secondary bg-accent/75 hover:bg-accent focus:bg-accent-variant font-serif border-none h-5 font-normal px-2">
+                                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cancel" }
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </Card>
               ))}
             </div>

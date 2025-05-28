@@ -6,48 +6,33 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
-  schemas  = ["public", "auth"]
-}
-
-model User {
-  id      String   @id @db.Uuid
-  email   String   @db.VarChar
-
-  profile Profile?                      // One-to-one relation with Profile
-
-  // Relations for FriendRequest
-  sentRequests     FriendRequest[] @relation("SentRequests")
-  receivedRequests FriendRequest[] @relation("ReceivedRequests")
-
-  // Relations for Friendship
-  friendshipsAsUser1 Friendship[] @relation("FriendshipAsUser1")
-  friendshipsAsUser2 Friendship[] @relation("FriendshipAsUser2")
-
-  // Relations for ClubMembership
-  ownedClubs     Club[]             // Clubs where this user is the owner
-  memberships    ClubMembership[]
-
-  // Relations for Reactions
-  reactions Reaction[]
-
-  // Relations for UserBook
-  userBooks UserBook[]
-
-  @@map("users")
-  @@schema("auth")
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas  = ["public"]
 }
 
 model Profile {
-  id              String   @id @db.Uuid          // PK *and* FK
+  id              String   @id @db.Uuid // PK *and* FK to auth.users.id
   display_name    String
   about           String?  @db.Text
   kindle_email    String?  @db.Text
   favorite_genres String[]
   created_at      DateTime @default(now()) @db.Timestamptz(6)
-  updated_at      DateTime @updatedAt      @db.Timestamptz(6)
+  updated_at      DateTime @updatedAt @db.Timestamptz(6)
 
-  user            User     @relation(fields: [id], references: [id])
+  // Relationships moved from the old User model
+  ownedClubs       Club[]           @relation("ClubOwner")
+  memberships      ClubMembership[]
+  reactions        Reaction[]
+  userBooks        UserBook[]
+  clubDiscussions  ClubDiscussion[] @relation("DiscussionAuthor")
+  sentRequests     FriendRequest[]  @relation("SentRequests")
+  receivedRequests FriendRequest[]  @relation("ReceivedRequests")
+  friendshipsAsUser1 Friendship[]   @relation("FriendshipAsUser1")
+  friendshipsAsUser2 Friendship[]   @relation("FriendshipAsUser2")
+
+  // Optional: if Book.added_by was meant to be a user, add this relation
+  // addedBooks Book[] @relation("BookCreator")
 
   @@map("profiles")
   @@schema("public")
@@ -59,16 +44,22 @@ model Book {
   author         String?
   cover_url      String?
   description    String?
-  reading_time   String?  // <-- Changed to String? to match common "reading time" formats
+  reading_time   String?
   pages          Int?
   genres         String[]
   published_date String?
   rating         Float?
-  added_by       String?  @db.Uuid
+  added_by       String?  @db.Uuid // This will now point to Profile.id
   created_at     DateTime @default(now()) @db.Timestamptz(6)
 
-  file     BookFile[] @relation("BookToBookFile") // <-- Added explicit relation name
-  UserBook UserBook[]
+  // Optional: Relation for added_by if it points to a Profile
+  // creator Profile? @relation("BookCreator", fields: [added_by], references: [id])
+
+  file             BookFile[]       @relation("BookToBookFile")
+  UserBook         UserBook[]
+  current_in_clubs Club[]           @relation("CurrentClubBook")
+  club_history     ClubBook[]
+  ClubDiscussion   ClubDiscussion[]
 
   @@map("books")
   @@schema("public")
@@ -82,7 +73,7 @@ model BookFile {
   mime_type     String?
   size_bytes    Int?
 
-  book          Book    @relation("BookToBookFile", fields: [book_id], references: [id]) // <-- Used same explicit relation name
+  book Book @relation("BookToBookFile", fields: [book_id], references: [id]) // <-- Used same explicit relation name
   // REMOVED: If you had @@unique([book_id]) here previously, remove it. It's incorrect for one-to-many.
 
   @@map("book_files")
@@ -90,15 +81,15 @@ model BookFile {
 }
 
 model FriendRequest {
-  id         String   @id @default(uuid()) @db.Uuid
-  senderId   String   @db.Uuid
-  receiverId String   @db.Uuid
+  id         String              @id @default(uuid()) @db.Uuid
+  senderId   String              @db.Uuid
+  receiverId String              @db.Uuid
   status     FriendRequestStatus @default(PENDING)
-  sentAt     DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt  DateTime @updatedAt @db.Timestamptz(6)
+  sentAt     DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime            @updatedAt @db.Timestamptz(6)
 
-  sender   User @relation("SentRequests", fields: [senderId], references: [id])
-  receiver User @relation("ReceivedRequests", fields: [receiverId], references: [id])
+  sender   Profile @relation("SentRequests", fields: [senderId], references: [id])
+  receiver Profile @relation("ReceivedRequests", fields: [receiverId], references: [id])
 
   @@unique([senderId, receiverId])
   @@map("friend_requests")
@@ -109,52 +100,55 @@ enum FriendRequestStatus {
   PENDING
   ACCEPTED
   DECLINED
+
   @@schema("public")
 }
 
 model Friendship {
   id            String   @id @default(uuid()) @db.Uuid
-  userId1       String   @db.Uuid
-  userId2       String   @db.Uuid
+  userId1       String   @db.Uuid // Conceptually Profile.id
+  userId2       String   @db.Uuid // Conceptually Profile.id
   establishedAt DateTime @default(now()) @db.Timestamptz(6)
 
-  user_one User @relation("FriendshipAsUser1", fields: [userId1], references: [id])
-  user_two User @relation("FriendshipAsUser2", fields: [userId2], references: [id])
+  user_one Profile @relation("FriendshipAsUser1", fields: [userId1], references: [id])
+  user_two Profile @relation("FriendshipAsUser2", fields: [userId2], references: [id])
 
-  // Ensure userId1 is always less than userId2 for a canonical pair
-  // (Enforcement logic for userId1 < userId2 needs to be in application code)
   @@unique([userId1, userId2])
   @@map("friendships")
   @@schema("public")
 }
 
 model Club {
-  id          String         @id @default(uuid()) @db.Uuid
-  name        String         @unique
-  description String?
-  owner_id    String         @db.Uuid
-  memberCount Int            @default(0)
-  created_at  DateTime       @default(now()) @db.Timestamptz(6)
-  updated_at   DateTime       @updatedAt @db.Timestamptz(6)
-  is_private  Boolean
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String   @unique
+  description     String?
+  owner_id        String   @db.Uuid // This will now point to Profile.id
+  memberCount     Int      @default(0)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @updatedAt @db.Timestamptz(6)
+  is_private      Boolean
+  current_book_id String?  @db.Uuid
 
-  owner       User           @relation(fields: [owner_id], references: [id])
-  memberships ClubMembership[]
+  owner          Profile          @relation("ClubOwner", fields: [owner_id], references: [id], onDelete: Restrict)
+  memberships    ClubMembership[]
+  current_book   Book?            @relation("CurrentClubBook", fields: [current_book_id], references: [id])
+  book_history   ClubBook[]
+  ClubDiscussion ClubDiscussion[]
 
   @@map("clubs")
   @@schema("public")
 }
 
 model ClubMembership {
-  id           String             @id @default(uuid()) @db.Uuid
-  user_id       String             @db.Uuid
-  club_id     String             @db.Uuid
-  role         ClubRole           @default(MEMBER)
-  status       ClubMembershipStatus @default(ACTIVE)
-  joined_at    DateTime           @default(now()) @db.Timestamptz(6)
+  id        String               @id @default(uuid()) @db.Uuid
+  user_id   String               @db.Uuid // This will now point to Profile.id
+  club_id   String               @db.Uuid
+  role      ClubRole             @default(MEMBER)
+  status    ClubMembershipStatus @default(ACTIVE)
+  joined_at DateTime             @default(now()) @db.Timestamptz(6)
 
-  user         User               @relation(fields: [user_id], references: [id])
-  club         Club               @relation(fields: [club_id], references: [id])
+  user Profile @relation(fields: [user_id], references: [id])
+  club Club    @relation(fields: [club_id], references: [id])
 
   @@unique([user_id, club_id])
   @@map("club_memberships")
@@ -165,6 +159,7 @@ enum ClubRole {
   MEMBER
   ADMIN
   OWNER
+
   @@schema("public")
 }
 
@@ -174,18 +169,21 @@ enum ClubMembershipStatus {
   REJECTED
   LEFT
   SUSPENDED
+
   @@schema("public")
 }
 
 model Reaction {
-  id         String       @id @default(uuid()) @db.Uuid
-  user_id     String       @db.Uuid
+  id          String             @id @default(uuid()) @db.Uuid
+  user_id     String             @db.Uuid // This will now point to Profile.id
   target_type ReactionTargetType
-  target_id   String       @db.Uuid
-  type       ReactionType
-  created_at  DateTime     @default(now()) @db.Timestamptz(6)
+  target_id   String             @db.Uuid
+  type        ReactionType
+  created_at  DateTime           @default(now()) @db.Timestamptz(6)
 
-  user User @relation(fields: [user_id], references: [id])
+  user             Profile         @relation(fields: [user_id], references: [id])
+  ClubDiscussion   ClubDiscussion? @relation(fields: [clubDiscussionId], references: [id])
+  clubDiscussionId String?         @db.Uuid
 
   @@unique([user_id, target_type, target_id, type])
   @@map("reactions")
@@ -195,14 +193,17 @@ model Reaction {
 enum ReactionTargetType {
   BOOK
   COMMENT
+  CLUB_DISCUSSION
+
   @@schema("public")
 }
 
 enum ReactionType {
-  LIKE      // Added LIKE as a common reaction type
+  LIKE // Added LIKE as a common reaction type
   HEART
   THUMBS_UP
   THUMBS_DOWN
+
   @@schema("public")
 }
 
@@ -210,6 +211,7 @@ enum shelf_type {
   favorite
   currently_reading
   queue
+
   @@schema("public")
 }
 
@@ -217,22 +219,69 @@ enum status_type {
   in_progress
   almost_done
   finished
+
   @@schema("public")
 }
 
 model UserBook {
-  user_id  String     @db.Uuid
-  book_id  String     @db.Uuid
+  user_id  String      @db.Uuid // This will now point to Profile.id
+  book_id  String      @db.Uuid
   shelf    shelf_type
   status   status_type
   position Int?
-  added_at DateTime   @default(now()) @db.Timestamptz(6)
+  added_at DateTime    @default(now()) @db.Timestamptz(6)
   comment  String?
 
-  book Book @relation(fields: [book_id], references: [id])
-  user User @relation(fields: [user_id], references: [id]) // Explicit relation to User
+  book Book    @relation(fields: [book_id], references: [id])
+  user Profile @relation(fields: [user_id], references: [id])
 
   @@id([user_id, book_id, shelf])
   @@map("user_books")
+  @@schema("public")
+}
+
+// New model to track book reading history in clubs
+model ClubBook {
+  id          String           @id @default(uuid()) @db.Uuid
+  club_id     String           @db.Uuid
+  book_id     String           @db.Uuid
+  started_at  DateTime         @default(now()) @db.Timestamptz(6)
+  finished_at DateTime?        @db.Timestamptz(6)
+  status      club_book_status @default(IN_PROGRESS)
+
+  club Club @relation(fields: [club_id], references: [id])
+  book Book @relation(fields: [book_id], references: [id])
+
+  @@map("club_books")
+  @@schema("public")
+}
+
+enum club_book_status {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+
+  @@schema("public")
+}
+
+// New model for Club Discussions
+model ClubDiscussion {
+  id                   String   @id @default(uuid()) @db.Uuid
+  user_id              String   @db.Uuid // This will now point to Profile.id
+  club_id              String   @db.Uuid
+  book_id              String   @db.Uuid
+  content              String
+  parent_discussion_id String?  @db.Uuid
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  user              Profile          @relation("DiscussionAuthor", fields: [user_id], references: [id], onDelete: Cascade)
+  club              Club             @relation(fields: [club_id], references: [id], onDelete: Cascade)
+  book              Book             @relation(fields: [book_id], references: [id], onDelete: Cascade)
+  parent_discussion ClubDiscussion?  @relation("DiscussionReplies", fields: [parent_discussion_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies           ClubDiscussion[] @relation("DiscussionReplies")
+  reactions         Reaction[]
+
+  @@map("club_discussions")
   @@schema("public")
 }

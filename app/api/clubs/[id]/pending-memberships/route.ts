@@ -1,5 +1,4 @@
 // /app/api/clubs/[id]/pending-memberships/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
@@ -9,17 +8,19 @@ import { ClubMembershipStatus, ClubRole } from '@/lib/generated/prisma'; // Ensu
 const prisma = new PrismaClient();
 
 export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } } // id is the clubId
+  request: Request,
+   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const clubId = params.id;
 
-    if (!clubId) {
+   const {id} = await params; 
+  
+  try {
+
+    if (!id) {
       return NextResponse.json({ error: "Club ID is required" }, { status: 400 });
     }
 
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -29,7 +30,7 @@ export async function GET(
 
     // 1. Find the club to check ownership/admin status
     const club = await prisma.club.findUnique({
-      where: { id: clubId },
+      where: { id: id },
       select: { owner_id: true } // Only need owner_id for authorization
     });
 
@@ -62,7 +63,7 @@ export async function GET(
     // 3. Fetch pending memberships for this club
     const pendingMemberships = await prisma.clubMembership.findMany({
       where: {
-        club_id: clubId,
+        club_id: id,
         status: ClubMembershipStatus.PENDING,
       },
       include: {

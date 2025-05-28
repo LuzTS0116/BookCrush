@@ -245,8 +245,8 @@ export const authOptions: NextAuthOptions = {
         const expTimeInSeconds = exp;
         const currentTimeInSeconds = Math.floor(Date.now() / 1000);
         
-        // If token is expired or about to expire (within 5 minutes)
-        if (expTimeInSeconds - currentTimeInSeconds < 300) {
+        // If token is expired or about to expire (within 30 minutes)
+        if (expTimeInSeconds - currentTimeInSeconds < 1800) {
           try {
             // Refresh the token
             const { data, error } = await supabaseAdmin.auth.refreshSession({

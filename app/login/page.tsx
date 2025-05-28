@@ -109,7 +109,7 @@ export default function LoginPage() {
 
 
   return (
-    <div className="relative w-full h-auto overflow-hidden px-4">
+    <div className="relative w-full min-h-screen overflow-hidden px-4">
       <Image 
         src="/images/background.png"
         alt="Create and Manage your Book Clubs | BookCrush"

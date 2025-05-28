@@ -50,27 +50,23 @@ export const AddFriendButton: React.FC<AddFriendButtonProps> = ({
   };
 
   // Determine button text and icon based on status
-  let buttonText = 'Add Friend';
-  let buttonIcon = <UserPlus className="mr-2 h-4 w-4" />;
+  let buttonText = 'Add';
   let buttonVariant: "default" | "outline" | "ghost" = "default";
   let buttonDisabled = isLoading;
 
   switch (status) {
     case 'PENDING_SENT':
       buttonText = 'Request Sent';
-      buttonIcon = <UserCheck className="mr-2 h-4 w-4" />;
       buttonVariant = 'outline';
       buttonDisabled = true;
       break;
     case 'PENDING_RECEIVED':
       buttonText = 'Respond to Request';
-      buttonIcon = <UserCheck className="mr-2 h-4 w-4" />; // Or a custom icon
       buttonVariant = 'default'; // Encourage action
       // You might want to redirect to requests page or open a dialog here
       break;
     case 'FRIENDS':
       buttonText = 'Friends';
-      buttonIcon = <UserCheck className="mr-2 h-4 w-4" />;
       buttonVariant = 'outline';
       buttonDisabled = true;
       break;
@@ -82,8 +78,9 @@ export const AddFriendButton: React.FC<AddFriendButtonProps> = ({
         onClick={handleSendRequest} 
         disabled={buttonDisabled}
         variant={buttonVariant}
+        className='rounded-full h-6'
       >
-        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : buttonIcon}
+        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {buttonText}
       </Button>
       {error && <p className="text-red-500 text-sm mt-2">{error}</p>}

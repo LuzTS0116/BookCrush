@@ -13,7 +13,7 @@ import { Pencil, Save } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 export default function ProfileSetupPage() {
   const [name, setName] = useState("")
@@ -24,6 +24,8 @@ export default function ProfileSetupPage() {
   const [kindleEmail, setKindleEmail] = useState("")
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectedFrom = searchParams.get('redirectedFrom')
 
   const genres = [
     "Fiction",
@@ -55,6 +57,7 @@ export default function ProfileSetupPage() {
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log('[ProfileSetupPage] handleSubmit triggered');
     e.preventDefault()
     setError(null)
 
@@ -74,15 +77,26 @@ export default function ProfileSetupPage() {
         })
       })
 
-      if (res.status != 201 ) {
-        const { message } = await res.json().catch(() => ({}))
-        throw new Error(message ?? 'Failed to save profile')
+      if (!res.ok) {
+        let errorPayload: { error?: string; details?: string } = {};
+        try {
+          errorPayload = await res.json();
+        } catch (jsonError) {
+          console.error('Failed to parse error JSON from API:', jsonError);
+          throw new Error(res.statusText || `Failed to save profile. Server responded with ${res.status}`);
+        }
+
+        const message = errorPayload.details
+                        ? `${errorPayload.error || 'Error'}: ${errorPayload.details}`
+                        : errorPayload.error || `Failed to save profile. Status: ${res.status}`;
+        throw new Error(message);
       }
 
-      router.push('/dashboard')                 // success
+      // Redirect back to the original page if there was one
+      router.push(redirectedFrom || '/dashboard')
     } catch (err) {
       setError((err as Error).message)
-      console.error(error)
+      console.error(err)
     }
   }
 

@@ -16,11 +16,12 @@ export function SupportSection() {
             This project is a labor of love, brewed with a lot of passion and late nights. If you’d like to support us during this early stage, consider sharing a warm matcha. Every bit helps and means a lot 💚
           </p>
           <Link
-            href="https://www.buymeacoffee.com/yourusername"
+            href="https://ko-fi.com/luztunon"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block mt-4 bg-[#C8D6B9] text-bookBlack font-medium px-4 py-2 rounded-full hover:bg-[#b1c5a0] transition-colors"
           >
+            <Coffee size={28} weight="fill" className="text-accent-variant" />
             ☕ Buy me a matcha
           </Link>
         </div>

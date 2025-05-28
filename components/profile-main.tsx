@@ -85,6 +85,7 @@ export default function ProfileMain() {
                 ) : (
                   <h2 className="text-xl/4 font-bold text-secondary-light">{name}</h2>
                 )}
+                <p className="text-sm text-secondary/50 font-serif font-normal">25 Friends</p>
                 <p className="text-sm text-secondary/50 font-serif font-normal">Member since May 2023</p>
               </div>
             </CardHeader>

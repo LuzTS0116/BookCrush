@@ -9,17 +9,19 @@ import { ClubRole, ClubMembershipStatus } from '@/lib/generated/prisma';
 const prisma = new PrismaClient();
 
 export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } } // id is the clubId
+  request: Request,
+   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const clubId = params.id;
 
-    if (!clubId) {
+   const {id} = await params; 
+  
+  try {
+
+    if (!id) {
       return NextResponse.json({ error: "Club ID is required" }, { status: 400 });
     }
 
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -33,13 +35,30 @@ export async function GET(
 
     // 1. Fetch the main club details
     const club = await prisma.club.findUnique({
-      where: { id: clubId },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        owner_id: true,
-        memberCount: true, // Assuming you added this to your schema
+      where: { id: id },
+      include: {
+        current_book: { // Include user details of the applicant
+          select: {
+            author: true,
+            cover_url: true,
+            description: true,
+            id: true,
+            title: true,
+            reading_time: true,
+            pages: true,
+            
+            //name: true, // Assuming your User model has a 'name' field
+          },
+        },
+        book_history: {
+          select: {
+            id: true,
+            status: true,
+            started_at: true,
+            finished_at: true,
+            book: true,
+          },
+        },
       },
     });
 
@@ -51,9 +70,9 @@ export async function GET(
     if (isAuthenticated) {
       const userClubMembership = await prisma.clubMembership.findUnique({
         where: {
-          userId_clubId: {
+          user_id_club_id: {
             user_id: user.id,
-            club_id: clubId,
+            club_id: id,
           },
         },
         select: {
@@ -74,7 +93,7 @@ export async function GET(
     if (currentUserIsAdmin) {
       const pending = await prisma.clubMembership.findMany({
         where: {
-          club_id: clubId,
+          club_id: id,
           status: ClubMembershipStatus.PENDING,
         },
         include: {
@@ -82,7 +101,7 @@ export async function GET(
             select: {
               id: true,
               email: true,
-              name: true, // Assuming your User model has a 'name' field
+              //name: true, // Assuming your User model has a 'name' field
             },
           },
         },
@@ -105,7 +124,7 @@ export async function GET(
       name: club.name,
       description: club.description,
       memberCount: club.memberCount,
-      ownerId: club.owner_id, // Club owner's ID
+      owner_id: club.owner_id, // Club owner's ID
 
       // Current user's relation to this club (dynamic)
       currentUserMembershipStatus: currentUserMembershipStatus,
@@ -116,41 +135,8 @@ export async function GET(
       // IMPORTANT: These fields are NOT sourced from your current Prisma schema.
       // You need to add corresponding models (e.g., Book, ClubBook, Discussion) and
       // Prisma queries/includes to fetch this data dynamically.
-      currentBook: {
-        title: "The Midnight Library", // Placeholder
-        author: "Matt Haig", // Placeholder
-        cover: "/placeholder.svg?height=200&width=150", // Placeholder
-        progress: 65, // Placeholder
-        meetingDate: "May 9, 2025", // Placeholder
-        meetingTime: "7:00 PM", // Placeholder
-        description: "Between life and death there is a library...", // Placeholder
-      },
-      history: [ // Placeholder
-        {
-          title: "The Song of Achilles",
-          author: "Madeline Miller",
-          date: "April 2025",
-          cover: "/placeholder.svg?height=200&width=150",
-          rating: 4.5,
-          notes: "The group enjoyed the retelling of the Iliad from Patroclus's perspective. Discussion focused on themes of fate, love, and the cost of immortality.",
-        },
-        {
-          title: "Circe",
-          author: "Madeline Miller",
-          date: "March 2025",
-          cover: "/placeholder.svg?height=200&width=150",
-          rating: 4.2,
-          notes: "Members appreciated the feminist perspective on Greek mythology. The character development of Circe was particularly praised.",
-        },
-        {
-          title: "The Vanishing Half",
-          author: "Brit Bennett",
-          date: "February 2025",
-          cover: "/placeholder.svg?height=200&width=150",
-          rating: 4.7,
-          notes: "Powerful discussions about identity, race, and family. The narrative structure spanning decades was highlighted as particularly effective.",
-        },
-      ],
+      current_book: club.current_book,
+      book_history: club.book_history,
       discussions: [ // Placeholder
         {
           user: { name: "Alex Lee", avatar: "/placeholder.svg?height=40&width=40", initials: "AL", },
