@@ -69,7 +69,7 @@ export default function DashboardPage({
   const [showDialog, setShowDialog] = useState(false);
   const [open, setOpen] = useState(false); // For Radix dialog
 
-  const { expired, expiryTime, timeUntilExpiry, isExpiringSoon } = useSupabaseTokenExpiry();
+const { expired, expiryTime, timeUntilExpiry, isExpiringSoon } = useSupabaseTokenExpiry();
   useEffect(() => {
     // Nothing to do if the server already provided a quote
     if (quote && author) return;
@@ -90,9 +90,7 @@ export default function DashboardPage({
         setAuthor('George R. R. Martin');
       }
     })();
-  }, []);       
-  
-  // ← effect runs exactly once (prod) / twice (dev-strict)
+  }, []);    // ← effect runs exactly once (prod) / twice (dev-strict)
 
 
 // Shareable Image
@@ -222,12 +220,12 @@ const handleClickShare = async () => {
                   <CardTitle className="text-sm font-medium">Today's Recommendation</CardTitle>
                 </CardHeader>
                 <CardContent className="px-3 pb-3">
-                <div>
-      <p>Token expired: {expired ? 'Yes' : 'No'}</p>
-      <p>Expires at: {expiryTime?.toLocaleString()}</p>
-      <p>Time until expiry: {timeUntilExpiry} seconds</p>
-      <p>Expiring soon: {isExpiringSoon ? 'Yes' : 'No'}</p>
-    </div>
+                  <div>
+                    <p>Token expired: {expired ? 'Yes' : 'No'}</p>
+                    <p>Expires at: {expiryTime?.toLocaleString()}</p>
+                    <p>Time until expiry: {timeUntilExpiry} seconds</p>
+                    <p>Expiring soon: {isExpiringSoon ? 'Yes' : 'No'}</p>
+                  </div>
                   <div className="text-xl font-bold">Book Name Here</div>
                   <p className="text-xs text-bookBlack">here goes genre tag</p>
                 </CardContent>
