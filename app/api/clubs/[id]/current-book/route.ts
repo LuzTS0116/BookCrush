@@ -171,7 +171,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient } from '@/lib/generated/prisma';
+import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@/lib/generated/prisma';
 import { ClubRole, ClubMembershipStatus, club_book_status } from '@/lib/generated/prisma';
 import { z } from 'zod';
 
@@ -254,9 +254,17 @@ export async function PUT(
 
     const body = await request.json();
     const { bookId } = setCurrentBookSchema.parse(body);
-    console.log(body)
 
-    // Check if user has permission using Prisma
+    const clubForActivity = await prisma.club.findUnique({ 
+        where: {id }, 
+        select: { name: true } 
+    });
+    if (!clubForActivity) {
+        // This case should ideally be caught earlier or handled, but as a fallback for activity logging:
+        console.warn(`Club not found for activity logging: ${id}`);
+        // Proceed with core logic but activity logging might be incomplete
+    }
+
     const membership = await prisma.clubMembership.findUnique({
       where: {
         user_id_club_id: {
@@ -269,7 +277,6 @@ export async function PUT(
       },
     });
 
-
     if (!membership || !(membership.role === ClubRole.OWNER || membership.role === ClubRole.ADMIN)) {
       return NextResponse.json(
         { error: "You do not have permission to set the current book for this club" },
@@ -277,16 +284,15 @@ export async function PUT(
       );
     }
 
-    // Verify that the book exists
-    const book = await prisma.book.findUnique({
+    const bookToSet = await prisma.book.findUnique({
       where: { id: bookId },
+      select: { id: true, title: true }
     });
 
-    if (!book) {
+    if (!bookToSet) {
       return NextResponse.json({ error: "Book not found" }, { status: 404 });
     }
 
-    // Update the current book using field name from schema
     await prisma.club.update({
       where: { id },
       data: { 
@@ -294,7 +300,6 @@ export async function PUT(
       },
     });
 
-    // Check if a club book record already exists
     const existingClubBook = await prisma.clubBook.findFirst({
       where: {
         club_id: id,
@@ -304,7 +309,6 @@ export async function PUT(
 
     // Add to club_books history if not already there
     if (!existingClubBook) {
-      
       await prisma.clubBook.create({
         data: {
           club_id: id,
@@ -313,13 +317,38 @@ export async function PUT(
         }
       });
     }
-
-    // Get updated book details for response
-    const updatedBook = await prisma.book.findUnique({
-      where: { id: bookId },
+    
+    // --- Create ActivityLog Entries for CLUB_SELECTED_BOOK ---
+    const activeMembers = await prisma.clubMembership.findMany({
+        where: {
+            club_id: id,
+            status: ClubMembershipStatus.ACTIVE
+        },
+        select: { user_id: true }
     });
 
-    return NextResponse.json(updatedBook || null);
+    const activityPromises = activeMembers.map(member => 
+        prisma.activityLog.create({
+            data: {
+                user_id: member.user_id,
+                activity_type: ActivityType.CLUB_SELECTED_BOOK,
+                target_entity_type: ActivityTargetEntityType.CLUB,
+                target_entity_id: id,
+                details: {
+                    club_id: id,
+                    club_name: clubForActivity?.name || 'A club',
+                    book_id: bookToSet.id,
+                    book_title: bookToSet.title,
+                    set_by_user_id: user.id
+                }
+            }
+        })
+    );
+    await Promise.all(activityPromises);
+    // --- End ActivityLog Entries ---
+
+    return NextResponse.json(bookToSet);
+
   } catch (error: any) {
     console.error('Error setting current book:', error);
     return NextResponse.json(
@@ -354,7 +383,6 @@ export async function DELETE(
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    // Check if user has permission using Prisma
     const membership = await prisma.clubMembership.findUnique({
       where: {
         user_id_club_id: {

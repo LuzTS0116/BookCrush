@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { PrismaClient } from '@/lib/generated/prisma'
-import { ClubMembershipStatus, ClubRole } from '@/lib/generated/prisma';
+import { ClubMembershipStatus, ClubRole, ActivityType, ActivityTargetEntityType } from '@/lib/generated/prisma';
 
 
 const prisma = new PrismaClient()
@@ -60,6 +60,61 @@ export async function POST(req: NextRequest) {
           where: { id: membership.club_id },
           data: { memberCount: { increment: 1 } },
         });
+
+        // --- Create ActivityLog Entry for JOINED_CLUB ---
+        await tx.activityLog.create({
+          data: {
+            user_id: updatedMembership.user_id, // The user who joined
+            activity_type: ActivityType.JOINED_CLUB,
+            target_entity_type: ActivityTargetEntityType.CLUB,
+            target_entity_id: membership.club_id,
+            details: {
+              club_id: membership.club_id,
+              club_name: membership.club.name, // Assuming club name is available
+              approved_by_user_id: user.id // The admin/owner who approved
+            }
+          }
+        });
+        // --- End ActivityLog Entry ---
+        
+        // --- Create ActivityLog Entries for CLUB_NEW_MEMBER for other active members ---
+        const newMemberUser = await tx.profile.findUnique({
+          where: { id: updatedMembership.user_id },
+          select: { display_name: true }
+        });
+
+        if (newMemberUser) {
+          const otherActiveMembers = await tx.clubMembership.findMany({
+            where: {
+              club_id: membership.club_id,
+              status: ClubMembershipStatus.ACTIVE,
+              user_id: {
+                not: updatedMembership.user_id // Exclude the new member themselves
+              }
+            },
+            select: { user_id: true }
+          });
+
+          const clubNewMemberActivityPromises = otherActiveMembers.map(activeMember =>
+            tx.activityLog.create({
+              data: {
+                user_id: activeMember.user_id, // The existing member receiving the notification
+                activity_type: ActivityType.CLUB_NEW_MEMBER, // Ensure this enum exists
+                target_entity_type: ActivityTargetEntityType.CLUB,
+                target_entity_id: membership.club_id,
+                related_user_id: updatedMembership.user_id, // ID of the new member
+                details: {
+                  club_id: membership.club_id,
+                  club_name: membership.club.name,
+                  new_member_id: updatedMembership.user_id,
+                  new_member_name: newMemberUser.display_name || 'A new member'
+                }
+              }
+            })
+          );
+          await Promise.all(clubNewMemberActivityPromises);
+        }
+        // --- End CLUB_NEW_MEMBER ActivityLog Entries ---
       }
 
       return updatedMembership;

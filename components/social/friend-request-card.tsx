@@ -53,7 +53,7 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({ request, o
     return null; // Don't render card after it's handled
   }
   
-  const senderDisplayName = request.sender?.profile?.display_name || request.sender?.email || 'Unknown User';
+  const senderDisplayName = request.sender?.display_name || request.sender?.email || 'Unknown User';
 
   return (
     <Card className="flex items-center p-1 w-full">
@@ -97,6 +97,7 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({ request, o
               </DropdownMenu.Root>
             </div>
           </div>
+        </div>
           <p className="text-xs/3 text-secondary font-serif">24 mutual friends</p>
           <div className='flex justify-between w-full items-end'>
             <p className="text-xs/3 text-secondary/50 font-serif italic pb-1">request received 25.05.2025</p>
@@ -106,7 +107,6 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({ request, o
               </Button>
             </div>
           </div>
-        </div>
       </div>
     </Card>
     

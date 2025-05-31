@@ -59,36 +59,32 @@ export async function GET(req: NextRequest) {
     });
 
     // 3. Fetch all users with their profiles, excluding current user, friends, and pending requests
-    const explorableUsers = await prisma.user.findMany({
+    const explorableUsers = await prisma.profile.findMany({
       where: {
         id: {
           notIn: Array.from(connectedUserIds), // Exclude based on the collected IDs
         },
-        profile: {
-          isNot: null, // Only fetch users who actually have a profile
-        },
+       
       },
       select: {
         id: true,
         email: true,
-        profile: {
-          select: {
-            id: true,
+
+          
             display_name: true,
             about: true,
             favorite_genres: true,
             // Add any other profile fields you want to expose
-          },
-        },
+          
       },
     });
 
     // The 'profile: { isNot: null }' should handle filtering out users without profiles,
     // but an explicit filter can be added for robustness if 'profile' is truly optional in User
-    const filteredExplorableUsers = explorableUsers.filter(u => u.profile !== null);
+    
 
 
-    return NextResponse.json(filteredExplorableUsers, { status: 200 });
+    return NextResponse.json(explorableUsers, { status: 200 });
 
   } catch (error: any) {
     console.error("Error fetching explorable users:", error);

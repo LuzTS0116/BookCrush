@@ -57,3 +57,10 @@ export interface TabDisplay {
   label: string;
   value: UserBook['shelf']; // Tabs should correspond to shelf types
 }
+
+export interface ClubMembership {
+  id: string;
+  user_id: string;
+  club_id: string;
+  status: 'pending' | 'active' | 'rejected' | 'left';
+}

@@ -1,62 +1,80 @@
 // /app/api/clubs/[id]/pending-memberships/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+// import { cookies } from 'next/headers'; // No longer directly using cookies here
+// import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'; // Using standard client
+import { createClient } from '@supabase/supabase-js'; // Standard Supabase client
 import { PrismaClient } from '@/lib/generated/prisma';
-import { ClubMembershipStatus, ClubRole } from '@/lib/generated/prisma'; // Ensure ClubRole is imported for potential admin check
+import { ClubMembershipStatus, ClubRole } from '@/lib/generated/prisma';
 
 const prisma = new PrismaClient();
 
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing for /api/clubs/[id]/pending-memberships.");
+}
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+
 export async function GET(
-  request: Request,
+  request: NextRequest,
    { params }: { params: Promise<{ id: string }> }
 ) {
 
    const {id} = await params; 
   
-  try {
 
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase client not initialized. Check server configuration." }, { status: 500 });
+  }
+  
+  try {
     if (!id) {
       return NextResponse.json({ error: "Club ID is required" }, { status: 400 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    const { data: { user } } = await supabase.auth.getUser();
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
+    const token = authHeader.split(' ')[1];
 
-    if (!user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error("Auth error or no user for pending memberships:", userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
     }
 
     // 1. Find the club to check ownership/admin status
     const club = await prisma.club.findUnique({
       where: { id: id },
-      select: { owner_id: true } // Only need owner_id for authorization
+      select: { owner_id: true } 
     });
 
     if (!club) {
       return NextResponse.json({ error: "Club not found" }, { status: 404 });
     }
 
-    // 2. Authorization Check: Only club owner can view pending memberships.
-    // If you want to allow ADMINs as well, you'd fetch the user's ClubMembership
-    // for this club and check their 'role'.
-    if (club.owner_id !== user.id) {
-        // Option to check for ADMIN role:
-        // const userClubMembership = await prisma.clubMembership.findUnique({
-        //     where: {
-        //         userId_clubId: {
-        //             userId: user.id,
-        //             clubId: clubId,
-        //         },
-        //     },
-        //     select: { role: true }
-        // });
-        // if (!userClubMembership || (userClubMembership.role !== ClubRole.ADMIN && userClubMembership.role !== ClubRole.OWNER)) {
-        //     return NextResponse.json({ error: "You are not authorized to view pending memberships for this club." }, { status: 403 });
-        // }
+    // 2. Authorization Check: Only club owner OR ADMIN can view pending memberships.
+    let isAuthorized = club.owner_id === user.id;
+    if (!isAuthorized) {
+        const userClubMembership = await prisma.clubMembership.findUnique({
+            where: {
+                user_id_club_id: {
+                    user_id: user.id,
+                    club_id: id,
+                },
+            },
+            select: { role: true }
+        });
+        if (userClubMembership && userClubMembership.role === ClubRole.ADMIN) {
+            isAuthorized = true;
+        }
+    }
 
-        // Current simplified logic: Only owner
+    if (!isAuthorized) {
         return NextResponse.json({ error: "You are not authorized to view pending memberships for this club." }, { status: 403 });
     }
 
@@ -67,28 +85,41 @@ export async function GET(
         status: ClubMembershipStatus.PENDING,
       },
       include: {
-        user: { // Include user details of the applicant
+        user: { 
           select: {
             id: true,
-            email: true, // Or 'name', 'username' if your User model has it
-            // Add other user fields you need for display (e.g., avatar_url, initials)
-            // Assuming your User model has 'name' or a way to get a display name
-             // Assuming User model has a 'name' field
+            email: true,
+            display_name: true, // Cannot determine path from current info
+            // avatar_url: true,   // Cannot determine path from current info
           },
         },
       },
     });
 
-    // 4. Format the response to be client-friendly
-    const formattedPendingMemberships = pendingMemberships.map(membership => ({
-      id: membership.id, // This is the membershipId needed for the approve API
-      userId: membership.user.id,
-      userName:  membership.user.email, // Fallback to email if no name
-      userAvatar: null, // Replace with actual avatar URL from user if available in your User model
-      userInitials: ( membership.user.email?.substring(0, 2) || '??').toUpperCase(),
-      appliedAt: membership.joined_at.toISOString(), // Convert to ISO string for easier handling
-      status: membership.status,
-    }));
+    // 4. Format the response
+    const formattedPendingMemberships = pendingMemberships.map(membership => {
+      // Safely access user and its properties, defaulting if parts are missing
+      const userId = membership.user?.id;
+      const userName = membership.user?.email || 'N/A'; // Fallback to email or N/A
+      const userAvatar = null; // Cannot determine path from current info
+      const userInitials = (userName?.substring(0, 2) || '??').toUpperCase();
+
+      if (!userId) {
+        // This case should ideally not happen if the include worked and user relation is mandatory
+        console.warn('Pending membership found without a valid user ID:', membership.id);
+        return null; // Or some default error structure
+      }
+
+      return {
+        id: membership.id,
+        userId: userId, 
+        userName: userName, 
+        userAvatar: userAvatar, 
+        userInitials: userInitials,
+        appliedAt: membership.joined_at.toISOString(),
+        status: membership.status,
+      };
+    }).filter(Boolean); // Filter out any nulls if memberships without user were returned
 
     return NextResponse.json(formattedPendingMemberships, { status: 200 });
 

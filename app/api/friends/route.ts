@@ -33,8 +33,8 @@ export async function GET(req: NextRequest) {
           },
           // You might want to include the other user's profile here
           include: {
-            user_one: { include: { profile: true } },
-            user_two: { include: { profile: true } }
+            user_one:  true  ,
+            user_two:   true  
             
             // Need to include user models for sender/receiver if you want their profiles
             // Make sure your Prisma client is configured to allow joins across schemas
@@ -50,7 +50,14 @@ export async function GET(req: NextRequest) {
             status: FriendRequestStatus.PENDING,
           },
           include: {
-            receiver: { include: { profile: true } }
+            receiver: {
+              select: {
+                display_name: true,
+                email: true,
+              }
+
+            }
+            
             
             // Need to include user models for sender/receiver if you want their profiles
             // Make sure your Prisma client is configured to allow joins across schemas
@@ -67,7 +74,7 @@ export async function GET(req: NextRequest) {
           },
           // You might want to include the other user's profile here
           include: {
-            sender: { include: { profile: true } }
+            sender: true
             
             // Need to include user models for sender/receiver if you want their profiles
             // Make sure your Prisma client is configured to allow joins across schemas

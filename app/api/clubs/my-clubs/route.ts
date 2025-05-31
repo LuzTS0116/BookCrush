@@ -1,22 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+// import { cookies } from 'next/headers'; // No longer directly using cookies here
+// import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'; // Using standard client
+import { createClient } from '@supabase/supabase-js'; // Standard Supabase client
 import { PrismaClient } from '@/lib/generated/prisma'
 import { ClubMembershipStatus, ClubRole } from '@/lib/generated/prisma';
 
 const prisma = new PrismaClient()
 
-export async function GET(req: NextRequest) {
-  try {
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    const { data: { user } } = await supabase.auth.getUser();
+// Initialize Supabase client - credentials should be in environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    if (!user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing. Check environment variables.");
+  // You might want to throw an error here or handle it gracefully depending on your app's startup requirements
+}
+
+// Create a single Supabase client instance
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+
+export async function GET(req: NextRequest) {
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase client not initialized. Check server configuration." }, { status: 500 });
+  }
+  try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
+    const token = authHeader.split(' ')[1];
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error("Auth error or no user:", userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
     }
 
-    // Fetch all memberships for the current user that are ACTIVE or PENDING
+    // Fetch all memberships for the current user that are ACTIVE
     const userMemberships = await prisma.clubMembership.findMany({
       where: {
         user_id: user.id,
@@ -26,33 +47,29 @@ export async function GET(req: NextRequest) {
       },
       include: {
         club: {
-          // Include club details
           select: {
             id: true,
             name: true,
             description: true,
             owner_id: true,
-            // Include memberCount if you add it to the schema
             memberCount: true,
-            // You might also want to fetch current book, next meeting, etc.,
-            // but this requires more complex joins or separate queries depending on your data model.
-            // For simplicity, I'm just getting basic club details here.
+            current_book: true,
           },
         },
       },
     });
 
-    // Transform the result into a list of clubs with their membership status for the user
     const clubsWithStatus = userMemberships.map(membership => ({
       id: membership.club.id,
       name: membership.club.name,
       description: membership.club.description,
       ownerId: membership.club.owner_id,
-      memberCount: membership.club.memberCount, // Include if added to schema
+      memberCount: membership.club.memberCount,
       membershipStatus: membership.status,
-      role: membership.role, // User's role in this club
-      admin: true ? membership.club.owner_id == user.id : false
-      // You can add more club details if included in the select above or fetched separately
+      role: membership.role,
+      // Corrected admin check
+      admin: membership.club.owner_id === user.id,
+      current_book: membership.club.current_book,
     }));
 
     return NextResponse.json(clubsWithStatus, { status: 200 });

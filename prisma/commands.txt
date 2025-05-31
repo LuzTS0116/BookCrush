@@ -1,0 +1,6 @@
+npx prisma generate
+npx prisma format
+npx prisma db push  
+
+
+npx prisma migrate dev --name "add_user_email_field"

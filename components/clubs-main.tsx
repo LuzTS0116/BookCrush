@@ -24,7 +24,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { toast } from "sonner";
 import { DialogClose } from "@/components/ui/dialog" 
-import { Club, ClubMembershipRequest, getMyClubs, getDiscoverClubs } from "@/lib/clubs"
+import { Club } from "@/lib/clubs"; // Only Club type is needed
+import Link from "next/link";
+import { useRouter } from 'next/navigation'; // Import useRouter
 
 interface ClubsMainProps {
   initialMyClubs: Club[];
@@ -32,6 +34,7 @@ interface ClubsMainProps {
 }
 
 // Get base URL for API calls (this is copy of the function from lib/clubs.ts)
+// This might still be needed if you have other client-side API calls that are not related to club fetching.
 const getBaseUrl = () => {
   if (typeof window !== 'undefined') {
     return '';
@@ -45,10 +48,10 @@ export default function ClubsMain({
   initialMyClubs,
   initialDiscoverClubs
 }: ClubsMainProps) {
+  const router = useRouter(); // Initialize router
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState("my-clubs"); // State for active tab
-  const [loadingAction, setLoadingAction] = useState(false); // For join/approve actions
-  const [loadingClubs, setLoadingClubs] = useState(false); // No longer need initial loading state as we have initial data
+  const [loadingAction, setLoadingAction] = useState(false); // For join/approve/create actions
   
   // states for the Create Club form
   const [newClubName, setNewClubName] = useState("");
@@ -60,65 +63,14 @@ export default function ClubsMain({
   const [myClubs, setMyClubs] = useState<Club[]>(initialMyClubs);
   const [discoverClubs, setDiscoverClubs] = useState<Club[]>(initialDiscoverClubs);
 
-  // --- Data Fetching Functions ---
-
-  // Fetches clubs the current user is a member of (or has pending requests for)
-  const fetchMyClubs = useCallback(async () => {
-    try {
-      const clubs = await getMyClubs();
-      setMyClubs(clubs);
-      return clubs; // Return the clubs data
-    } catch (err: any) {
-      toast.error(err.message);
-      return []; // Return empty array on error
-    }
-  }, []);
-
-  // Fetches clubs the current user is NOT a member of
-  const fetchDiscoverClubs = useCallback(async () => {
-    try {
-      const clubs = await getDiscoverClubs();
-      setDiscoverClubs(clubs);
-      return clubs; // Return the clubs data
-    } catch (err: any) {
-      toast.error(err.message);
-      return []; // Return empty array on error
-    }
-  }, []);
-
-  // Initial Data Load on component mount - only refresh if needed
-  // No need for initial loading since we have client data already
+  // Effect to update local state when props change (e.g., after router.refresh())
   useEffect(() => {
-    // Only set up refresh if we actually have data
-    if (initialMyClubs.length > 0 || initialDiscoverClubs.length > 0) {
-      // Optional: Refresh data after a certain time to ensure freshness
-      const refreshTimer = setTimeout(() => {
-        const refreshData = async () => {
-          setLoadingClubs(true);
-          try {
-            const results = await Promise.all([
-              fetchMyClubs(),
-              fetchDiscoverClubs()
-            ]);
-            
-            const [newMyClubs, newDiscoverClubs] = results;
-            
-            // Arrays are always truthy, so check length instead
-            if (newMyClubs.length > 0) setMyClubs(newMyClubs);
-            if (newDiscoverClubs.length > 0) setDiscoverClubs(newDiscoverClubs);
-          } catch (error) {
-            console.error("Error refreshing data:", error);
-            // Don't show toast here as fetchMyClubs and fetchDiscoverClubs already handle that
-          } finally {
-            setLoadingClubs(false);
-          }
-        };
-        refreshData();
-      }, 60000); // Refresh after 1 minute
-      
-      return () => clearTimeout(refreshTimer);
-    }
-  }, [fetchMyClubs, fetchDiscoverClubs, initialMyClubs, initialDiscoverClubs]);
+    setMyClubs(initialMyClubs);
+  }, [initialMyClubs]);
+console.log(initialMyClubs)
+  useEffect(() => {
+    setDiscoverClubs(initialDiscoverClubs);
+  }, [initialDiscoverClubs]);
 
   // --- API Integration Functions ---
   const handleCreateClub = async () => {
@@ -133,7 +85,7 @@ export default function ClubsMain({
         body: JSON.stringify({
           name: newClubName,
           description: newClubDescription,
-          isPrivate: newClubPrivacy === "private", // Send boolean
+          isPrivate: newClubPrivacy === "private",
         }),
       });
 
@@ -146,16 +98,12 @@ export default function ClubsMain({
       console.log("Club created successfully:", result);
       toast.success(`Club "${result.name}" created successfully!`);
 
-      // Reset form fields
       setNewClubName("");
       setNewClubDescription("");
       setNewClubPrivacy("public");
-      setIsCreateClubDialogOpen(false); // Close the dialog
+      setIsCreateClubDialogOpen(false);
 
-      // Refetch my clubs to show the newly created club
-      await fetchMyClubs();
-      // Also refetch discover clubs in case it affects what's shown there (e.g., if you were filtering out public clubs you own)
-      await fetchDiscoverClubs();
+      router.refresh(); // Refresh server-side data
 
     } catch (err: any) {
       toast.error(`Error creating club: ${err.message}`);
@@ -184,10 +132,11 @@ export default function ClubsMain({
 
       const result = await response.json();
       console.log("Join successful:", result);
-      toast.success(`Successfully applied to join "${discoverClubs.find(c => c.id === clubId)?.name}"! Your request is pending approval.`);
-
-      // Refetch both lists to ensure data consistency
-      await Promise.all([fetchMyClubs(), fetchDiscoverClubs()]);
+      // Find club name from the current discoverClubs state for the toast message
+      const clubName = discoverClubs.find(c => c.id === clubId)?.name || 'the club';
+      toast.success(`Successfully applied to join "${clubName}"! Your request is pending approval.`);
+      
+      router.refresh(); // Refresh server-side data
 
     } catch (err: any) {
       toast.error(`Error joining club: ${err.message}`);
@@ -206,7 +155,7 @@ export default function ClubsMain({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ membershipId }),
+        body: JSON.stringify({ membershipId }), // Only membershipId is needed by the backend
       });
 
       if (!response.ok) {
@@ -218,8 +167,7 @@ export default function ClubsMain({
       console.log("Approval successful:", result);
       toast.success(`Successfully approved ${applicantName}'s membership!`);
 
-      // Refetch myClubs to update the pending memberships list and member count
-      await fetchMyClubs();
+      router.refresh(); // Refresh server-side data
 
     } catch (err: any) {
       toast.error(`Error approving membership: ${err.message}`);
@@ -230,15 +178,6 @@ export default function ClubsMain({
   };
 
   // --- Render Logic ---
-
-  if (loadingClubs) {
-    return (
-      <div className="container mx-auto px-4 py-6 pb-20 flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <span className="ml-3 text-lg text-muted-foreground">Loading clubs...</span>
-      </div>
-    );
-  }
 
   return (
       <div className="container mx-auto px-4 py-6 pb-20">
@@ -392,32 +331,32 @@ export default function ClubsMain({
                   myClubs.map((club) => (
                       <Card key={club.id}>
                       <CardHeader className="pb-2">
-                          <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-                              <div>
-                                  <div className="flex items-center justify-between pb-1">
-                                      <div className="flex items-center gap-2 text-secondary-light">
-                                          <CardTitle className="p-0 m-0">
-                                              {club.name}
-                                          </CardTitle>
-                                          {club.admin && (
-                                              <Badge variant="outline" className="ml-2 bg-primary/25 border-none text-secondary font-serif">
-                                              Admin
-                                              </Badge>
-                                          )}
-                                      </div>
+                          <div className="flex flex-col justify-between items-start w-full">
+                            <div className="flex flex-row">
+                                <div className="flex items-center gap-2 text-secondary-light">
+                                    <Link href={`/clubs/${club.id}`} className="truncate">
+                                    <CardTitle className="p-0 m-0 truncate">
+                                        {club.name}
+                                    </CardTitle>
+                                    </Link>
+                                    
+                                    {club.admin && (
+                                        <Badge variant="outline" className="ml-2 bg-primary/25 border-none text-secondary font-serif">
+                                        Admin
+                                        </Badge>
+                                    )}
+                                </div>
 
-                                      {club.admin && (
-                                      <Button variant="ghost" size="icon" className="flex justify-end">
-                                          <Settings className="h-4 w-4 text-secondary-light" />
-                                      </Button>
-                                      )}
-                                  </div>
+                                {club.admin && (
+                                <Button variant="ghost" size="icon" className="mt-2 md:mt-0 shrink-0 self-end md:self-auto">
+                                    <Settings className="h-4 w-4 text-secondary-light" />
+                                </Button>
+                                )}
+                            </div>
 
-                                  <CardDescription className="font-serif font-medium text-sm/4">
-                                      {club.description}
-                                  </CardDescription>
-                              </div>
-                              
+                            <CardDescription className="font-serif font-medium text-sm/4">
+                                {club.description}
+                            </CardDescription>
                           </div>
                       </CardHeader>
                       <CardContent>
@@ -447,14 +386,14 @@ export default function ClubsMain({
                               <div className="bg-secondary-light/10 p-3 w-auto rounded-lg flex gap-3">
                               <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
                                   <img
-                                  src={club.currentBook?.cover || "/placeholder.svg"} // Use optional chaining
-                                  alt={`${club.currentBook?.title || 'No book'} cover`}
+                                  src={club.current_book?.cover_url || "/placeholder.svg"} // Use optional chaining
+                                  alt={`${club.current_book?.title || 'No book'} cover`}
                                   className="max-h-full"
                                   />
                               </div>
                               <div>
-                                  <p className="font-medium text-sm/4">{club.currentBook?.title || 'No current book'}</p>
-                                  <p className="text-xs text-secondary font-serif font-medium">{club.currentBook?.author}</p>
+                                  <p className="font-medium text-sm/4">{club.current_book?.title || 'No current book'}</p>
+                                  <p className="text-xs text-secondary font-serif font-medium">{club.current_book?.author}</p>
                                   {/* This `Meeting in 3 days` is static, would need dynamic data */}
                                   <div className="mt-2 flex items-center gap-1 text-xs font-serif font-medium text-secondary rounded-full py-0 px-2 bg-accent/60">
                                       <Clock className="h-3 w-3" />
@@ -465,7 +404,7 @@ export default function ClubsMain({
                               </div>
                           </div>
 
-                          <div className="col-span-2">
+                          {/* <div className="col-span-2">
                               <Accordion type="single" collapsible className="w-full">
                               <AccordionItem value="book-history">
                                   <AccordionTrigger className="text-sm font-medium">Book History</AccordionTrigger>
@@ -495,7 +434,7 @@ export default function ClubsMain({
                                   </AccordionContent>
                               </AccordionItem>
                               </Accordion>
-                          </div>
+                          </div> */}
                           </div>
 
                           <div className="mt-6">
@@ -566,8 +505,8 @@ export default function ClubsMain({
 
                       </CardContent>
                       <CardFooter className="flex flex-wrap gap-2">
-                          <Button className="bg-primary rounded-full hover:bg-primary-light text-primary-foreground">Exit Club</Button>
-                          {club.admin && (
+                          {/* <Button className="bg-primary rounded-full hover:bg-primary-light text-primary-foreground">Exit Club</Button> */}
+                          {/* {club.admin && (
                           <>
                               <Dialog>
                               <DialogTrigger asChild>
@@ -634,14 +573,14 @@ export default function ClubsMain({
                                   <div className="flex gap-3 items-center p-3 bg-muted/30 rounded-lg">
                                       <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
                                       <img
-                                          src={club.currentBook?.cover || "/placeholder.svg"} // Optional chaining
-                                          alt={`${club.currentBook?.title || 'No book'} cover`}
+                                          src={club.current_book?.cover_url || "/placeholder.svg"} // Optional chaining
+                                          alt={`${club.current_book?.title || 'No book'} cover`}
                                           className="max-h-full"
                                       />
                                       </div>
                                       <div>
-                                      <p className="font-medium text-sm">{club.currentBook?.title}</p>
-                                      <p className="text-xs text-muted-foreground">{club.currentBook?.author}</p>
+                                      <p className="font-medium text-sm">{club.current_book?.title}</p>
+                                      <p className="text-xs text-muted-foreground">{club.current_book?.author}</p>
                                       </div>
                                   </div>
                                   <div className="grid gap-2">
@@ -682,7 +621,7 @@ export default function ClubsMain({
                               </DialogContent>
                               </Dialog>
                           </>
-                          )}
+                          )} */}
                       </CardFooter>
                       </Card>
                   ))
@@ -773,3 +712,21 @@ export default function ClubsMain({
         </div>
   )
 }
+
+
+ // Inside your map of activityFeedItems
+            // if (item.type === 'ADDED_BOOK_TO_SHELF') return <AddedToShelfCard item={item} />;
+
+            // AddedToShelfCard.tsx (new component)
+            // function AddedToShelfCard({ item }) {
+            //   return (
+            //     <Card>
+            //       <UserAvatar user={item.user} />
+            //       <CardTitle>
+            //         {item.user.display_name} added {item.book.title} to their '{item.shelfOrStatus}' shelf.
+            //       </CardTitle>
+            //       <BookCover book={item.book} />
+            //       <Timestamp time={item.timestamp} />
+            //     </Card>
+            //   );
+            // }

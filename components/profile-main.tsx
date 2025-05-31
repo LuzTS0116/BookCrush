@@ -22,22 +22,25 @@ export default function ProfileMain() {
   const [favoriteGenres, setFavoriteGenres] = useState<string[]>(["Fiction", "Fantasy", "Historical Fiction"])
 
   const genres = [
-    "Fiction",
-    "Non-Fiction",
-    "Science Fiction",
-    "Fantasy",
-    "Mystery",
-    "Thriller",
-    "Romance",
-    "Historical Fiction",
-    "Biography",
-    "Self-Help",
-    "Horror",
-    "Poetry",
-    "Young Adult",
-    "Children's",
-    "Classics",
-  ]
+  "Biography",
+  "Children's",
+  "Classics",
+  "Fantasy",
+  "Fiction",
+  "Historical Fiction",
+  "Horror",
+  "Literary Fiction",
+  "Manga",
+  "Mystery",
+  "Non-Fiction",
+  "Poetry",
+  "Romance",
+  "Romantasy",
+  "Science Fiction",
+  "Self-Help",
+  "Thriller",
+  "Young Adult"
+];
 
   const addGenre = () => {
     if (selectedGenre && !favoriteGenres.includes(selectedGenre)) {
@@ -51,10 +54,10 @@ export default function ProfileMain() {
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex flex-col md:flex-row gap-8">
-        <div className="md:w-1/3 bg-bookWhite rounded-3xl">
-          <Card>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col bg-transparent md:flex-row gap-8">
+        <div className="md:w-1/3 bg-transparent">
+          <Card className="px-0 bg-bookWhite/90 rounded-3xl">
             <CardHeader className="relative pb-0">
               <div className="absolute right-4 top-4">
                 <Button variant="ghost" size="icon" onClick={() => setIsEditing(!isEditing)} className="h-8 w-8">

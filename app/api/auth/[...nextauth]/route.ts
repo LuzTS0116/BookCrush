@@ -198,7 +198,8 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   secret: NEXTAUTH_SECRET,
-  session: { strategy: 'jwt' },
+  session: { strategy: 'jwt'
+   },
   pages: {
     signIn: '/login', // Custom sign-in page
     error: '/auth/error', // Error page

@@ -32,7 +32,10 @@ export async function GET(
     let currentUserMembershipStatus: ClubMembershipStatus | null = null;
     let currentUserIsAdmin = false;
     let pendingMemberships: any[] = []; // Initialize as empty, fetch only if admin
+    let bookIdForDiscussions: string | null = null;
+    let discussions: any[] | null = null;
 
+    
     // 1. Fetch the main club details
     const club = await prisma.club.findUnique({
       where: { id: id },
@@ -58,16 +61,61 @@ export async function GET(
             finished_at: true,
             book: true,
           },
+
         },
+        memberships: {
+          select: {
+            id: true,
+            status: true,
+            user_id: true,
+            role: true,
+            joined_at: true,
+            user: {        // Keep user for display_name, avatar_url
+              select: {
+                id: true,
+                display_name: true,
+                // avatar_url: true, // Add if you have this on your Profile model
+              }
+            } 
+          },
+        },
+        
       },
     });
+    
+    if(club){
+      bookIdForDiscussions = club.current_book_id || null;
+    
+      if(bookIdForDiscussions){
+        discussions = await prisma.clubDiscussion.findMany({
+          where: {
+            club_id: id,
+            book_id: bookIdForDiscussions,
+            parent_discussion_id: null,
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                display_name: true,
+              },
+            },
+          },
+        });
+      }
+    }
+    
+    
+    
+
+
 
     if (!club) {
       return NextResponse.json({ error: "Club not found" }, { status: 404 });
     }
 
     // 2. If authenticated, determine current user's membership status and role for THIS club
-    if (isAuthenticated) {
+    if (isAuthenticated && user) {
       const userClubMembership = await prisma.clubMembership.findUnique({
         where: {
           user_id_club_id: {
@@ -101,7 +149,7 @@ export async function GET(
             select: {
               id: true,
               email: true,
-              //name: true, // Assuming your User model has a 'name' field
+              display_name: true,
             },
           },
         },
@@ -110,9 +158,9 @@ export async function GET(
       pendingMemberships = pending.map(m => ({
         id: m.id,
         userId: m.user.id,
-        userName: m.user.name || m.user.email, // Fallback to email if no name
+        userName: m.user.display_name || m.user.email, // Fallback to email if no name
         userAvatar: null, // Replace with actual avatar URL from user if available in your User model
-        userInitials: (m.user.name ? m.user.name.split(' ').map(n => n[0]).join('') : m.user.email?.substring(0, 2) || '??').toUpperCase(),
+        userInitials: (m.user.display_name ? m.user.display_name.split(' ').map(n => n[0]).join('') : m.user.email?.substring(0, 2) || '??').toUpperCase(),
         appliedAt: m.joined_at.toISOString(),
         status: m.status,
       }));
@@ -125,11 +173,14 @@ export async function GET(
       description: club.description,
       memberCount: club.memberCount,
       owner_id: club.owner_id, // Club owner's ID
+      memberships: club.memberships,
 
       // Current user's relation to this club (dynamic)
       currentUserMembershipStatus: currentUserMembershipStatus,
       currentUserIsAdmin: currentUserIsAdmin,
-      pendingMemberships: pendingMemberships, // Will be empty array if not admin or no pending
+      pendingMemberships: pendingMemberships,
+      
+      // Will be empty array if not admin or no pending
 
       // --- STATIC/MOCK DATA FOR `currentBook`, `history`, `discussions` ---
       // IMPORTANT: These fields are NOT sourced from your current Prisma schema.
@@ -137,23 +188,7 @@ export async function GET(
       // Prisma queries/includes to fetch this data dynamically.
       current_book: club.current_book,
       book_history: club.book_history,
-      discussions: [ // Placeholder
-        {
-          user: { name: "Alex Lee", avatar: "/placeholder.svg?height=40&width=40", initials: "AL", },
-          text: "I'm about halfway through and loving the concept. The idea of a library between life and death is so creative!",
-          timestamp: "2 days ago",
-        },
-        {
-          user: { name: "Sarah Johnson", avatar: "/placeholder.svg?height=40&width=40", initials: "SJ", },
-          text: "The way Matt Haig explores regret and alternate lives is really making me think about my own choices. Can't wait to discuss this at our meeting.",
-          timestamp: "Yesterday",
-        },
-        {
-          user: { name: "Jane Doe", avatar: "/placeholder.svg?height=40&width=40", initials: "JD", },
-          text: "Just finished chapter 15. The scene with her father was so moving. Anyone else tear up at that part?",
-          timestamp: "5 hours ago",
-        },
-      ],
+      discussions: discussions,
       // --- END STATIC/MOCK DATA ---
     };
 

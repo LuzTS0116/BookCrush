@@ -14,7 +14,7 @@ interface FriendCardProps {
 }
 
 export const FriendCard: React.FC<FriendCardProps> = ({ friend }) => {
-  const friendDisplayName = friend.profile?.display_name || friend.email || 'Unknown Friend';
+  const friendDisplayName = friend.display_name || friend.email || 'Unknown Friend';
 
   return (
     <Card className="flex items-center p-1 w-full">

@@ -14,7 +14,7 @@ export default function CalendarPage() {
         height={2871}
         className="absolute inset-0 w-auto h-full lg:w-full lg:h-auto object-cover z-[-1]"
       />
-      <MainNav />
+      
       <CalendarMain />      
       <MobileNav />
     </div>

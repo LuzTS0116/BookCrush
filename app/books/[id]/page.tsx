@@ -15,7 +15,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
       height={2871}
       className="absolute inset-0 w-auto h-full md:w-full md:h-auto object-cover z-[-1]"
     />
-    <MainNav />
+    
     <BookDetailsClientWrapper params={params} />
     <MobileNav />
   </div>

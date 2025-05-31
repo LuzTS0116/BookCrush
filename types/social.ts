@@ -3,10 +3,9 @@
 export interface UserProfileMinimal {
   id: string; // The user ID from Supabase Auth
   email: string;
-  profile?: { // Optional, as it might not always be included or might be null
-    display_name: string | null;
-    id: string; // profile id
-  } | null;
+  display_name: string | null;
+    
+  
 }
 
 export interface FriendRequest {
@@ -54,5 +53,8 @@ export type UserProfile = {
 export type ExplorableUser = {
   id: string; // User ID
   email: string;
-  profile: UserProfile; // Assumes every explorable user will have a profile
+  display_name: string;
+  about: string | null;
+  favorite_genres: string | null;
+   // Assumes every explorable user will have a profile
 };

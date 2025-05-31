@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient } from '@/lib/generated/prisma'
+import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@/lib/generated/prisma'
 import { FriendRequestStatus } from '@/lib/generated/prisma'; // Import Prisma enum
 
 const prisma = new PrismaClient()
@@ -59,6 +59,22 @@ export async function POST(req: NextRequest) {
         status: FriendRequestStatus.PENDING,
       },
     });
+    
+    // --- Create ActivityLog Entry for SENT_FRIEND_REQUEST ---
+    await prisma.activityLog.create({
+      data: {
+        user_id: user.id, // The user who sent the request
+        activity_type: ActivityType.SENT_FRIEND_REQUEST,
+        target_entity_type: ActivityTargetEntityType.PROFILE, // Target is the receiver's profile
+        target_entity_id: receiverId, 
+        related_user_id: receiverId, // The user to whom the request was sent
+        details: {
+          sender_id: user.id,
+          receiver_id: receiverId
+        }
+      }
+    });
+    // --- End ActivityLog Entry ---
 
     return NextResponse.json(friendRequest, { status: 201 });
 

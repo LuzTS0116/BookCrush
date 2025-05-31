@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react"; // Added useEffect, useMem
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Smartphone, BookOpen, Headphones } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { motion, AnimatePresence } from "framer-motion"; // Retaining these if you plan to use animation
 import { BookDetails, BookFile, UserBook, StatusDisplay, TabDisplay } from "@/types/book";
@@ -19,6 +19,12 @@ const statuses: StatusDisplay[] = [
 const TABS: TabDisplay[] = [
   { label: "Currently Reading", value: "currently_reading" }, // Matches Prisma shelf_type
   { label: "Reading Queue", value: "queue" }, // Matches Prisma shelf_type
+];
+
+const readingOptions = [
+  { label: "AudioBook", icon: Headphones },
+  { label: "E-Reader", icon: Smartphone },
+  { label: "Physical Book", icon: BookOpen },
 ];
 
 // Helper to get status display info
@@ -36,6 +42,9 @@ export default function DashboardReading() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  //Reading method State
+  const [selectedOption, setSelectedOption] = useState(readingOptions[2]); // Default to E-Reader
 
   // Function to fetch books from the API
   const fetchBooks = async (shelf: UserBook['shelf']) => {
@@ -193,6 +202,40 @@ export default function DashboardReading() {
                                     Started Reading: {new Date(userBook.added_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                                   </span>
                                 )}
+
+                                <div className="flex flex-wrap items-center bg-secondary/10 text-secondary rounded-full px-2 py-0.5">
+                                  {/* Show the selected icon */}
+                                  <selectedOption.icon className="w-4 h-4" />
+                                  <DropdownMenu.Root>
+                                    <DropdownMenu.Trigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs flex items-center rounded-full h-5 px-1 ml-1 gap-1 bg-transparent border-none shadow-sm hover:bg-muted"
+                                      >
+                                        <ChevronDown className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenu.Trigger>
+
+                                    <DropdownMenu.Portal>
+                                      <DropdownMenu.Content
+                                        className="min-w-[145px] rounded-xl bg-secondary-light shadow-xl p-1 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                                        sideOffset={5}
+                                      >
+                                        {readingOptions.map((option) => (
+                                          <DropdownMenu.Item
+                                            key={option.label}
+                                            onSelect={() => setSelectedOption(option)}
+                                            className="px-3 py-2 text-sm rounded-md cursor-pointer hover:bg-primary hover:text-secondary flex items-center gap-2"
+                                          >
+                                            <option.icon className="w-4 h-4" />
+                                            {option.label}
+                                          </DropdownMenu.Item>
+                                        ))}
+                                      </DropdownMenu.Content>
+                                    </DropdownMenu.Portal>
+                                  </DropdownMenu.Root>
+                                </div>
 
                                 <div className="flex justify-between">
                                 {/* Current Status Badge */}

@@ -5,7 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { BookOpen, Home, BookMarked, Users, Calendar, Bell, Search } from "lucide-react"
-import { Coffee } from "@phosphor-icons/react";
+import { Heart, Coffee } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -20,10 +20,14 @@ import {
 import { useSession } from "next-auth/react";
 import { handleSignOut } from '@/lib/auth';
 
+
 export function MainNav() {
-  const pathname = usePathname()
-  const { data: session, status } = useSession(); // will be 'authenticated' here
   
+  const { data: session, status } = useSession(); // will be 'authenticated' here
+  const pathname = usePathname()
+  
+  // Check if the current path matches /clubs/[id], /profile/[id], or /books/[id]
+  const shouldHideNav = /^\/(clubs|profile|books)\/[^/]+$/.test(pathname);
 
   // if (status === "loading") {
   //   return <p>Loading session…</p>;
@@ -57,7 +61,7 @@ export function MainNav() {
   ]
 
   return (
-    <div className="bg-secondary-light rounded-bl-2xl rounded-br-2xl">
+    <div className={cn('bg-secondary-light rounded-bl-2xl rounded-br-2xl', { 'hidden': shouldHideNav })}>
       <div className="flex h-16 items-center px-4 container mx-auto">
         <Link href="/dashboard" className="flex items-center gap-2 mr-0 w-[55vw] max-w-[400px]">
           <Image 
@@ -82,16 +86,16 @@ export function MainNav() {
             </Link>
           ))}
         </nav>
-        <div className="ml-auto flex items-center space-x-2">
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
+        <div className="ml-auto flex items-center space-x-4">
+          <Link href="/calendar" className="text-muted-foreground hover:text-primary">
             <Search className="h-5 w-5" />
-          </Button>
+          </Link>
           <Link href="/calendar" className="text-muted-foreground hover:text-primary">
             <Calendar className="h-4 w-4" />
           </Link>
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
-            <Bell className="h-5 w-5" />
-          </Button>
+          <Link href="/#" className="text-muted-foreground hover:text-primary">
+            <Heart className="h-5 w-5 font-bold"/>
+          </Link>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">

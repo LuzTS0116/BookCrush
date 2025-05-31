@@ -8,7 +8,7 @@ const globalPublicRoutes = [
   { path: '/auth', exact: false }, // Covers /auth/callback etc.
   { path: '/api/auth', exact: false }, // For NextAuth API routes
   { path: '/profile-setup', exact: false },
-  { path: '/api/user/profile-status', exact: false }, // Allow profile status check
+  { path: '/api/user/profile-status', exact: true }, // Allow profile status check
   { path: '/_next', exact: false },
   { path: '/images', exact: false },
   { path: '/favicon.ico', exact: true },

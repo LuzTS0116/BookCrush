@@ -7,15 +7,45 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { BookOpen, CalendarDays, Plus, Settings, MessageSquare, Clock, Loader2, Check } from "lucide-react" // Added Loader2, Check
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { BookOpen, CalendarDays, Plus, Settings, MessageSquare, Clock, Loader2, Check, ArrowLeft } from "lucide-react" // Added Loader2, Check
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"; // Assuming sonner for toasts
 import { BookSelectionDialog } from '@/components/BookSelectionDialog'
 
+
 // --- Define Interfaces (copied from previous thought, ensure consistency) ---
+
+// Define ClubMembership locally, ideally this should be in @/types/book.ts
+interface ClubMembership {
+  id: string; // Membership ID
+  user_id: string;
+  club_id: string;
+  role: 'MEMBER' | 'ADMIN' | 'OWNER';
+  status: 'ACTIVE' | 'PENDING' | 'REJECTED' | 'LEFT' | 'BANNED';
+  joined_at: string; // ISO Date string  
+  user: { // Added this nested user object based on your API structure
+    display_name: string;
+    avatar_url?: string | null; // Optional: if your API provides user avatar
+    // Add other user fields like id, initials if they are part of this nested object
+  };
+}
+
 interface Discussion {
+  id: string; // Added to match API response after mapping
   user: {
     name: string;
     avatar: string | null;
@@ -71,7 +101,7 @@ interface ClubData {
   // Current user's specific relationship to *this* club (these come from backend)
   currentUserMembershipStatus: 'ACTIVE' | 'PENDING' | 'REJECTED' | 'LEFT' | null;
   currentUserIsAdmin: boolean; // True if current user is owner_id or an ADMIN role for this club
-
+  memberships: ClubMembership[];
   current_book: CurrentBookDetails | null;
   book_history: BookHistoryEntry[];
   discussions: Discussion[];
@@ -86,6 +116,8 @@ export default function ClubDetailPage({ params }: { params: { id: string } }) {
   const [loadingAction, setLoadingAction] = useState(false); // Loading state for join/approve actions
   const [loadingBookAction, setLoadingBookAction] = useState(false);
   const [bookDialogOpen, setBookDialogOpen] = useState(false)
+  const [loadingPostComment, setLoadingPostComment] = useState(false);
+
 
   //wrap params with React.use() 
   const {id} = useParams();
@@ -100,7 +132,6 @@ export default function ClubDetailPage({ params }: { params: { id: string } }) {
         throw new Error(`Failed to fetch club data: ${response.statusText}`);
       }
       const data: ClubData = await response.json(); // Cast to ClubData interface
-      console.log("Club data:", data);
       setClub(data);
     } catch (err: any) {
       toast.error(`Error fetching club details: ${err.message}`);
@@ -269,6 +300,53 @@ export default function ClubDetailPage({ params }: { params: { id: string } }) {
     }
   };
 
+  // --- NEW: Function to handle posting a comment ---
+  const handlePostComment = async () => {
+    if (!comment.trim()) {
+      toast.info("Comment cannot be empty.");
+      return;
+    }
+    if (!club) {
+      toast.error("Club data not available. Please try again.");
+      return;
+    }
+    if (club.currentUserMembershipStatus !== 'ACTIVE') {
+      toast.error("Only active members can post comments.");
+      return;
+    }
+
+    setLoadingPostComment(true);
+    try {
+      // Assuming the API endpoint is /api/clubs/{clubId}/discussions
+      // And it expects { text: string, bookId: string | null }
+      const response = await fetch(`/api/clubs/${club.id}/discussions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: comment,
+          bookId: club.current_book?.id || null, // Send bookId if a current book exists
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to post comment.");
+      }
+
+      toast.success("Comment posted successfully!");
+      setComment(""); // Clear the textarea
+      await fetchClubDetails(); // Refresh club data to show the new comment
+
+    } catch (err: any) {
+      toast.error(`Error posting comment: ${err.message}`);
+      console.error("Error posting comment:", err);
+    } finally {
+      setLoadingPostComment(false);
+    }
+  };
+
   // --- Loading State and Error Handling for UI ---
   if (loadingClub) {
     return (
@@ -289,64 +367,60 @@ export default function ClubDetailPage({ params }: { params: { id: string } }) {
 
   // --- Main Render Section ---
   return (
-    <div className="space-y-8">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold tracking-tight">{club.name}</h1>
-            {/* Display Admin badge if current user is an admin */}
-            {club.currentUserIsAdmin && (
-              <Badge variant="outline" className="ml-2">
-                Admin
-              </Badge>
-            )}
-            {/* Conditional Badges for Membership Status */}
-            {club.currentUserMembershipStatus === 'ACTIVE' && (
-              <Badge className="bg-green-500 hover:bg-green-600 text-white ml-2">
-                Member
-              </Badge>
-            )}
-            {club.currentUserMembershipStatus === 'PENDING' && (
-              <Badge variant="secondary" className="ml-2">
-                Pending
-              </Badge>
-            )}
-          </div>
-          <p className="text-muted-foreground">{club.description}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {club.currentUserIsAdmin && (
-            <Button variant="outline" size="icon">
-              <Settings className="h-4 w-4" />
-            </Button>
-          )}
-
-          {/* Join/Apply Button (Conditional Rendering) */}
-          {/* Show only if current user is NOT an admin AND NOT an active member AND NOT currently pending */}
-          {!club.currentUserIsAdmin && club.currentUserMembershipStatus !== 'ACTIVE' && club.currentUserMembershipStatus !== 'PENDING' && (
-            <Button
-              onClick={handleJoinClub}
-              disabled={loadingAction}
-              className="bg-primary hover:bg-primary-light text-primary-foreground"
-            >
-              {loadingAction ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="mr-2 h-4 w-4" />
-              )}
-              Join Club
-            </Button>
-          )}
-        </div>
+    <div className='space-y-3 px-2'>
+      <div className="relative h-8 mb-8 w-full">
+        {/* Back Button */}
+        <button
+            onClick={() => router.back()} // You can also use navigate("/previous") if using React Router
+            className="absolute top-3 left-0 p-2 rounded-full bg-bookWhite/80 backdrop-blur-sm hover:bg-bookWhite shadow-md"
+        >
+            <ArrowLeft className="h-5 w-5 text-secondary" />
+        </button>
       </div>
+      {/* Header Section */}
+      <Card className="bg-bookWhite/90 rounded-xl overflow-hidden py-1 px-2">
+        <CardHeader className="relative p-0">
+            <div className="flex flex-col md:flex-row justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-2xl font-bold tracking-tight text-secondary">{club.name}</h1>
+                  {/* Display Admin badge if current user is an admin */}
+                  {club.currentUserIsAdmin && (
+                    <Badge variant="outline" className="ml-2 bg-secondary-light border-none">
+                      Admin
+                    </Badge>
+                  )}
+                  {/* Conditional Badges for Membership Status */}
+                  {club.currentUserMembershipStatus === 'ACTIVE' && (
+                    <Badge className="bg-green-500 hover:bg-green-600 text-white ml-1">
+                      Member
+                    </Badge>
+                  )}
+                  {club.currentUserMembershipStatus === 'PENDING' && (
+                    <Badge variant="secondary" className="ml-1">
+                      Pending
+                    </Badge>
+                  )}
+                  {club.currentUserIsAdmin && (
+                    <Button variant="outline" size="icon" className="border-none bg-transparent hover:bg-transparent hover:text-secondary">
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <p className="text-secondary font-serif font-normal">{club.description}</p>
+              </div>
+            </div>
+        </CardHeader>
+        {/* <CardContent className="pt-0">
+        </CardContent> */}
+      </Card>
+      
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
         <div className="md:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Current Book</CardTitle>
-              <CardDescription>What we're currently reading</CardDescription>
+          <Card className="bg-bookWhite/90 px-2 py-2">
+            <CardHeader className="">
+              <CardTitle className="px-0 pb-2 text-secondary">Current Book</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               {club.current_book ? (
@@ -390,7 +464,7 @@ export default function ClubDetailPage({ params }: { params: { id: string } }) {
               )}
             </CardContent>
             {club.currentUserIsAdmin && (
-              <CardFooter className="flex justify-end gap-2">
+              <CardFooter className="flex justify-end gap-2 pb-4">
                 {club.current_book && (
                   <Button
                     variant="outline"
@@ -403,12 +477,12 @@ export default function ClubDetailPage({ params }: { params: { id: string } }) {
                 <Button
                   onClick={() => setBookDialogOpen(true)}
                   disabled={loadingBookAction}
-                  className="bg-primary hover:bg-primary-light text-primary-foreground"
+                  className="bg-primary hover:bg-primary-light text-secondary rounded-full"
                 >
                   {loadingBookAction ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
                   ) : (
-                    <Plus className="mr-2 h-4 w-4" />
+                    <Plus className="mr-1 h-4 w-4" />
                   )}
                   {club.current_book ? 'Change Book' : 'Set Current Book'}
                 </Button>
@@ -418,76 +492,256 @@ export default function ClubDetailPage({ params }: { params: { id: string } }) {
                   onOpenChange={setBookDialogOpen}
                   onBookSelect={handleSetCurrentBook}
                 />
+                {club.admin && (
+                          <>
+                              <Dialog>
+                              <DialogTrigger asChild>
+                                  <Button variant="outline" className="text-bookWhite rounded-full">
+                                  Set New Book
+                                  </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                  <DialogHeader>
+                                  <DialogTitle>Set New Book for Club</DialogTitle>
+                                  <DialogDescription>Select the next book for your club to read.</DialogDescription>
+                                  </DialogHeader>
+                                  <div className="grid gap-4 py-4">
+                                  <div className="grid gap-2">
+                                      <Label htmlFor="book">Select Book</Label>
+                                      <Select>
+                                      <SelectTrigger id="book">
+                                          <SelectValue placeholder="Choose a book" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                          <SelectItem value="midnight-library">The Midnight Library</SelectItem>
+                                          <SelectItem value="klara-sun">Klara and the Sun</SelectItem>
+                                          <SelectItem value="project-hail-mary">Project Hail Mary</SelectItem>
+                                          <SelectItem value="song-achilles">The Song of Achilles</SelectItem>
+                                          <SelectItem value="circe">Circe</SelectItem>
+                                      </SelectContent>
+                                      </Select>
+                                  </div>
+                                  <div className="grid gap-2">
+                                      <Label htmlFor="meeting-date">Next Meeting Date</Label>
+                                      <Input id="meeting-date" type="date" />
+                                  </div>
+                                  <div className="grid gap-2">
+                                      <Label htmlFor="meeting-time">Meeting Time</Label>
+                                      <Input id="meeting-time" type="time" />
+                                  </div>
+                                  <div className="grid gap-2">
+                                      <Label htmlFor="notes">Notes (Optional)</Label>
+                                      <Textarea id="notes" placeholder="Any notes about this book selection" />
+                                  </div>
+                                  </div>
+                                  <DialogFooter>
+                                  <Button type="submit" className="bg-primary hover:bg-primary-light text-primary-foreground">
+                                      Set Book & Schedule Meeting
+                                  </Button>
+                                  </DialogFooter>
+                              </DialogContent>
+                              </Dialog>
+
+                              <Dialog>
+                              <DialogTrigger asChild>
+                                  <Button variant="outline" className="text-bookWhite rounded-full">
+                                  Complete Meeting
+                                  </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                  <DialogHeader>
+                                  <DialogTitle>Complete Book Meeting</DialogTitle>
+                                  <DialogDescription>
+                                      Mark the current book as completed and add it to history.
+                                  </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="grid gap-4 py-4">
+                                  <div className="flex gap-3 items-center p-3 bg-muted/30 rounded-lg">
+                                      <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
+                                      <img
+                                          src={club.currentBook?.cover || "/placeholder.svg"} // Optional chaining
+                                          alt={`${club.currentBook?.title || 'No book'} cover`}
+                                          className="max-h-full"
+                                      />
+                                      </div>
+                                      <div>
+                                      <p className="font-medium text-sm">{club.currentBook?.title}</p>
+                                      <p className="text-xs text-muted-foreground">{club.currentBook?.author}</p>
+                                      </div>
+                                  </div>
+                                  <div className="grid gap-2">
+                                      <Label htmlFor="rating">Club Rating (1-5)</Label>
+                                      <Select>
+                                      <SelectTrigger id="rating">
+                                          <SelectValue placeholder="Select rating" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                          <SelectItem value="1">1 - Poor</SelectItem>
+                                          <SelectItem value="2">2 - Fair</SelectItem>
+                                          <SelectItem value="3">3 - Good</SelectItem>
+                                          <SelectItem value="4">4 - Very Good</SelectItem>
+                                          <SelectItem value="5">5 - Excellent</SelectItem>
+                                      </SelectContent>
+                                      </Select>
+                                  </div>
+                                  <div className="grid gap-2">
+                                      <Label htmlFor="discussion-notes">Discussion Notes</Label>
+                                      <Textarea
+                                      id="discussion-notes"
+                                      placeholder="Summarize the key points from your discussion"
+                                      />
+                                  </div>
+                                  <div className="grid gap-2">
+                                      <Label htmlFor="next-steps">Set Next Book</Label>
+                                      <div className="flex items-center gap-2">
+                                      <input type="checkbox" id="set-next-book" className="form-checkbox" />
+                                      <Label htmlFor="set-next-book">Schedule next book selection</Label>
+                                      </div>
+                                  </div>
+                                  </div>
+                                  <DialogFooter>
+                                  <Button type="submit" className="bg-primary hover:bg-primary-light text-primary-foreground">
+                                      Complete & Archive
+                                  </Button>
+                                  </DialogFooter>
+                              </DialogContent>
+                              </Dialog>
+                          </>
+                          )}
               </CardFooter>
             )}
           </Card>
 
-          <div className="mt-6">
-            <Tabs defaultValue="discussions" className="space-y-4">
-              <TabsList className="bg-muted text-muted-foreground">
+          <div className="mt-3">
+            <Tabs defaultValue="discussions" className="space-y-3">
+              <div className="flex justify-center">
+              <TabsList className="bg-secondary-light text-primary rounded-full">
                 <TabsTrigger
                   value="discussions"
-                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full"
                 >
-                  Discussions
+                  Current Discussions
                 </TabsTrigger>
                 <TabsTrigger
                   value="history"
-                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full"
                 >
                   Book History
                 </TabsTrigger>
               </TabsList>
+              </div>
 
               <TabsContent value="discussions">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Book Discussions</CardTitle>
-                    <CardDescription>Share your thoughts on the current book</CardDescription>
+                    <CardTitle className="text-xl/6 text-secondary">
+                      {club.current_book ? `Discussions: ${club.current_book.title}` : "Select a Current Book"}
+                    </CardTitle>
+                    <CardDescription className="font-serif text-secondary font-normal text-sm/3">
+                      {club.current_book
+                        ? "Share your thoughts on the current book (no spoilers!)"
+                        : "Select a current book to start book-specific discussions."}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-6">
-                      {club.discussions.map((discussion, i) => (
-                        <div key={i} className="flex gap-4">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage
-                              src={discussion.user.avatar || "/placeholder.svg"}
-                              alt={discussion.user.name}
-                            />
-                            <AvatarFallback className="bg-primary text-primary-foreground">
-                              {discussion.user.initials}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <p className="font-medium">{discussion.user.name}</p>
-                              <p className="text-xs text-muted-foreground">{discussion.timestamp}</p>
+                    {club.discussions && club.discussions.length > 0 ? (
+                      <div className="space-y-6">
+                        {club.discussions.map((discussion, i) => (
+                          <div key={discussion.id || i} className="flex gap-4">
+                            <Avatar className="h-10 w-10">
+                              <AvatarImage
+                                src= "/placeholder.svg"
+                                alt={discussion.user?.display_name || 'User'}
+                              />
+                              <AvatarFallback className="bg-primary text-primary-foreground">
+                                {discussion.user?.display_name?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <p className="font-medium">{discussion.user?.display_name || 'Anonymous'}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {discussion.timestamp ? new Date(discussion.created_at).toLocaleString() : 'Recently'}
+                                </p>
+                              </div>
+                              <p className="text-sm mt-1">{discussion.content}</p>
+                              {/* TODO: Implement rendering for discussion.replies if they exist and are fetched */}
                             </div>
-                            <p className="text-sm mt-1">{discussion.text}</p>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <MessageSquare className="mx-auto h-12 w-12 mb-4" />
+                        {club.current_book && (
+                          <>
+                            <p>No discussions yet for "{club.current_book.title}".</p>
+                            {club.currentUserMembershipStatus === 'ACTIVE' && (
+                              <p className="text-sm mt-2">Be the first to share your thoughts below!</p>
+                            )}
+                          </>
+                        ) }
+                      </div>
+                    )}
 
                     <Separator className="my-6" />
 
-                    <div className="flex gap-4">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src="/placeholder.svg?height=40&width=40" alt="You" />
-                        <AvatarFallback className="bg-primary text-primary-foreground">JD</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 space-y-2">
-                        <Textarea
-                          placeholder="Share your thoughts on the book..."
-                          value={comment}
-                          onChange={(e) => setComment(e.target.value)}
-                          className="min-h-[100px]"
-                        />
-                        <Button className="bg-primary hover:bg-primary-light text-primary-foreground">
-                          <MessageSquare className="mr-2 h-4 w-4" /> Post Comment
-                        </Button>
+                    {/* Comment submission section - only for ACTIVE members */}
+                    {club.currentUserMembershipStatus === 'ACTIVE' ? (
+                      <div className="flex gap-4">
+                        <Avatar className="h-10 w-10">
+                          {/* Replace with actual current user avatar logic if available */}
+                          <AvatarImage src={"placeholder.svg?height=40&width=40"} alt="Your avatar" />
+                          <AvatarFallback className="bg-primary text-primary-foreground">ME</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 space-y-2">
+                          <Textarea
+                            placeholder={
+                              club.current_book
+                                ? "Share your thoughts on the book..."
+                                : "Post a general discussion topic..."
+                            }
+                            value={comment}
+                            onChange={(e) => setComment(e.target.value)}
+                            className="min-h-[100px] bg-secondary text-bookWhite border-none"
+                            disabled={loadingPostComment}
+                          />
+                          <div className="flex justify-end">
+                            <Button
+                              className="bg-primary hover:bg-primary-light rounded-full text-secondary"
+                              onClick={handlePostComment}
+                              disabled={loadingPostComment || !comment.trim()}
+                            >
+                              {loadingPostComment ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <MessageSquare className="mr-0 h-4 w-4" />
+                              )}
+                              Post Comment
+                            </Button>
+                          </div>        
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        {club.currentUserMembershipStatus === 'PENDING' ? (
+                          <p>Your membership is pending approval. Once approved, you can join discussions.</p>
+                        ) : club.currentUserMembershipStatus === 'REJECTED' || club.currentUserMembershipStatus === 'LEFT' ? (
+                          <p>Your previous application was not approved or you have left the club. You can apply again if you wish.</p>
+                        ) : (
+                          <p>You must be an active member of this club to post comments or participate in discussions.</p>
+                        )}
+
+                        {/* Show Join Club button if user is not admin AND not already PENDING */}
+                        {/* (Implies they are also not ACTIVE due to the parent conditional) */}
+                        {!club.currentUserIsAdmin && club.currentUserMembershipStatus !== 'PENDING' && (
+                          <Button onClick={handleJoinClub} disabled={loadingAction} className="mt-3">
+                            {loadingAction ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                            Join Club
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -575,16 +829,19 @@ export default function ClubDetailPage({ params }: { params: { id: string } }) {
         </div>
 
         <div>
-          <Card>
+          <Card className="mt-3">
             <CardHeader>
-              <CardTitle>Club Members</CardTitle>
-              <CardDescription>{club.memberCount} members</CardDescription> {/* Updated to memberCount */}
+              <CardTitle className="text-secondary">Club Members</CardTitle>
+              <CardDescription className="font-serif text-sm font-normal">{club.memberCount} members</CardDescription> {/* Updated to memberCount */}
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {/* Dynamically display members based on club.memberCount */}
-                {[...Array(Math.min(6, club.memberCount ?? 0))].map((_, i) => (
+
+                {[...Array(Math.min(6, club.memberships.length ?? 0))].map((member, i) => (
                   <div key={i} className="flex items-center gap-3">
+                    
+                    
                     <Avatar className="h-8 w-8">
                       {/* For real members, you'd iterate over an array of `club.members`
                           each with their own avatar/name properties, fetched from the backend. */}
@@ -600,13 +857,13 @@ export default function ClubDetailPage({ params }: { params: { id: string } }) {
                     <div>
                       <p className="text-sm font-medium">
                         {/* These member names are hardcoded. */}
-                        {["Jane Doe", "Alex Lee", "Sarah Johnson", "Mike Peterson", "Emma Wilson", "David Kim"][i]}
+                        {club.memberships[i].user.display_name}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {/* Member progress is hardcoded. */}
                         {i === 0
-                          ? "Admin"
-                          : ["65% progress", "42% progress", "100% progress", "30% progress", "78% progress"][i - 1]}
+                          ? "Admin - Current Status"
+                          : "Current Status"}
                       </p>
                     </div>
                   </div>
@@ -620,23 +877,23 @@ export default function ClubDetailPage({ params }: { params: { id: string } }) {
                 )}
               </div>
             </CardContent>
-            <CardFooter>
-              <Button className="w-full bg-primary hover:bg-primary-light text-primary-foreground">
-                <Plus className="mr-2 h-4 w-4" /> Invite Members
+            <CardFooter className="flex justify-end">
+              <Button className="bg-primary hover:bg-primary-light text-secondary rounded-full">
+                <Plus className="mr-1 h-4 w-4" /> Invite Members
               </Button>
             </CardFooter>
           </Card>
 
           {/* --- NEW: Admin section for Pending Applications --- */}
           {club.currentUserIsAdmin && club.pendingMemberships && club.pendingMemberships.length > 0 && (
-            <Card className="mt-6">
-              <CardHeader>
+            <Card className="mt-3">
+              <CardHeader className="pb-2">
                 <CardTitle>Pending Applications</CardTitle>
-                <CardDescription>Review new membership requests for this club.</CardDescription>
+                <CardDescription className="font-serif text-sm font-normal">Review new membership requests for this club.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-2">
                 {club.pendingMemberships.map((applicant) => (
-                  <div key={applicant.id} className="flex items-center justify-between p-2 border rounded-md">
+                  <div key={applicant.id} className="flex items-center justify-between p-2 bg-secondary-light/10 rounded-lg">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={applicant.userAvatar || "/placeholder.svg"} alt={applicant.userName} />
@@ -645,15 +902,15 @@ export default function ClubDetailPage({ params }: { params: { id: string } }) {
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="text-sm font-medium">{applicant.userName}</p>
-                        <p className="text-xs text-muted-foreground">Applied {new Date(applicant.appliedAt).toLocaleDateString()}</p>
+                        <p className="text-sm/4 font-medium">{applicant.userName}</p>
+                        <p className="text-xs text-secondary font-serif font-normal">Applied {new Date(applicant.appliedAt).toLocaleDateString()}</p>
                       </div>
                     </div>
                     <Button
                       onClick={() => handleApproveMembership(applicant.id, applicant.userName)} // Pass only membershipId and name
                       disabled={loadingAction}
                       size="sm"
-                      className="bg-green-500 hover:bg-green-600 text-white"
+                      className="bg-accent-variant/80 hover:bg-accent-variant text-white rounded-full h-8"
                     >
                       {loadingAction ? (
                         <Loader2 className="h-4 w-4 animate-spin" />

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient } from '@/lib/generated/prisma'
+import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@/lib/generated/prisma'
 import { FriendRequestStatus } from '@/lib/generated/prisma';
 
 const prisma = new PrismaClient()
@@ -22,9 +22,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Request ID is required" }, { status: 400 });
     }
 
-    // --- ATOMIC TRANSACTION for accepting a request ---
+    let originalSenderId: string | null = null;
+
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Find and update the request status
       const request = await tx.friendRequest.findUnique({
         where: { id: requestId },
       });
@@ -38,6 +38,8 @@ export async function POST(req: NextRequest) {
       if (request.status !== FriendRequestStatus.PENDING) {
         throw new Error("Request is not pending.");
       }
+      
+      originalSenderId = request.senderId; // Capture senderId for activity log
 
       await tx.friendRequest.update({
         where: { id: requestId },
@@ -55,8 +57,27 @@ export async function POST(req: NextRequest) {
           userId2: userId2,
         },
       });
-
-      return friendship; // Return the created friendship
+      
+      // --- Create ActivityLog Entry for ACCEPTED_FRIEND_REQUEST ---
+      // Logged by the user who accepted the request (the receiver of original request)
+      if (originalSenderId) { // Ensure senderId was captured
+        await tx.activityLog.create({
+          data: {
+            user_id: user.id, // User who accepted (current user)
+            activity_type: ActivityType.ACCEPTED_FRIEND_REQUEST,
+            target_entity_type: ActivityTargetEntityType.PROFILE, // Target is the profile of the original sender
+            target_entity_id: originalSenderId,
+            related_user_id: originalSenderId, // The user whose request was accepted
+            details: {
+              accepter_id: user.id,
+              original_sender_id: originalSenderId,
+              friend_request_id: requestId
+            }
+          }
+        });
+      }
+      // --- End ActivityLog Entry ---
+      return friendship; 
     });
 
     return NextResponse.json(result, { status: 200 });

@@ -29,7 +29,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient } from '@/lib/generated/prisma'
+import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@/lib/generated/prisma';
 const prisma = new PrismaClient();
 
 export async function POST(req: NextRequest) {
@@ -54,9 +54,9 @@ export async function POST(req: NextRequest) {
       title, 
       author, 
       description, 
-      reading_speed, // From dialog it's reading_speed not reading_time
+      reading_speed, 
       pages, 
-      subjects, // From dialog it's subjects not genres
+      subjects, 
       coverUrl,
       storageKey, 
       originalName, 
@@ -65,13 +65,11 @@ export async function POST(req: NextRequest) {
       rating
     } = body;
     
-    // Convert subjects array to properly formatted genres string array
     const genres = subjects && Array.isArray(subjects) 
-      ? subjects.slice(0, 5).map(s => s.trim()) // Take top 5 subjects 
+      ? subjects.slice(0, 5).map((s: string) => s.trim()) // Added type for s
       : [];
     
-    // Create the book record with associated file
-    const book = await prisma.book.create({
+    const newBook = await prisma.book.create({ // Renamed to newBook for clarity
       data: {
         title,
         author,
@@ -82,7 +80,7 @@ export async function POST(req: NextRequest) {
         cover_url: coverUrl || null,
         published_date: publishDate || null,
         rating: rating || null,
-        added_by: user.id,
+        added_by: user.id, // This is the user who is adding the book
         file: storageKey ? { 
           create: { 
             storage_key: storageKey, 
@@ -94,9 +92,26 @@ export async function POST(req: NextRequest) {
       },
       include: { file: true }
     });
+
+    // --- Create ActivityLog Entry for ADDED_BOOK_TO_LIBRARY ---
+    if (newBook) {
+      await prisma.activityLog.create({
+        data: {
+          user_id: user.id, // The user who added the book
+          activity_type: ActivityType.ADDED_BOOK_TO_LIBRARY,
+          target_entity_type: ActivityTargetEntityType.BOOK,
+          target_entity_id: newBook.id,
+          details: {
+            book_title: newBook.title,
+            book_author: newBook.author
+          }
+        }
+      });
+    }
+    // --- End ActivityLog Entry ---
     
-    return NextResponse.json(book, { status: 201 });
-  } catch (error) {
+    return NextResponse.json(newBook, { status: 201 });
+  } catch (error: any) { // Explicitly type error as any
     console.error("Error creating book:", error);
     return NextResponse.json(
       { error: error.message || "Failed to create book" },
@@ -124,28 +139,15 @@ export async function GET(req: NextRequest) {
     // Get all books 
     const books = await prisma.book.findMany({
       include: {
-        file: true, // Include file information
+        file: true, 
       },
       orderBy: {
-        created_at: 'desc', // Newest first
+        created_at: 'desc',
       },
     });
-    
-    // Get all books for the current user
-    // const books = await prisma.book.findMany({
-    //   where: {
-    //     added_by: user.id,
-    //   },
-    //   include: {
-    //     file: true, // Include file information
-    //   },
-    //   orderBy: {
-    //     created_at: 'desc', // Newest first
-    //   },
-    // });
-    
+        
     return NextResponse.json(books);
-  } catch (error) {
+  } catch (error: any) { // Explicitly type error as any
     console.error("Error fetching books:", error);
     return NextResponse.json(
       { error: "Failed to fetch books" },

@@ -23,22 +23,20 @@ function ExploreUserCard({ user, onFriendRequestSent }: ExploreUserCardProps) {
   const targetUserForAddFriendButton: UserProfileMinimal = {
     id: user.id,
     email: user.email,
-    profile: {
-      id: user.profile.id,
-      display_name: user.profile.display_name,
+      display_name: user.display_name
       // Pass other profile fields if your AddFriendButton or its underlying API expects them
       // For this example, we only need id and display_name for minimal representation
-    }
+    
   };
 
   return (
     <Card className="p-3 flex flex-col h-full"> {/* Use flex-col and h-full for consistent card height */}
       <CardHeader className="flex-shrink-0">
-        <CardTitle className='text-sm text-secondary-light'>{user.profile.display_name}</CardTitle>
+        <CardTitle className='text-sm text-secondary-light'>{user.display_name}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col">
         <p className="text-sm text-muted-foreground">24 mutual friends</p>
-        {user.profile.favorite_genres && <p className="text-sm text-muted-foreground">**Genres:** {user.profile.favorite_genres}</p>}
+        {user.favorite_genres && <p className="text-sm text-muted-foreground">**Genres:** {user.favorite_genres}</p>}
         <p className="text-sm text-muted-foreground">Friends since May,2025</p>
       </CardContent>
       <div className="mt-4 flex-shrink-0"> {/* Use flex-shrink-0 to keep button at bottom */}
@@ -88,11 +86,9 @@ export default function FriendsMain() {
         const friendUserForCard: UserProfileMinimal = {
           id: friendUserPrisma.id,
           email: friendUserPrisma.email,
-          profile: friendUserPrisma.profile ? {
-            id: friendUserPrisma.profile.id,
-            display_name: friendUserPrisma.profile.display_name,
+            display_name: friendUserPrisma.display_name,
             // Only passing minimal info as FriendCard usually doesn't show all
-          } : undefined,
+          
         };
 
         
@@ -238,7 +234,7 @@ export default function FriendsMain() {
                     </div>
                     <div className="flex flex-col w-full">
                         <div className="flex flex-col">
-                            <CardTitle>{request.receiver?.profile?.display_name || request.receiver?.email || 'Unknown User'}</CardTitle>
+                            <CardTitle>{request.receiver?.display_name || request.receiver?.email || 'Unknown User'}</CardTitle>
                             <p className="text-xs/3 text-secondary font-serif">24 mutual friends</p>
                             <div className='flex justify-between w-full items-end'>
                                 <CardDescription className='text-xs/3 text-secondary font-serif'>request sent {formatDate(request.sentAt)}</CardDescription>

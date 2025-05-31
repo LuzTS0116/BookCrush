@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image";
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,9 +13,21 @@ import { Pencil, Save } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from 'next/navigation'
 
+// Simple loading component
+function LoadingClubs() {
+  return (
+    <div className="container mx-auto px-4 py-6 pb-20 flex items-center justify-center min-h-[400px]">
+      <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      <span className="ml-3 text-lg text-muted-foreground">Loading...</span>
+    </div>
+  );
+}
+
 export default function ProfileSetupPage() {
+  const [isLoading, setIsLoading] = useState(true);
   const [name, setName] = useState("")
   const [bio, setBio] = useState("")
   const [selectedGenre, setSelectedGenre] = useState("")
@@ -60,6 +72,7 @@ export default function ProfileSetupPage() {
     console.log('[ProfileSetupPage] handleSubmit triggered');
     e.preventDefault()
     setError(null)
+    setIsLoading(true);
 
     try {
       const res = await fetch('/api/profile', {
@@ -97,10 +110,19 @@ export default function ProfileSetupPage() {
     } catch (err) {
       setError((err as Error).message)
       console.error(err)
-    }
+    }finally {
+        setIsLoading(false);
+      }
   }
 
+  useEffect(() => {
+    setIsLoading(false);
+  }, []);
+
   return (
+    
+
+      
     <div className="relative w-full h-auto overflow-hidden px-4 pt-9">
       <Image 
         src="/images/background.png"
@@ -118,6 +140,23 @@ export default function ProfileSetupPage() {
               height={200}
           />
         </Link>
+        {isLoading ? (
+        <LoadingClubs />
+        
+      ) : error ? (
+        <div className="container mx-auto px-4 py-6 pb-20 flex items-center justify-center min-h-[400px]">
+          <div className="text-center text-red-500">
+            <p>Failed to load profile setup page</p>
+            <p className="text-sm mt-2">{error}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 bg-primary text-white rounded-full hover:bg-primary-dark"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      ) : (
         <Card className="w-full max-w-2xl border-primary/20 bg-[url('/images/quote-bg.svg')] bg-cover">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl/6 font-bold text-center text-secondary">Complete Your Profile</CardTitle>
@@ -236,7 +275,9 @@ export default function ProfileSetupPage() {
             </Button>
           </CardFooter>
         </Card>
+        )}
     </div>
     </div>
+    
   )
 }

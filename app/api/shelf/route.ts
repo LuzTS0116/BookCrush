@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient } from '@/lib/generated/prisma';
+import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@/lib/generated/prisma';
 import { parseShelfType, parseStatusType } from '@/lib/enum'; // Import your enum parser
 import { shelf_type, status_type } from '@/lib/generated/prisma';
 
@@ -52,7 +52,15 @@ export async function POST(req: NextRequest) {
         user_id: user.id,
         book_id: bookId,
       },
+      include: { 
+        book: { select: { title: true } } // Ensure title is fetched for activity log
+      }
     });
+
+    let previousShelf = existingUserBook?.shelf;
+    let previousStatus = existingUserBook?.status;
+    // Use book title from existingUserBook if available, otherwise it will be fetched from userBook after upsert
+    let bookTitleForActivity = existingUserBook?.book?.title || 'A book'; 
 
     if (existingUserBook) {
       // If it exists on a *different* shelf, delete the old entry
@@ -79,25 +87,78 @@ export async function POST(req: NextRequest) {
         user_id_book_id_shelf: {
           user_id: user.id,
           book_id: bookId,
-          shelf: shelfType, // This is the target shelf
+          shelf: shelfType, 
         },
       },
       update: {
         status: statusType,
-        position: position ?? null, // Use null if position is undefined
-        added_at: new Date(), // Optionally update added_at on move/update
+        position: position ?? null, 
+        added_at: new Date(), 
+        shelf: statusType === status_type.finished ? shelf_type.history : shelfType, // Temporarily removed due to schema constraint
+        //shelf: shelfType, // Keeps the book on its current shelf even if finished
       },
       create: {
         user_id: user.id,
         book_id: bookId,
-        shelf: shelfType,
+        shelf: statusType === status_type.finished ? shelf_type.history : shelfType, // Temporarily removed
         status: statusType,
         position: position ?? null,
       },
       include: {
-        book: true, // Include book details in the response
+        book: true, 
       },
     });
+
+    // --- Create ActivityLog Entry ---
+    // Ensure bookTitle is up-to-date from the upserted record, especially if it was a new book
+    bookTitleForActivity = userBook.book?.title || bookTitleForActivity;
+
+    if (statusType === status_type.finished) {
+      if (previousStatus === status_type.in_progress || previousStatus === status_type.almost_done) {
+        await prisma.activityLog.create({
+          data: {
+            user_id: user.id,
+            activity_type: ActivityType.FINISHED_READING_BOOK,
+            target_entity_type: ActivityTargetEntityType.USER_BOOK,
+            target_entity_id: userBook.book_id,
+            details: { book_title: bookTitleForActivity, shelf_name: userBook.shelf.toString() }
+          }
+        });
+      }
+    } else if (!existingUserBook || previousShelf !== shelfType) {
+      await prisma.activityLog.create({
+        data: {
+          user_id: user.id,
+          activity_type: ActivityType.ADDED_BOOK_TO_SHELF,
+          target_entity_type: ActivityTargetEntityType.USER_BOOK,
+          target_entity_id: userBook.book_id,
+          target_entity_secondary_id: userBook.shelf.toString(), 
+          details: {
+            book_title: bookTitleForActivity,
+            shelf_name: userBook.shelf.toString(),
+            previous_shelf: previousShelf 
+          }
+        }
+      });
+    } else if (existingUserBook && previousStatus !== statusType) {
+      // Log changing status on the same shelf
+      await prisma.activityLog.create({
+        data: {
+          user_id: user.id,
+          activity_type: ActivityType.CHANGED_BOOK_STATUS,
+          target_entity_type: ActivityTargetEntityType.USER_BOOK,
+          target_entity_id: userBook.book_id,
+          target_entity_secondary_id: userBook.status.toString(), 
+          details: {
+            book_title: bookTitleForActivity,
+            shelf_name: userBook.shelf.toString(), 
+            old_status: previousStatus,
+            new_status: userBook.status.toString(),
+          }
+        }
+      });
+    }
+    // --- End ActivityLog Entry ---
 
     return NextResponse.json(userBook, { status: 200 });
 

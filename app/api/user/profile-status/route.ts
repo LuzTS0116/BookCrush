@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin'; // Assuming this is your configured admin client
+import { PrismaClient,Prisma } from '@/lib/generated/prisma'
+
+const prisma = new PrismaClient()
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('Authorization');
@@ -24,21 +27,17 @@ export async function GET(request: Request) {
     }
 
     // Check if a profile exists for this user
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('id')
-      .eq('id', user.id)
-      .maybeSingle(); // Use maybeSingle to return null if not found, instead of erroring
 
-    if (profileError) {
-      console.error('[API /profile-status] Error fetching profile:', profileError.message);
-      return NextResponse.json({ error: 'Failed to fetch profile data' }, { status: 500 });
-    }
-    console.log('Profile check API response:', { hasProfile: !!profile });
+      const profile = await prisma.profile.findUnique({
+      where: { id: user.id }
+    })
+
+    console.log('Prisma Profile check API response:', { hasProfile: !!profile });
     return NextResponse.json({ hasProfile: !!profile });
 
-  } catch (error: any) {
-    console.error('[API /profile-status] Unexpected error:', error.message);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError)
+    console.error('[API /profile-status] Unexpected Prisma error code:', error.code);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

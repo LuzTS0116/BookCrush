@@ -8,6 +8,11 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import AuthSessionProvider from "./_auth/SessionProvider";
 import SupabaseBridge from "./_auth/SupabaseBridge"
 import { Toaster } from "@/components/ui/sonner"
+import { loadEnvConfig } from '@next/env'
+import { MainNav } from "@/components/main-nav"
+
+const projectDir = process.cwd()
+loadEnvConfig(projectDir)
 
 const chivo = Chivo ({
   variable: "--font-sans",
@@ -37,7 +42,7 @@ export default async function RootLayout({
 
 // Fetch the session on the server once per request
   const session = await getServerSession(authOptions);
-
+  
 
   return (
     <html lang="en" className={`${chivo.variable} ${quicksand.variable}`}>
@@ -45,6 +50,7 @@ export default async function RootLayout({
         <AuthSessionProvider initialSession={session}>
           <SupabaseBridge>
         <ThemeProvider attribute="class" defaultTheme="light">
+          <MainNav />
           {children}
         </ThemeProvider>
         </SupabaseBridge>

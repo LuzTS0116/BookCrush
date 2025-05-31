@@ -6,12 +6,31 @@ import { Loader2, User, Search } from 'lucide-react';
 import { Input } from "@/components/ui/input"
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FriendRequestCard } from '@/components/social/friend-request-card';
-import { FriendCard } from '@/components/social/friend-card';
-import { getFriendsAndRequests, getExploreUsers } from '@/lib/api-helpers'; // Import getExploreUsers
-import { FriendRequest, Friendship, ExplorableUser, UserProfileMinimal } from '@/types/social'; // Import ExplorableUser
+import { getFriendsAndRequests, getExploreUsers } from '@/lib/api-helpers';
+import { FriendRequest, Friendship, ExplorableUser, UserProfileMinimal } from '@/types/social';
 import { useSession } from 'next-auth/react';
 import { AddFriendButton } from '@/components/social/add-friend-button';
+import { ActivityType, ActivityTargetEntityType } from '@/lib/generated/prisma';
+
+// --- Activity Feed Types ---
+interface EnrichedActivity {
+  id: string;
+  user_id: string; // The user whose activity this is (e.g., a friend)
+  type: ActivityType;
+  target_entity_type?: ActivityTargetEntityType | null;
+  target_entity_id?: string | null;
+  related_user_id?: string | null;
+  created_at: string; // Or Date
+  details: any; // Specific details per activity_type
+  user: UserProfileMinimal;
+  relatedUser: UserProfileMinimal;
+
+  // Enriched fields from backend
+  actor_name?: string;       // Name of the user who performed the action (usually activity.related_user.id's name)
+  actor_avatar_url?: string; // Avatar of the actor
+  target_entity_name?: string; // e.g., Club name, Book title
+  related_user_name?: string;  // e.g., Name of the friend in a friend request, or new member's name
+}
 
 // New component for displaying an explorable user profile
 interface ExploreUserCardProps {
@@ -20,104 +39,168 @@ interface ExploreUserCardProps {
 }
 
 function ExploreUserCard({ user, onFriendRequestSent }: ExploreUserCardProps) {
-  // AddFriendButton expects UserProfileMinimal. We need to adapt the ExplorableUser here.
   const targetUserForAddFriendButton: UserProfileMinimal = {
     id: user.id,
+    display_name: user.display_name,
     email: user.email,
-    profile: {
-      id: user.profile.id,
-      display_name: user.profile.display_name,
-      // Pass other profile fields if your AddFriendButton or its underlying API expects them
-      // For this example, we only need id and display_name for minimal representation
+  };
+
+  return (
+    <div className='h-auto'>
+    <Card className="p-2 flex flex-col bg-bookWhite/5 w-full max-w-xs mx-auto">
+    <CardHeader className="flex p-0 items-center">
+        <div className="flex items-center justify-center w-20 h-20 rounded-full bg-bookWhite mb-1">
+            <User className="h-6 w-6 text-gray-500" />
+        </div>
+        <CardTitle className='text-sm/4 font-medium text-bookWhite'>{user.display_name}</CardTitle>
+    </CardHeader>
+    <CardContent className="flex flex-col p-0 items-center">
+        {user.favorite_genres && <p className="text-xs font-serif italic font-normal text-accent truncate max-w-full">{user.favorite_genres}</p>}
+    </CardContent>
+    <div className={user.favorite_genres?.length ?  "mt-2 flex justify-center" : "mt-6 flex justify-center"}>
+        <AddFriendButton targetUser={targetUserForAddFriendButton} onFriendRequestSent={onFriendRequestSent} />
+    </div>
+    </Card>
+    </div>
+  );
+}
+
+// --- Activity Item Card ---
+function ActivityItemCard({ activity }: { activity: EnrichedActivity }) {
+  const timeSince = (dateInput: string | Date): string => {
+    // Ensure dateInput is valid before processing
+    if (!dateInput) {
+      // console.warn('timeSince called with invalid dateInput:', dateInput);
+      return 'just now'; // Default for null, undefined, or empty string dateInput
+    }
+
+    let date: Date;
+    if (typeof dateInput === 'string') {
+      date = new Date(dateInput);
+    } else {
+      date = dateInput; // Assumes it's already a Date object
+    }
+
+    // Check if the constructed/passed date is valid
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
+      // console.warn('timeSince could not parse dateInput into a valid Date:', dateInput);
+      return 'just now'; // Default for invalid or unparsable dates
+    }
+
+    const seconds = Math.floor((Date.now()- date.getTime()) / 1000);
+    if (seconds < 0) return 'just now'; // Handle future dates or clock skew (though ideally API sends correct past dates)
+    if (seconds < 1) return 'just now'; // Catches very small fractions of a second
+    if (seconds < 60) return seconds + 's ago';
+    let interval = Math.floor(seconds / 60);
+    if (interval < 60) return interval + 'm ago';
+    interval = Math.floor(seconds / 3600);
+    if (interval < 24) return interval + 'h ago';
+    interval = Math.floor(seconds / 86400);
+    if (interval < 30) return interval + 'd ago';
+    interval = Math.floor(seconds / 2592000);
+    if (interval < 12) return interval + 'mo ago';
+    interval = Math.floor(seconds / 31536000);
+    return interval + 'y ago';
+  };
+
+  const renderActivityText = () => {
+    const actor = activity.user.display_name || 'Someone';
+    const targetName = activity.target_entity_name;
+    const relatedUser = activity.relatedUser?.display_name;
+
+    switch (activity.type) {
+      case ActivityType.ADDED_BOOK_TO_SHELF:
+        return <><span className='font-medium'>{actor}</span> added <span className='font-medium'>{activity.details?.book_title || 'a book'}</span> to their shelf.</>;
+      case ActivityType.CHANGED_BOOK_STATUS:
+        return <><span className='font-medium'>{actor}</span> changed the status of <span className='font-medium'>{activity.details?.book_title || 'a book'}</span> to <span className='font-normal italic'>{activity.details?.status_type || 'a new status'}</span>.</>;
+      case ActivityType.FINISHED_READING_BOOK:
+        return <><span className='font-medium'>{actor}</span> finished reading <span className='font-medium'>{activity.details?.book_title || 'a book'}</span>.</>;
+      case ActivityType.CREATED_CLUB:
+        return <div className='font-light'><span className='font-medium'>{actor}</span> created the <span className='font-medium'>{targetName || activity.details?.club_name || 'a new club'}</span> book club.</div>;
+      case ActivityType.SENT_FRIEND_REQUEST:
+        return <div className='font-light'><span className='font-medium'>{actor}</span> sent a friend request to <span className='font-medium'>{relatedUser || activity.details?.receiver_name || 'someone'}</span>.</div>;
+      case ActivityType.ACCEPTED_FRIEND_REQUEST:
+        return <div className='font-light'><span className='font-medium'>{actor}</span> accepted your friend request. </div>;
+      case ActivityType.ADDED_BOOK_TO_LIBRARY:
+        return <div className='font-light'><span className='font-medium'>{actor}</span> added <span className='font-medium'>{activity.details?.book_title || 'a new book'}</span> to the library.</div>;
+      case ActivityType.CLUB_SELECTED_BOOK:
+        return <div className='font-light'><span className='font-medium'>{targetName || activity.details?.club_name}</span> (which <span className='font-medium'>{actor}</span> is part of) book club selected <span className='font-medium'>{activity.details?.book_title || 'a new book'}</span> for its next meeting.</div>;
+      case ActivityType.JOINED_CLUB:
+        return <div className='font-light'><span className='font-medium'>{actor}</span> joined the <span className='font-medium'>{targetName || activity.details?.club_name}</span> book club.</div>;
+      case ActivityType.CLUB_NEW_MEMBER:
+        return <div className='font-light'><span className='font-medium'>{relatedUser || activity.details?.new_member_name}</span> joined the <span className='font-medium'>{targetName || activity.details?.club_name}</span> (a club <span className='font-medium'>{actor}</span> is in) book club.</div>;
+      default:
+        console.warn("Unhandled activity type:", activity.type, activity);
+        return <div className='font-light'>An interesting activity involving <span className='font-medium'>{actor}</span> occurred.</div>;
     }
   };
 
   return (
-    <Card className="p-2 flex flex-col bg-bookWhite/5 w-full max-w-xs mx-auto"> {/* Use flex-col and h-full for consistent card height */}
-    <CardHeader className="flex p-0 items-center">
-        <div className="flex items-center justify-center w-24 h-24 rounded-full bg-bookWhite mb-1">
-            <User className="h-6 w-6 text-gray-500" />
+    <Card className="flex p-2 bg-bookWhite/5">
+      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-bookWhite mr-4 shrink-0">
+        {activity.actor_avatar_url ? (
+          <img src={activity.actor_avatar_url} alt={activity.actor_name || 'User'} className="w-full h-full rounded-full object-cover" />
+        ) : (
+          <User className="h-6 w-6 text-gray-500" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex flex-col">
+          <CardTitle className='text-bookWhite text-sm leading-snug'>
+            {renderActivityText()}
+            <span className='font-serif font-light text-xs opacity-80'> {timeSince(activity.created_at)}</span>
+          </CardTitle>
         </div>
-        <CardTitle className='text-sm/4 font-medium text-bookWhite'>{user.profile.display_name}</CardTitle>
-    </CardHeader>
-    <CardContent className="flex flex-col p-0 items-center">
-        <p className="text-xs font-serif text-bookWhite font-light">24 mutual friends</p>
-        {user.profile.favorite_genres && <p className="text-xs font-serif italic font-normal text-accent">{user.profile.favorite_genres}</p>}
-    </CardContent>
-    <div className="mt-2 flex justify-center"> {/* Use flex-shrink-0 to keep button at bottom */}
-        <AddFriendButton targetUser={targetUserForAddFriendButton} onFriendRequestSent={onFriendRequestSent} />
-    </div>
+      </div>
     </Card>
   );
 }
 
 export default function FriendsActivityExplore() {
   const { data: session, status: sessionStatus } = useSession();
-  const currentUserId = session?.user?.id;
+  const currentUserId = (session?.user as { id?: string; email?: string; name?: string; })?.id;
 
-  // Add 'explore' to activeTab state
-  const [activeTab, setActiveTab] = useState<'friends' | 'received' | 'sent' | 'explore'>('friends');
-  const [friends, setFriends] = useState<Friendship[]>([]);
-  const [receivedRequests, setReceivedRequests] = useState<FriendRequest[]>([]);
-  const [sentRequests, setSentRequests] = useState<FriendRequest[]>([]);
-  const [exploreUsers, setExploreUsers] = useState<ExplorableUser[]>([]); // New state for explorable users
-
+  const [activeTab, setActiveTab] = useState<'activity' | 'explore'>('activity');
+  const [exploreUsers, setExploreUsers] = useState<ExplorableUser[]>([]);
+  const [activityFeed, setActivityFeed] = useState<EnrichedActivity[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingActivity, setIsLoadingActivity] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const fetchActivityFeed = async () => {
+    setIsLoadingActivity(true);
+    try {
+      const response = await fetch('/api/social/activity');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to fetch activity feed: ${response.statusText}`);
+      }
+      const data: EnrichedActivity[] = await response.json();
+      console.log("data", data);
+      setActivityFeed(data);
+    } catch (err: any) {
+      console.error("Error fetching activity feed:", err);
+      setError(prev => prev ? `${prev}\n${err.message}` : err.message);
+    } finally {
+      setIsLoadingActivity(false);
+    }
+  };
 
   const fetchData = async () => {
     if (sessionStatus !== 'authenticated' || !currentUserId) {
       setIsLoading(false);
+      setIsLoadingActivity(false);
       return;
     }
 
     setIsLoading(true);
     setError(null);
     try {
-      // --- Fetch Friends ---
-      const fetchedFriends = (await getFriendsAndRequests('friends')) as Friendship[];
-      // Transform friendships to include the 'friendUser' directly for FriendCard
-      // This assumes your /api/social?type=friends endpoint returns Friendship objects
-      // with userA and userB relations populated.
-      const transformedFriends = fetchedFriends.map(f => {
-        
-        const friendUserPrisma = f.userId1 === currentUserId ? f.user_two : f.user_one;
-        if (!friendUserPrisma) {
-          console.warn('Friendship found without a valid friend user:', f);
-          return null;
-        }
-
-        // Map to UserProfileMinimal structure for FriendCard
-        const friendUserForCard: UserProfileMinimal = {
-          id: friendUserPrisma.id,
-          email: friendUserPrisma.email,
-          profile: friendUserPrisma.profile ? {
-            id: friendUserPrisma.profile.id,
-            display_name: friendUserPrisma.profile.display_name,
-            // Only passing minimal info as FriendCard usually doesn't show all
-          } : undefined,
-        };
-
-        
-
-        return {
-          ...f,
-          friendUser: friendUserForCard
-        };
-      }).filter(Boolean) as Friendship[]; // Filter out any nulls if friendUser was not found
-
-      setFriends(transformedFriends);
-
-      // --- Fetch Friend Requests ---
-      const fetchedReceived = (await getFriendsAndRequests('received')) as FriendRequest[];
-      setReceivedRequests(fetchedReceived);
-
-      const fetchedSent = (await getFriendsAndRequests('sent')) as FriendRequest[];
-      setSentRequests(fetchedSent);
-
-      // --- Fetch Explorable Users ---
       const fetchedExploreUsers = await getExploreUsers();
       setExploreUsers(fetchedExploreUsers);
+      
+      await fetchActivityFeed();
 
     } catch (err: any) {
       console.error("Error fetching social data:", err);
@@ -128,48 +211,43 @@ export default function FriendsActivityExplore() {
   };
 
   useEffect(() => {
-    if (sessionStatus === 'authenticated') {
+    if (sessionStatus === 'authenticated' && currentUserId) {
       fetchData();
     } else if (sessionStatus === 'unauthenticated') {
       setIsLoading(false);
+      setIsLoadingActivity(false);
     }
-  }, [sessionStatus, currentUserId]); // Re-fetch when auth status or user ID changes
+  }, [sessionStatus, currentUserId]);
 
-  // Callback to handle actions on friend requests
-  const handleRequestAction = (requestId: string, action: 'accepted' | 'declined') => {
-    // Remove the processed request from the list
-    setReceivedRequests(prev => prev.filter(req => req.id !== requestId));
-    // If accepted, re-fetch all data to update friend list and explore list
-    if (action === 'accepted') {
-      fetchData();
-    }
-  };
-
-  const formatDate = (date: Date | string) => {
-  const d = new Date(date);
-  return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
-}
-
-  // Callback for when a friend request is sent from the Explore Users tab
   const handleFriendRequestSent = () => {
-    // Re-fetch all data to update the 'sent' requests list and remove the user from 'explore'
-    fetchData();
+    if (sessionStatus === 'authenticated' && currentUserId) {
+        getExploreUsers().then(setExploreUsers).catch(err => console.error("Error refetching explore users", err));
+    }
   };
 
-  if (sessionStatus === 'loading' || isLoading) {
+  if (sessionStatus === 'loading') {
     return (
       <div className="container mx-auto p-4 text-center">
-        <Loader2 className="h-8 w-8 animate-spin mx-auto" />
-        <p className="mt-4">Loading social data...</p>
+        <Loader2 className="h-8 w-8 animate-spin mx-auto text-bookWhite" />
+        <p className="mt-4 text-bookWhite">Loading social hub...</p>
       </div>
     );
   }
 
   if (sessionStatus === 'unauthenticated') {
     return (
-      <div className="container mx-auto p-4 text-center text-red-500">
-        Please log in to view your social dashboard.
+      <div className="container mx-auto p-4 text-center text-accent">
+        Please log in to view your social hub.
       </div>
+    );
+  }
+
+  if (isLoading && isLoadingActivity && activityFeed.length === 0 && exploreUsers.length === 0) {
+    return (
+        <div className="container mx-auto p-4 text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-bookWhite" />
+            <p className="mt-4 text-bookWhite">Loading social data...</p>
+        </div>
     );
   }
 
@@ -177,20 +255,19 @@ export default function FriendsActivityExplore() {
     return (
       <div className="container mx-auto p-4 text-center text-red-500">
         Error: {error}
-        <Button onClick={fetchData} className="ml-4">Retry</Button>
+        <Button onClick={fetchData} className="ml-4 mt-2">Retry</Button>
       </div>
     );
   }
 
   return (
     <div className="mx-auto py-2 px-0 mt-2 w-full">
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} defaultValue="activity" className="space-y-4">
         <div className='flex justify-center'>
             <TabsList className="bg-secondary-light text-primary rounded-full items-center">
             <TabsTrigger value="activity" className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full">
                 Activity
             </TabsTrigger>
-            {/* New Tab Trigger for Explore Users */}
             <TabsTrigger value="explore" className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full">
                 Explore
             </TabsTrigger>
@@ -198,271 +275,50 @@ export default function FriendsActivityExplore() {
         </div>
 
         <TabsContent value="activity" className="space-y-4">
-          {sentRequests.length === 0 ? (
-            <p className="text-muted-foreground text-center">No recent activity.</p>
+          {isLoadingActivity && activityFeed.length === 0 ? (
+            <div className="text-center py-10">
+                <Loader2 className="h-6 w-6 animate-spin mx-auto text-bookWhite" />
+                <p className="mt-2 text-bookWhite/70">Loading friend activity...</p>
+            </div>
+          ) : activityFeed.length === 0 ? (
+            <p className="text-bookWhite/70 text-center py-10">No recent friend activity to show.</p>
           ) : (
-            <div className="grid gap-2 md:grid-cols-1 lg:grid-cols-2 bg-transparent mx-4 h-[51vh] overflow-y-auto no-scrollbar rounded-lg p-2">
-              {sentRequests.map((request) => (
-                <Card className="flex items-center p-2 bg-bookWhite/5">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-bookWhite mr-4">
-                        <User className="h-6 w-6 text-gray-500" />
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex flex-col">
-                            <CardTitle className='text-bookWhite text-sm'>
-                                <span className='font-medium'>{request.receiver?.profile?.display_name || request.receiver?.email || 'Unknown User'}</span>
-                                <span className='font-light'> started reading </span>
-                                <span className='font-medium'>Great Big Beautiful Life.</span>
-                                <span className='font-serif font-light'> 1h ago</span>
-                            </CardTitle>
-                        </div>
-                    </div>
-                </Card>
-              ))}
-              {sentRequests.map((request) => (
-                <Card className="flex items-center p-2 bg-bookWhite/5">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-bookWhite mr-4">
-                        <User className="h-6 w-6 text-gray-500" />
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex flex-col">
-                            <CardTitle className='text-bookWhite text-sm'>
-                                <span className='font-medium'>Luz Tuñon</span>
-                                <span className='font-light'> completed reading </span>
-                                <span className='font-medium'>Heat of the Everflame.</span>
-                                <span className='font-serif font-light'> 8h ago</span>
-                            </CardTitle>
-                        </div>
-                    </div>
-                </Card>
-              ))}
-              {sentRequests.map((request) => (
-                <Card className="flex items-center p-2 bg-bookWhite/5">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-bookWhite mr-4">
-                        <User className="h-6 w-6 text-gray-500" />
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex flex-col">
-                            <CardTitle className='text-bookWhite text-sm'>
-                                <span className='font-medium'>Patricia Polo</span>
-                                <span className='font-light'> created the </span>
-                                <span className='font-medium'>Emily Henry Fans</span>
-                                <span className='font-light'> book club </span>
-                                <span className='font-serif font-light'> 1d ago</span>
-                            </CardTitle>
-                        </div>
-                    </div>
-                </Card>
-              ))}
-              {sentRequests.map((request) => (
-                <Card className="flex items-center p-2 bg-bookWhite/5">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-bookWhite mr-4">
-                        <User className="h-6 w-6 text-gray-500" />
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex flex-col">
-                            <CardTitle className='text-bookWhite text-sm'>
-                                <span className='font-medium'>Meilyn Mong</span>
-                                <span className='font-light'> added </span>
-                                <span className='font-medium'>Throne of Glass</span>
-                                <span className='font-light'> to the library.</span>
-                                <span className='font-serif font-light'> 3d ago</span>
-                            </CardTitle>
-                        </div>
-                    </div>
-                </Card>
-              ))}
-              {sentRequests.map((request) => (
-                <Card className="flex items-center p-2 bg-bookWhite/5">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-bookWhite mr-4">
-                        <User className="h-6 w-6 text-gray-500" />
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex flex-col">
-                            <CardTitle className='text-bookWhite text-sm'>
-                                <span className='font-medium'>Kristell Thompsom</span>
-                                <span className='font-light'> added a review for </span>
-                                <span className='font-medium'>Verity</span>
-                                <span className='font-serif font-light'> 1w ago</span>
-                            </CardTitle>
-                        </div>
-                    </div>
-                </Card>
-              ))}
-              {sentRequests.map((request) => (
-                <Card className="flex items-center p-2 bg-bookWhite/5">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-bookWhite mr-4">
-                        <User className="h-6 w-6 text-gray-500" />
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex flex-col">
-                            <CardTitle className='text-bookWhite text-sm'>
-                                <span className='font-medium'>Thai Chilli</span>
-                                <span className='font-light'> book club selected </span>
-                                <span className='font-medium'>Verity</span>
-                                <span className='font-light'> for its next meeting.</span>
-                                <span className='font-serif font-light'> 2w ago</span>
-                            </CardTitle>
-                        </div>
-                    </div>
-                </Card>
-              ))}
-              {sentRequests.map((request) => (
-                <Card className="flex items-center p-2 bg-bookWhite/5">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-bookWhite mr-4">
-                        <User className="h-6 w-6 text-gray-500" />
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex flex-col">
-                            <CardTitle className='text-bookWhite text-sm'>
-                                <span className='font-light'>A book club </span>
-                                <span className='font-medium'>Meilyn Mong</span>
-                                <span className='font-light'> is in selected </span>
-                                <span className='font-medium'>Twilight</span>
-                                <span className='font-light'> for its next meeting.</span>
-                                <span className='font-serif font-light'> 2w ago</span>
-                            </CardTitle>
-                        </div>
-                    </div>
-                </Card>
-              ))}
-              {sentRequests.map((request) => (
-                <Card className="flex items-center p-2 bg-bookWhite/5">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-bookWhite mr-4">
-                        <User className="h-6 w-6 text-gray-500" />
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex flex-col">
-                            <CardTitle className='text-bookWhite text-sm'>
-                                <span className='font-medium'>Natacha Moreno</span>
-                                <span className='font-light'> accepted your friend request.</span>
-                                <span className='font-serif font-light'> 2w ago</span>
-                            </CardTitle>
-                        </div>
-                    </div>
-                </Card>
-              ))}
-              {sentRequests.map((request) => (
-                <Card className="flex items-center p-2 bg-bookWhite/5">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-bookWhite mr-4">
-                        <User className="h-6 w-6 text-gray-500" />
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex flex-col">
-                            <CardTitle className='text-bookWhite text-sm'>
-                                <span className='font-medium'>Patricia Polo</span>
-                                <span className='font-light'> added </span>
-                                <span className='font-medium'>Spark of the Everflame</span>
-                                <span className='font-light'> to her shelf.</span>
-                                <span className='font-serif font-light'> 2w ago</span>
-                            </CardTitle>
-                        </div>
-                    </div>
-                </Card>
-              ))}
-              {sentRequests.map((request) => (
-                <Card className="flex items-center p-2 bg-bookWhite/5">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-bookWhite mr-4">
-                        <User className="h-6 w-6 text-gray-500" />
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex flex-col">
-                            <CardTitle className='text-bookWhite text-sm'>
-                                <span className='font-medium'>La VampiFormula</span>
-                                <span className='font-light'> welcomed a new member.</span>
-                                <span className='font-serif font-light'> 2w ago</span>
-                            </CardTitle>
-                        </div>
-                    </div>
-                </Card>
-              ))}
-              {sentRequests.map((request) => (
-                <Card className="flex items-center p-2 bg-bookWhite/5">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-bookWhite mr-4">
-                        <User className="h-6 w-6 text-gray-500" />
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex flex-col">
-                            <CardTitle className='text-bookWhite text-sm'>
-                                <span className='font-light'>You finished </span>
-                                <span className='font-medium'>5 books</span>
-                                <span className='font-light'>  this month 🎉</span>
-                                <span className='font-serif font-light'> 2w ago</span>
-                            </CardTitle>
-                        </div>
-                    </div>
-                </Card>
-              ))}
-              {sentRequests.map((request) => (
-                <Card className="flex items-center p-2 bg-bookWhite/5">
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-bookWhite mr-4">
-                        <User className="h-6 w-6 text-gray-500" />
-                    </div>
-                    <div className="flex-1">
-                        <div className="flex flex-col">
-                            <CardTitle className='text-bookWhite text-sm'>
-                                <span className='font-light'>You and</span>
-                                <span className='font-medium'>Patricia Polo</span>
-                                <span className='font-light'> have been friends for 1 year 🎉 Celebrate with a book recommendation!</span>
-                                <span className='font-serif font-light'> 2w ago</span>
-                            </CardTitle>
-                        </div>
-                    </div>
-                </Card>
+            <div className="flex flex-col items-start gap-2 bg-transparent mx-4 h-[51vh] overflow-y-auto no-scrollbar rounded-lg p-2">
+              {activityFeed.map((activity, index) => (
+                <ActivityItemCard key={index} activity={activity} />
               ))}
             </div>
           )}
         </TabsContent>
 
-        {/* New Tab Content for Explore Users */}
         <TabsContent value="explore" className="space-y-4">
-            
             <div className='flex justify-center'>
-                <div className="relative w-[80vw]">
-                    <Search className="absolute left-3 top-1/3 pt-1 -translate-y-1/2 h-4 w-4 text-secondary" />
+                <div className="relative w-[80vw] md:w-[60vw] lg:w-[40vw]">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-secondary" />
                     <Input
-                        placeholder="Search books and more"
-                        className="pl-10 rounded-full bg-bookWhite/90"
-                        value=""
+                        placeholder="Search people..."
+                        className="pl-10 rounded-full bg-bookWhite/90 text-primary placeholder:text-primary/70"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
             </div>
-          {exploreUsers.length === 0 ? (
-            <p className="text-muted-foreground">No new users to explore at the moment.</p>
-          ) : (
-            <div className="grid grid-cols-3 gap-1 bg-transparent mx-2 h-[45vh] overflow-y-auto no-scrollbar rounded-lg p-2">
-              {exploreUsers.map((user) => (
-                <ExploreUserCard key={user.id} user={user} onFriendRequestSent={handleFriendRequestSent} />
-              ))}
-              {exploreUsers.map((user) => (
-                <ExploreUserCard key={user.id} user={user} onFriendRequestSent={handleFriendRequestSent} />
-              ))}
-              {exploreUsers.map((user) => (
-                <ExploreUserCard key={user.id} user={user} onFriendRequestSent={handleFriendRequestSent} />
-              ))}
-              {exploreUsers.map((user) => (
-                <ExploreUserCard key={user.id} user={user} onFriendRequestSent={handleFriendRequestSent} />
-              ))}
-              {exploreUsers.map((user) => (
-                <ExploreUserCard key={user.id} user={user} onFriendRequestSent={handleFriendRequestSent} />
-              ))}
-              {exploreUsers.map((user) => (
-                <ExploreUserCard key={user.id} user={user} onFriendRequestSent={handleFriendRequestSent} />
-              ))}
-              {exploreUsers.map((user) => (
-                <ExploreUserCard key={user.id} user={user} onFriendRequestSent={handleFriendRequestSent} />
-              ))}
-              {exploreUsers.map((user) => (
-                <ExploreUserCard key={user.id} user={user} onFriendRequestSent={handleFriendRequestSent} />
-              ))}
-              {exploreUsers.map((user) => (
-                <ExploreUserCard key={user.id} user={user} onFriendRequestSent={handleFriendRequestSent} />
-              ))}
-
-
-
-            </div>
-          )}
+            {isLoading && exploreUsers.length === 0 ? (
+              <div className="text-center py-10">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-bookWhite" />
+                  <p className="mt-2 text-bookWhite/70">Loading users to explore...</p>
+              </div>
+            ) : exploreUsers.filter(user => user.display_name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
+              <p className="text-bookWhite/70 text-center py-10">{searchQuery ? "No users match your search." : "No new users to explore right now."}</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-2 bg-transparent mx-2 h-[45vh] overflow-y-auto no-scrollbar rounded-lg p-1">
+                {exploreUsers
+                  .filter(user => user.display_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map((user) => (
+                    <ExploreUserCard key={user.id} user={user} onFriendRequestSent={handleFriendRequestSent} />
+                ))}
+              </div>
+            )}
         </TabsContent>
       </Tabs>
     </div>

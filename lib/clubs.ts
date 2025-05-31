@@ -2,6 +2,9 @@
  * Club-related data fetching functions
  */
 
+// import { cookies } from 'next/headers'; // REMOVE: Cannot be used here
+// import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'; // REMOVE: Client initialized in Server Component
+
 // Types
 interface ClubMembershipRequest {
   id: string;
@@ -20,10 +23,10 @@ interface Club {
   memberCount: number;
   admin?: boolean;
   ownerId: string;
-  currentBook?: {
+  current_book?: {
     title: string;
     author: string;
-    cover: string;
+    cover_url: string;
   };
   nextMeeting?: string;
   history?: { title: string; author: string; date: string; cover: string; }[];
@@ -37,19 +40,21 @@ const getBaseUrl = () => {
     // Browser should use current path
     return '';
   }
-  // Server should use absolute URL
-  return process.env.VERCEL_URL 
+  // Use NEXT_PUBLIC_APP_URL for server-side calls to your own API routes
+  // Ensure this is set in your environment variables (e.g., http://localhost:3000 for local dev)
+  return process.env.NEXT_PUBLIC_APP_URL || (
+    process.env.VERCEL_URL 
     ? `https://${process.env.VERCEL_URL}` 
-    : 'http://localhost:3000';
+    : 'http://localhost:3000'
+  ); 
 };
 
-// Helper function to get request options
-const getRequestOptions = () => {
-  // When in browser, include credentials to ensure cookies are sent
-  // When on server, we need to forward headers from the incoming request
+// getRequestOptions is no longer needed for token-based auth in getMyClubs
+// but might still be used by getDiscoverClubs if it remains cookie-based or public
+const getCookieBasedRequestOptions = () => {
   return {
     cache: 'no-store' as RequestCache,
-    credentials: 'include' as RequestCredentials,
+    credentials: 'include' as RequestCredentials, // For cookie-based auth
     headers: {
       'Content-Type': 'application/json',
     }
@@ -59,31 +64,47 @@ const getRequestOptions = () => {
 /**
  * Fetches clubs the current user is a member of
  * Also loads pending memberships for clubs where the user is an admin
+ * @param accessToken - The Supabase access token for the authenticated user
  */
-export async function getMyClubs(): Promise<Club[]> {
+export async function getMyClubs(accessToken: string | undefined): Promise<Club[]> {
   const baseUrl = getBaseUrl();
-  const options = getRequestOptions();
+
+  if (!accessToken) {
+    console.warn("getMyClubs: No access token provided.");
+    // Or throw new Error("User not authenticated or access token is unavailable.");
+    return []; // Return empty or throw, based on how page.tsx handles this
+  }
+
+  const tokenRequestOptions = {
+    cache: 'no-store' as RequestCache,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    }
+  };
   
   try {
-    const response = await fetch(`${baseUrl}/api/clubs/my-clubs`, options);
+    const response = await fetch(`${baseUrl}/api/clubs/my-clubs`, tokenRequestOptions);
     
     if (!response.ok) {
-      // Add more details to the error for debugging
       const errorText = await response.text().catch(() => 'No error text available');
-      throw new Error(`Failed to fetch your clubs. Status: ${response.status}. Details: ${errorText}`);
+      console.error(`Failed to fetch your clubs. Status: ${response.status}. URL: ${baseUrl}/api/clubs/my-clubs. Details: ${errorText}`);
+      throw new Error(`Failed to fetch your clubs. Status: ${response.status}.`);
     }
     
     const data: Club[] = await response.json();
 
     // For each club where the user is an admin, fetch pending memberships
+    // This part also needs to use tokenRequestOptions if the pending-memberships API is secured similarly
     const clubsWithPending: Club[] = await Promise.all(data.map(async (club) => {
-      if (club.admin) { // Check if the current user is an admin of this club
+      if (club.admin) { 
         try {
-          const pendingRes = await fetch(`${baseUrl}/api/clubs/${club.id}/pending-memberships`, options);
+          // Assuming /api/clubs/[club.id]/pending-memberships is also secured with Bearer token
+          const pendingRes = await fetch(`${baseUrl}/api/clubs/${club.id}/pending-memberships`, tokenRequestOptions);
           
           if (!pendingRes.ok) {
             console.error(`Failed to fetch pending memberships for club ${club.id}: ${pendingRes.statusText}`);
-            return { ...club, pendingMemberships: [] }; // Return club with empty pending array
+            return { ...club, pendingMemberships: [] };
           }
           const pendingData: ClubMembershipRequest[] = await pendingRes.json();
           return { ...club, pendingMemberships: pendingData };
@@ -97,23 +118,36 @@ export async function getMyClubs(): Promise<Club[]> {
 
     return clubsWithPending;
   } catch (err: any) {
-    console.error("Error fetching my clubs:", err);
-    throw new Error(`Error fetching your clubs: ${err.message}`);
+    console.error("Error in getMyClubs fetching process:", err);
+    // Re-throw or handle as appropriate for your application
+    throw new Error(err.message || "An unexpected error occurred while fetching your clubs.");
   }
 }
 
 /**
  * Fetches clubs the current user is NOT a member of
+ * If this requires auth and is called server-side, it should also be updated.
  */
-export async function getDiscoverClubs(): Promise<Club[]> {
+export async function getDiscoverClubs(accessToken?: string | undefined): Promise<Club[]> { // Also accept token if needed
   const baseUrl = getBaseUrl();
-  const options = getRequestOptions();
+  
+  let options: RequestInit;
+  if (accessToken) { // If token provided, use it
+      options = {
+          cache: 'no-store' as RequestCache,
+          headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`,
+          }
+      };
+  } else { // Fallback to cookie-based or public if no token
+      options = getCookieBasedRequestOptions(); 
+  }
   
   try {
     const response = await fetch(`${baseUrl}/api/clubs/discover`, options);
     
     if (!response.ok) {
-      // Add more details to the error for debugging
       const errorText = await response.text().catch(() => 'No error text available');
       throw new Error(`Failed to fetch discoverable clubs. Status: ${response.status}. Details: ${errorText}`);
     }

@@ -14,7 +14,7 @@ export default function ProfilePage() {
         height={2871}
         className="absolute inset-0 w-auto h-full lg:w-full lg:h-auto object-cover z-[-1]"
       />
-      <MainNav />
+      
       <ProfileMain />      
       <MobileNav />
     </div>

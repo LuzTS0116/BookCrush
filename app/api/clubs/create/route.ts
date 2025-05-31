@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient } from '@/lib/generated/prisma'
+import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@/lib/generated/prisma'
 import { ClubRole, ClubMembershipStatus } from '@/lib/generated/prisma'; // Import enums
 
 const prisma = new PrismaClient()
@@ -46,6 +46,21 @@ export async function POST(req: NextRequest) {
           status: ClubMembershipStatus.ACTIVE,
         },
       });
+
+      // --- Create ActivityLog Entry for CREATED_CLUB ---
+      await tx.activityLog.create({
+        data: {
+          user_id: user.id,
+          activity_type: ActivityType.CREATED_CLUB,
+          target_entity_type: ActivityTargetEntityType.CLUB,
+          target_entity_id: newClub.id,
+          details: {
+            club_name: newClub.name,
+            club_description: newClub.description,
+          }
+        }
+      });
+      // --- End ActivityLog Entry ---
 
       return newClub; // Return the newly created club
     });
