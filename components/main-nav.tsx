@@ -19,12 +19,26 @@ import {
 
 import { useSession } from "next-auth/react";
 import { handleSignOut } from '@/lib/auth';
-
+import { useProfile } from "@/hooks/use-profile"
 
 export function MainNav() {
   
   const { data: session, status } = useSession(); // will be 'authenticated' here
+
+  // The useProfile hook already uses SWR with proper caching (5 minutes)
+  // and deduplication, so it will only fetch once and reuse the data
+  const { 
+    avatarUrl, 
+    displayName, 
+    initials, 
+    email, 
+    isLoading: profileLoading,
+    error: profileError 
+  } = useProfile()
+
   const pathname = usePathname()
+
+  console.log(avatarUrl)
   
   // Check if the current path matches /clubs/[id], /profile/[id], or /books/[id]
   const shouldHideNav = /^\/(clubs|profile|books)\/[^/]+$/.test(pathname);
@@ -87,9 +101,9 @@ export function MainNav() {
           ))}
         </nav>
         <div className="ml-auto flex items-center space-x-4">
-          <Link href="/calendar" className="text-muted-foreground hover:text-primary">
+          {/* <Link href="/calendar" className="text-muted-foreground hover:text-primary">
             <Search className="h-5 w-5" />
-          </Link>
+          </Link> */}
           <Link href="/calendar" className="text-muted-foreground hover:text-primary">
             <Calendar className="h-4 w-4" />
           </Link>
@@ -100,27 +114,37 @@ export function MainNav() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src="/placeholder.svg?height=32&width=32" alt="@user" />
-                  <AvatarFallback className="bg-primary text-primary-foreground">JD</AvatarFallback>
+                  <AvatarImage 
+                    src={avatarUrl} 
+                    alt="@user"
+                    className={profileLoading ? "opacity-75" : ""} 
+                  />
+                  <AvatarFallback className="bg-primary text-primary-foreground">
+                    {profileLoading ? "..." : initials}
+                  </AvatarFallback>
                 </Avatar>
+                {/* Optional: Show a small loading indicator */}
+                {profileLoading && (
+                  <div className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-blue-500 animate-pulse" />
+                )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56 border-none rounded-xl" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{session?.user?.name ?? "mysterious reader"}</p>
-                  <p className="text-xs leading-none text-muted-foreground">{session?.user?.email ?? "mysterious email"}</p>
+                  <p className="text-sm font-medium leading-none">
+                    {displayName}
+                    {profileError && (
+                      <span className="text-xs text-red-500 ml-2">(offline)</span>
+                    )}
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground">{email}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
                 <Link href="/profile" className="flex w-full">
                   Profile
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Link href="/settings" className="flex w-full">
-                  Settings
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />

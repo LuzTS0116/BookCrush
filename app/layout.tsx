@@ -10,6 +10,7 @@ import SupabaseBridge from "./_auth/SupabaseBridge"
 import { Toaster } from "@/components/ui/sonner"
 import { loadEnvConfig } from '@next/env'
 import { MainNav } from "@/components/main-nav"
+import { MobileNav } from "@/components/mobile-nav"
 
 const projectDir = process.cwd()
 loadEnvConfig(projectDir)
@@ -29,7 +30,7 @@ const quicksand = Quicksand ({
 });
 
 export const metadata: Metadata = {
-  title: "BookCircle | Your Book Club App",
+  title: "BookCrush | Your Book Club App",
   description: "Connect with friends, share books, and organize book club meetings",
     generator: 'v0.dev'
 }
@@ -52,6 +53,7 @@ export default async function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="light">
           <MainNav />
           {children}
+          <MobileNav />
         </ThemeProvider>
         </SupabaseBridge>
         </AuthSessionProvider>

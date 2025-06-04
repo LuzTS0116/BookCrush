@@ -1,7 +1,5 @@
 import React from "react"
 import Image from "next/image";
-import { MainNav } from "@/components/main-nav"
-import { MobileNav } from "@/components/mobile-nav"
 import BookDetailsClientWrapper from "@/components/book-details-client-wrapper"
 
 
@@ -15,9 +13,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
       height={2871}
       className="absolute inset-0 w-auto h-full md:w-full md:h-auto object-cover z-[-1]"
     />
-    
     <BookDetailsClientWrapper params={params} />
-    <MobileNav />
   </div>
 )
 }

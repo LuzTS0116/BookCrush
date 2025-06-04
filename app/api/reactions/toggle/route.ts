@@ -38,10 +38,10 @@ export async function POST(req: NextRequest) {
     const result = await prisma.$transaction(async (tx) => {
       const existingReaction = await tx.reaction.findUnique({
         where: {
-          userId_targetType_targetId_type: { // Composite unique key
-            userId: user.id,
-            targetType: targetType,
-            targetId: targetId,
+          user_id_target_type_target_id_type: { // Composite unique key
+            user_id: user.id,
+            target_type: targetType,
+            target_id: targetId,
             type: reactionType,
           },
         },
@@ -54,10 +54,10 @@ export async function POST(req: NextRequest) {
         // If reaction exists, delete it
         await tx.reaction.delete({
           where: {
-            userId_targetType_targetId_type: {
-              userId: user.id,
-              targetType: targetType,
-              targetId: targetId,
+            user_id_target_type_target_id_type: {
+              user_id: user.id,
+              target_type: targetType,
+              target_id: targetId,
               type: reactionType,
             },
           },
@@ -68,9 +68,9 @@ export async function POST(req: NextRequest) {
         // If reaction doesn't exist, create it
         reaction = await tx.reaction.create({
           data: {
-            userId: user.id,
-            targetType: targetType,
-            targetId: targetId,
+            user_id: user.id,
+            target_type: targetType,
+            target_id: targetId,
             type: reactionType,
           },
         });

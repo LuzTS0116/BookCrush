@@ -1,7 +1,5 @@
 import React from "react"
 import Image from "next/image";
-import { MainNav } from "@/components/main-nav"
-import { MobileNav } from "@/components/mobile-nav"
 import CalendarMain from "@/components/calendar-main";
 
 export default function CalendarPage() {
@@ -13,10 +11,8 @@ export default function CalendarPage() {
         width={1622}
         height={2871}
         className="absolute inset-0 w-auto h-full lg:w-full lg:h-auto object-cover z-[-1]"
-      />
-      
+      />    
       <CalendarMain />      
-      <MobileNav />
     </div>
   )
 }

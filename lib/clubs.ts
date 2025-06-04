@@ -16,6 +16,28 @@ interface ClubMembershipRequest {
   status: 'PENDING' | 'ACTIVE';
 }
 
+interface ClubInvitation {
+  id: string;
+  club_id: string;
+  club_name: string;
+  club_description: string;
+  inviter_name: string;
+  inviter_avatar?: string;
+  message?: string;
+  created_at: string;
+  club: {
+    id: string;
+    name: string;
+    description: string;
+    current_book?: {
+      title: string;
+      author: string;
+      cover_url: string;
+    };
+    memberCount: number;
+  };
+}
+
 interface Club {
   id: string;
   name: string;
@@ -32,6 +54,7 @@ interface Club {
   history?: { title: string; author: string; date: string; cover: string; }[];
   membershipStatus: 'ACTIVE' | 'PENDING' | 'REJECTED' | 'LEFT' | null;
   pendingMemberships?: ClubMembershipRequest[];
+  meetings?: Array<{ meeting_date: string | Date }>;
 }
 
 // Get the base URL for API calls (works in both server and client)
@@ -160,5 +183,43 @@ export async function getDiscoverClubs(accessToken?: string | undefined): Promis
   }
 }
 
+/**
+ * Fetches pending club invitations for the current user
+ * @param accessToken - The Supabase access token for the authenticated user
+ */
+export async function getPendingInvitations(accessToken: string | undefined): Promise<ClubInvitation[]> {
+  const baseUrl = getBaseUrl();
+
+  if (!accessToken) {
+    console.warn("getPendingInvitations: No access token provided.");
+    return []; // Return empty array if not authenticated
+  }
+
+  const tokenRequestOptions = {
+    cache: 'no-store' as RequestCache,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    }
+  };
+  
+  try {
+    const response = await fetch(`${baseUrl}/api/invitations/pending`, tokenRequestOptions);
+    
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error text available');
+      console.error(`Failed to fetch pending invitations. Status: ${response.status}. URL: ${baseUrl}/api/invitations/pending. Details: ${errorText}`);
+      throw new Error(`Failed to fetch pending invitations. Status: ${response.status}.`);
+    }
+    
+    const data: ClubInvitation[] = await response.json();
+    return data;
+  } catch (err: any) {
+    console.error("Error in getPendingInvitations fetching process:", err);
+    // Re-throw or handle as appropriate for your application
+    throw new Error(err.message || "An unexpected error occurred while fetching pending invitations.");
+  }
+}
+
 // Export types for reuse
-export type { Club, ClubMembershipRequest };
+export type { Club, ClubMembershipRequest, ClubInvitation };

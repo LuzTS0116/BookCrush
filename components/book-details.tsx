@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -8,124 +9,661 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
-import { Heart, ThumbsUp, ThumbsDown, Send, BookOpen, Calendar, User, Clock, ChevronLeft, MessageSquare } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Input } from "@/components/ui/input";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { Label } from "@/components/ui/label";
+import { Heart as PhosphorHeart } from "@phosphor-icons/react";
+import { Heart, ThumbsUp, ArrowLeft, ThumbsDown, Plus, Send, BookOpen, Calendar, User, Clock, ChevronLeft, MessageSquare, Loader2 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
+import { BookDetails } from "@/types/book";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { useParams } from "next/navigation";
+// Define types for our data
+interface BookReview {
+  id: string;
+  user: {
+    id: string;
+    name: string;
+    avatar: string | null;
+    initials: string;
+  };
+  rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN";
+  text: string;
+  date: string;
+}
+
+interface BookReactions {
+  HEART: number;
+  THUMBS_UP: number;
+  THUMBS_DOWN: number;
+  LIKE: number;
+}
+
+interface BookData {
+  id: string;
+  title: string;
+  author: string;
+  cover: string;
+  published: string;
+  pages: number;
+  genre: string[];
+  isbn: string;
+  description: string;
+  reading_time: string;
+  userProgress: number;
+  clubs: Array<{
+    id: string;
+    name: string;
+    members: number;
+    meetingDate: string;
+  }>;
+}
+
+// Define the available shelf types for the dropdown
+const SHELF_OPTIONS = [
+  { label: "Currently Reading", value: "currently_reading" },
+  { label: "Reading Queue", value: "queue" },
+  { label: "Finished", value: "finished" },
+];
 
 export default function BookDetailsView({ params }: { params: { id: string } }) {
   const [reviewText, setReviewText] = useState("")
-  const [userRating, setUserRating] = useState<"heart" | "thumbsUp" | "thumbsDown" | null>(null)
+  const [userRating, setUserRating] = useState<"HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null>(null)
+  const [userReaction, setUserReaction] = useState<"HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null>(null)
+  const [reviews, setReviews] = useState<BookReview[]>([])
+  const [reactions, setReactions] = useState<BookReactions>({ HEART: 0, THUMBS_UP: 0, THUMBS_DOWN: 0, LIKE: 0 })
+  const [isLoadingReviews, setIsLoadingReviews] = useState(true)
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+  const [userFavorite, setUserFavorite] = useState<Record<string, boolean>>({});
+  const [englishFile, setEnglishFile] = useState<File | null>(null)
+  const [spanishFile, setSpanishFile] = useState<File | null>(null)
 
-  // Mock book data
-  const book = {
-    id: params.id,
-    title: "The Midnight Library",
-    author: "Matt Haig",
-    cover: "/placeholder.svg?height=400&width=260",
-    published: "2020",
-    pages: 304,
-    genre: ["Fiction", "Fantasy", "Contemporary"],
-    isbn: "4.5",
-    description: `Between life and death there is a library, and within that library, the shelves go on forever. Every book provides a chance to try another life you could have lived. To see how things would be if you had made other choices... Would you have done anything different, if you had the chance to undo your regrets?
-    
-    A dazzling novel about all the choices that go into a life well lived, from the internationally bestselling author of Reasons to Stay Alive and How To Stop Time.
-    
-    Somewhere out beyond the edge of the universe there is a library that contains an infinite number of books, each one the story of another reality. One tells the story of your life as it is, along with another book for the other life you could have lived if you had made a different choice at any point in your life. While we all wonder how our lives might have been, what if you had the chance to go to the library and see for yourself? Would any of these other lives truly be better?`,
-    ratings: {
-      heart: 128,
-      thumbsUp: 87,
-      thumbsDown: 12,
-    },
-    userProgress: 65,
-    reviews: [
-      {
-        id: 1,
-        user: {
-          name: "Alex Lee",
-          avatar: "/placeholder.svg?height=40&width=40",
-          initials: "AL",
-        },
-        rating: "heart",
-        text: "This book completely changed my perspective on life choices and regrets. The concept of a library between life and death is so creative and thought-provoking. I couldn't put it down!",
-        date: "April 15, 2025",
-      },
-      {
-        id: 2,
-        user: {
-          name: "Sarah Johnson",
-          avatar: "/placeholder.svg?height=40&width=40",
-          initials: "SJ",
-        },
-        rating: "thumbsUp",
-        text: "A beautiful exploration of the roads not taken. Matt Haig has a way of making complex philosophical concepts accessible and emotionally resonant. The ending was particularly satisfying.",
-        date: "March 28, 2025",
-      },
-      {
-        id: 3,
-        user: {
-          name: "Mike Peterson",
-          avatar: "/placeholder.svg?height=40&width=40",
-          initials: "MP",
-        },
-        rating: "thumbsDown",
-        text: "I found the premise interesting but the execution lacking. The main character's journey felt predictable, and some of the alternate lives seemed too convenient for the message the author wanted to convey.",
-        date: "February 12, 2025",
-      },
-    ],
-    clubs: [
-      {
-        id: 1,
-        name: "Fiction Lovers",
-        members: 12,
-        meetingDate: "May 9, 2025",
-      },
-      {
-        id: 2,
-        name: "Philosophy & Life",
-        members: 8,
-        meetingDate: "May 15, 2025",
-      },
-    ],
+  // New state for book data
+  const [book, setBook] = useState<BookData | null>(null)
+  const [isLoadingBook, setIsLoadingBook] = useState(true)
+  const [bookError, setBookError] = useState<string | null>(null)
+
+  const [books, setBooks] = useState<BookDetails[]>([]);
+
+  // Key: bookId, Value: { isLoading: boolean, message: string | null }
+  const [shelfActionsStatus, setShelfActionsStatus] = useState<Record<string, { isLoading: boolean, message: string | null }>>({});
+
+  const router = useRouter();
+  const {id} = useParams();
+  // Fetch book data
+  useEffect(() => {
+    const fetchBook = async () => {
+      try {
+        setIsLoadingBook(true)
+        setBookError(null)
+        
+        const response = await fetch(`/api/books/${id}`)
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            setBookError('Book not found')
+          } else {
+            setBookError('Failed to load book details')
+          }
+          return
+        }
+        
+        const bookData = await response.json()
+        setBook(bookData)
+        
+      } catch (error) {
+        console.error('Error fetching book:', error)
+        setBookError('Failed to load book details')
+      } finally {
+        setIsLoadingBook(false)
+      }
+    }
+
+    fetchBook()
+  }, [id])
+
+  // Fetch reviews and reactions on component mount
+  useEffect(() => {
+    const fetchReviewsAndReactions = async () => {
+      try {
+        setIsLoadingReviews(true)
+        
+        // Fetch reviews and reactions in parallel
+        const [reviewsResponse, reactionsResponse] = await Promise.all([
+          fetch(`/api/books/${id}/reviews`),
+          fetch(`/api/books/${id}/reactions`)
+        ])
+
+        if (reviewsResponse.ok) {
+          const reviewsData = await reviewsResponse.json()
+          setReviews(reviewsData)
+        } else {
+          console.error('Failed to fetch reviews')
+        }
+
+        if (reactionsResponse.ok) {
+          const reactionsData = await reactionsResponse.json()
+          setReactions(reactionsData.reactions)
+          setUserReaction(reactionsData.userReaction)
+        } else {
+          console.error('Failed to fetch reactions')
+        }
+
+      } catch (error) {
+        console.error('Error fetching reviews and reactions:', error)
+      } finally {
+        setIsLoadingReviews(false)
+      }
+    }
+
+    fetchReviewsAndReactions()
+  }, [id])
+
+  // Show loading state
+  if (isLoadingBook) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-3 text-lg">Loading book details...</span>
+      </div>
+    )
   }
 
-  const handleRating = (rating: "heart" | "thumbsUp" | "thumbsDown") => {
-    setUserRating(userRating === rating ? null : rating)
+  // Show error state
+  if (bookError || !book) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-2">Error</h1>
+          <p className="text-gray-600 mb-4">{bookError || 'Book not found'}</p>
+          <Button onClick={() => router.back()} variant="outline">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Go Back
+          </Button>
+        </div>
+      </div>
+    )
   }
 
-  const handleSubmitReview = () => {
-    if (reviewText.trim() && userRating) {
-      // In a real app, you would submit the review to an API
-      console.log({ reviewText, userRating })
-      setReviewText("")
-      // Don't reset the rating so the user can see what they rated
+  // Add separate handler for quick reactions (not part of reviews)
+  const handleQuickReaction = async (rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => {
+    try {
+      // Toggle rating using existing reaction API
+      const response = await fetch('/api/reactions/toggle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          targetId: id,
+          targetType: 'BOOK',
+          type: rating
+        })
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        
+        // Update local state based on the operation
+        if (result.operation === 'created') {
+          // Remove any existing reaction first
+          if (userReaction) {
+            setReactions(prev => ({
+              ...prev,
+              [userReaction]: Math.max(0, prev[userReaction] - 1)
+            }))
+          }
+          
+          // Add new reaction
+          setReactions(prev => ({
+            ...prev,
+            [rating]: prev[rating] + 1
+          }))
+          setUserReaction(rating)
+          toast.success('Reaction added!')
+        } else {
+          // Reaction was removed
+          setReactions(prev => ({
+            ...prev,
+            [rating]: Math.max(0, prev[rating] - 1)
+          }))
+          setUserReaction(null)
+          toast.success('Reaction removed!')
+        }
+      } else {
+        toast.error('Failed to update reaction')
+      }
+    } catch (error) {
+      console.error('Error updating reaction:', error)
+      toast.error('Failed to update reaction')
+    }
+  }
+
+  const handleRating = (rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => {
+    // For reviews, just set the rating locally - it will be submitted with the review
+    if (!isSubmittingReview) {
+      setUserRating(rating)
+    }
+  }
+
+  const handleSubmitReview = async () => {
+    if (!reviewText.trim() || !userRating) {
+      toast.error('Please provide both a rating and review text')
+      return
+    }
+
+    try {
+      setIsSubmittingReview(true)
+
+      const response = await fetch(`/api/books/${id}/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: reviewText,
+          rating: userRating
+        })
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        
+        // Add the new review to the top of the list
+        setReviews(prev => [result.review, ...prev])
+        
+        // Update the reaction count in the main display only if this is a new review
+        // Check if user already had a review (this would be an update vs new review)
+        const existingReviewIndex = reviews.findIndex(review => review.user.id === result.review.user.id)
+        if (existingReviewIndex === -1) {
+          // This is a new review, update reaction count
+          setReactions(prev => ({
+            ...prev,
+            [userRating]: prev[userRating] + 1
+          }))
+        }
+        
+        // Reset the form
+        setReviewText("")
+        // Keep the rating selected for potential future reviews
+        
+        toast.success('Review posted successfully!')
+      } else {
+        const errorData = await response.json()
+        toast.error(errorData.error || 'Failed to post review')
+      }
+    } catch (error) {
+      console.error('Error submitting review:', error)
+      toast.error('Failed to post review')
+    } finally {
+      setIsSubmittingReview(false)
     }
   }
 
   const getRatingIcon = (rating: string, size = 5) => {
     switch (rating) {
-      case "heart":
+      case "HEART":
         return <Heart className={`h-${size} w-${size} text-primary fill-primary`} />
-      case "thumbsUp":
+      case "THUMBS_UP":
         return <ThumbsUp className={`h-${size} w-${size} text-accent-variant`} />
-      case "thumbsDown":
+      case "THUMBS_DOWN":
         return <ThumbsDown className={`h-${size} w-${size} text-accent`} />
       default:
         return null
     }
   }
 
+  // Function to add/move a book to a shelf
+  const handleAddToShelf = async (bookId: string, shelf: string) => {
+    setShelfActionsStatus(prev => ({
+      ...prev,
+      [bookId]: { isLoading: true, message: null }
+    }));
+    try {
+      // Your API call to add/move the book
+      const response = await fetch('/api/shelf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookId, shelf, status: 'in_progress' }) // Default status for new additions
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add book to shelf');
+      }
+      const result = await response.json();
+      console.log('Book added/moved to shelf:', result);
+
+      setShelfActionsStatus(prev => ({
+        ...prev,
+        [bookId]: { isLoading: false, message: `Added to ${shelf.replace(/_/g, ' ')}!` }
+      }));
+
+      // Clear message after a few seconds
+      setTimeout(() => {
+        setShelfActionsStatus(prev => ({ ...prev, [bookId]: { isLoading: false, message: null } }));
+      }, 3000);
+
+    } catch (err: any) {
+      console.error("Error adding book to shelf:", err);
+      setShelfActionsStatus(prev => ({
+        ...prev,
+        [bookId]: { isLoading: false, message: `Error: ${err.message}` }
+      }));
+    }
+  };
+
+  // Add book to favorites - heart
+  const handleFavorite = (bookId: string) => {
+    setUserFavorite(prev => ({
+      ...prev,
+      [bookId]: !prev[bookId],
+    }));
+  };
+
   return (
-    <div className="container mx-auto pt-4 pb-8 px-6">
-      <div className="mb-3">
+    <div className="space-y-3 px-2 mb-16">
+      {/* Header Section */}
+        <Card className="bg-bookWhite/90 rounded-xl overflow-hidden mt-0">
+          <CardHeader className="relative p-0">
+            {/* Banner */}
+            <div className="relative h-32 w-full bg-gradient-to-r from-primary rounded-b-2xl to-accent">
+                <img
+                    src="/images/background.png"
+                    alt="Banner"
+                    className="object-cover w-full h-full"
+                />
+                {/* Back Button */}
+                <button
+                    onClick={() => router.back()} // You can also use navigate("/previous") if using React Router
+                    className="absolute top-3 left-3 p-2 rounded-full bg-bookWhite/80 backdrop-blur-sm hover:bg-bookWhite shadow-md"
+                >
+                    <ArrowLeft className="h-5 w-5 text-secondary" />
+                </button>
+            </div>
+            <div className="flex flex-row justify-between gap-2 p-3 pb-2">
+              <div>
+                <div className="w-36 h-56 bg-muted/30 rounded-md flex items-center justify-center overflow-hidden">
+                  <img src={book.cover || "/placeholder.svg"} alt={book.title} className="max-h-full" />
+                </div>
+              </div>
+              <div className="flex flex-col">
+                <div className="flex flex-row justify-between items-start">
+                  <div className="flex-1 min-w-0">
+                    <h1 className="text-lg/5 break-words font-bold text-secondary-light">{book.title}</h1>
+                  </div>
+                  <div className="flex items-start">
+                    <button
+                      onClick={() => handleFavorite(book.id)}
+                      className={`py-0 pl-0 pr-3 -mt-0.5`}
+                    >
+                      <PhosphorHeart
+                        className="h-5 w-5"
+                        color="#C51104"
+                        weight={userFavorite[book.id] ? "fill" : "regular"}
+                      />
+                    </button>
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent border-none"
+                        // disabled={currentShelfStatus?.isLoading} // Disable while action is loading
+                      >
+                        <Plus className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Portal>
+                      <DropdownMenu.Content
+                        className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                        sideOffset={5}
+                      >
+                        {SHELF_OPTIONS.map((shelf) => (
+                          <DropdownMenu.Item
+                            key={shelf.value}
+                            onSelect={() => handleAddToShelf(book.id, shelf.value)}
+                            className="px-3 py-2 text-xs text-center bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
+                          >
+                            {shelf.label}
+                          </DropdownMenu.Item>
+                        ))}
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Portal>
+                  </DropdownMenu.Root>
+                  </div>
+                </div>
+                <p className="text-sm text-secondary font-serif">by {book.author}</p>
+                <div className="flex flex-row gap-3 mt-1">
+                  <div className="flex justify-center gap-2">
+                      <div className="flex gap-1">
+                          <Heart className="h-3 w-3 text-primary fill-primary" />
+                          <span className="font-serif font-medium text-xs text-secondary">{reactions.HEART}</span>
+                      </div>
+                      <div className="flex gap-1">
+                          <ThumbsUp className="h-3 w-3 text-accent-variant" />
+                          <span className="font-serif font-medium text-xs text-secondary">{reactions.THUMBS_UP}</span>
+                      </div>
+                      <div className="flex gap-1">
+                          <ThumbsDown className="h-3 w-3 text-accent" />
+                          <span className="font-serif font-medium text-xs text-secondary">{reactions.THUMBS_DOWN}</span>
+                      </div>
+                  </div>
+                  <p className="underline text-center font-serif text-xs text-secondary-light">view reviews</p>
+                </div>
+
+                <div className="flex flex-wrap gap-1 mt-2 mb-2">
+                  {book.genre.map((g) => (
+                    <Badge key={g} variant="secondary" className="bg-primary/50 text-secondary/50 font-medium font-serif">
+                      {g}
+                    </Badge>
+                  ))}
+                </div> 
+
+                <div className="grid grid-cols-2 md:grid-cols-4 space-y-1 mb-2 font-serif">
+                  <div className="flex flex-col">
+                    <span className="text-xs/3 text-secondary-light font-semibold">Published</span>
+                    <div className="flex-1">
+                      <span className="font-medium text-xs/3 text-secondary-light bg-secondary/5 rounded-full px-2 py-0.5">{book.published}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col ml-2">
+                    <span className="text-xs/3 text-secondary-light font-semibold">Reading Time</span>
+                    <div className="flex-1">
+                      <span className="font-medium text-xs/3 text-secondary-light bg-secondary/5 rounded-full px-2 py-0.5">{book.reading_time}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col ml-2">
+                    <span className="text-xs/3 text-secondary-light font-semibold">Pages</span>
+                    <div className="flex-1">
+                      <span className="font-medium text-xs/3 text-secondary-light bg-secondary/5 rounded-full px-2 py-0.5">{book.pages}</span>
+                    </div>
+                  </div>
+                  {/* Quick Reaction Section */}
+                  <div className="flex flex-col items-center gap-2 rounded-l-full bg-secondary/5 px-1 mt-3 mb-2">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleQuickReaction("HEART")}
+                        className={`p-2 rounded-full transition-colors ${
+                          userReaction === "HEART" 
+                            ? "bg-primary/30 ring-2 ring-primary/50" 
+                            : "hover:bg-primary/20"
+                        }`}
+                      >
+                        <Heart className={`h-5 w-5 ${
+                          userReaction === "HEART" 
+                            ? "text-primary fill-primary" 
+                            : "text-primary"
+                        }`} />
+                      </button>
+                      <button
+                        onClick={() => handleQuickReaction("THUMBS_UP")}
+                        className={`p-2 rounded-full transition-colors ${
+                          userReaction === "THUMBS_UP" 
+                            ? "bg-accent-variant/30 ring-2 ring-accent-variant/50" 
+                            : "hover:bg-accent-variant/20"
+                        }`}
+                      >
+                        <ThumbsUp className={`h-5 w-5 ${
+                          userReaction === "THUMBS_UP" 
+                            ? "text-accent-variant" 
+                            : "text-accent-variant"
+                        }`} />
+                      </button>
+                      <button
+                        onClick={() => handleQuickReaction("THUMBS_DOWN")}
+                        className={`p-2 rounded-full transition-colors ${
+                          userReaction === "THUMBS_DOWN" 
+                            ? "bg-accent/30 ring-2 ring-accent/50" 
+                            : "hover:bg-accent/20"
+                        }`}
+                      >
+                        <ThumbsDown className={`h-5 w-5 ${
+                          userReaction === "THUMBS_DOWN" 
+                            ? "text-accent" 
+                            : "text-accent"
+                        }`} />
+                      </button>
+                    </div>
+                  </div>
+                  {/* <div className="flex flex-col ml-0">
+                    <span className="text-xs/3 text-secondary-light font-semibold">OpenLibrary</span>
+                    <div className="flex-1">
+                      <span className="font-medium text-xs/3 text-secondary-light bg-secondary/5 rounded-full px-2 py-0.5">⭐ {book.isbn}</span>
+                    </div>
+                  </div> */}
+                  
+                </div>
+
+                {/* <div className="flex items-center justify-center gap-6 mb-6">
+                  <div className="flex flex-col items-center">
+                    <button
+                      onClick={() => handleRating("heart")}
+                      className={`p-2 rounded-full ${userRating === "heart" ? "bg-red-100" : "hover:bg-muted"}`}
+                    >
+                      <Heart
+                        className={`h-6 w-6 ${userRating === "heart" ? "text-red-500 fill-red-500" : "text-muted-foreground"}`}
+                      />
+                    </button>
+                    <span className="text-sm font-medium mt-1">{book.ratings.heart}</span>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <button
+                      onClick={() => handleRating("thumbsUp")}
+                      className={`p-2 rounded-full ${userRating === "thumbsUp" ? "bg-green-100" : "hover:bg-muted"}`}
+                    >
+                      <ThumbsUp
+                        className={`h-6 w-6 ${userRating === "thumbsUp" ? "text-green-500" : "text-muted-foreground"}`}
+                      />
+                    </button>
+                    <span className="text-sm font-medium mt-1">{book.ratings.thumbsUp}</span>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <button
+                      onClick={() => handleRating("thumbsDown")}
+                      className={`p-2 rounded-full ${userRating === "thumbsDown" ? "bg-amber-100" : "hover:bg-muted"}`}
+                    >
+                      <ThumbsDown
+                        className={`h-6 w-6 ${userRating === "thumbsDown" ? "text-amber-500" : "text-muted-foreground"}`}
+                      />
+                    </button>
+                    <span className="text-sm font-medium mt-1">{book.ratings.thumbsDown}</span>
+                  </div>
+                </div> */}
+
+                
+              </div>
+            </div>
+            <div className="flex flex-col px-3 py-1">
+              <div className="rounded-xl bg-primary/25 px-3 py-3 w-full mb-2">
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col">
+                        <span className="text-xs leading-none text-secondary-light/60 text-center font-semibold mb-2">English E-Pub</span>
+                        <Button variant="outline" className="rounded-full bg-accent-variant/80 hover:bg-accent-variant text-bookWhite border-none px-2 h-8 text-xs">
+                            <Send className="mr-0 h-2 w-2" /> Send to Kindle
+                        </Button>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-xs leading-none text-secondary-light/60 text-center font-semibold mb-2">Spanish E-Pub</span>
+                        <Dialog>
+                          <DialogTrigger asChild className="text-secondary-light">
+                              <Button className="text-secondary-light text-xs py-2 px-2 text-semibold rounded-full bg-secondary/10 hover:bg-secondary/20">
+                                not available (upload)
+                              </Button>
+                          </DialogTrigger>
+                          <DialogContent className="w-[85vw] rounded-2xl">
+                              <Image 
+                                src="/images/background.png"
+                                alt="Create and Manage your Book Clubs | BookCrush"
+                                width={1622}
+                                height={2871}
+                                className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+                              />
+                              <DialogHeader className="pt-6 pb-4">
+                                <DialogTitle>Upload E-Pub File</DialogTitle>
+                                <DialogDescription>
+                                    Got the EPUB? Drop it here so others can enjoy it too! Make reading easier ✨
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="grid gap-2">
+                              <Label htmlFor="english" className="font-light">english version</Label>
+                              <Input
+                                id="english"
+                                type="file"
+                                lang="en"
+                                accept=".epub"
+                                onChange={e => setEnglishFile(e.target.files?.[0] || null)}
+                              />
+                              </div>
+                              <div className="grid gap-2">
+                                <Label htmlFor="spanish" className="font-light mt-3">spanish version</Label>
+                                <Input
+                                  id="spanish"
+                                  type="file"
+                                  lang="en"
+                                  accept=".epub"
+                                  onChange={e => setSpanishFile(e.target.files?.[0] || null)}
+                                />
+                              </div>
+                              <DialogFooter>
+                              </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                    </div>
+                </div>
+              </div>
+            </div>
+            
+          </CardHeader>
+          <CardContent className="px-3 pb-3">
+            <Separator className="my-3" />
+            <div>
+              <h2 className="text-lg text-secondary-light font-bold mb-0">Overview</h2>
+              <div className="text-sm space-y-2 whitespace-pre-line font-serif leading-4">{book.description}</div>
+            </div>
+          </CardContent>
+        </Card>
+      
+      {/* <div className="mb-3">
         <button
         className="target mt-15 flex items-center text-sm text-bookWhite hover:text-foreground transition-colors"
         >
         <ChevronLeft className="w-4 h-4 mr-1 text-bookWhite" />
             Back
         </button>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-2">
-          <Card>
+      </div> */}
+      
+        
+          {/* <Card>
             <CardContent className="p-6">
               <div className="flex flex-col md:flex-row gap-8">
                 <div className="w-full md:w-1/3 flex justify-center">
@@ -202,7 +740,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                             <span className="text-center italic text-secondary-light/60 mt-1">not available</span>
                         </div>
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* <div className="flex items-center justify-center gap-6 mb-6">
                     <div className="flex flex-col items-center">
@@ -240,7 +778,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                     </div>
                   </div> */}
 
-                  <div className="flex justify-center">
+                  {/* <div className="flex justify-center">
                     <Button className="bg-accent hover:bg-primary-light rounded-full">
                       Update Status
                     </Button>
@@ -255,9 +793,9 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                 <div className="text-sm space-y-4 whitespace-pre-line">{book.description}</div>
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
 
-          <div className="mt-8">
+          <div className="">
             <Tabs defaultValue="reviews" className="w-full">
               <TabsList className="grid w-full grid-cols-3 bg-secondary-light text-primary rounded-full">
                 <TabsTrigger 
@@ -274,64 +812,82 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                 >Friends</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="reviews" className="mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-center">Reviews</CardTitle>
-                    <CardDescription className="font-serif font-mediun text-center">See what others think about this book</CardDescription>
+              <TabsContent value="reviews" className="mt-3">
+                <Card className="p-3">
+                  <CardHeader className="p-0">
+                    <CardTitle className="">Reviews</CardTitle>
+                    <CardDescription className="font-serif font-medium">See what others think about this book</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="space-y-3">
-                      {book.reviews.map((review) => (
-                        <div key={review.id} className="p-4 border rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-10 w-10">
-                                <AvatarImage src={review.user.avatar || "/placeholder.svg"} alt={review.user.name} />
-                                <AvatarFallback>{review.user.initials}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium text-base/4">{review.user.name}</p>
-                                <p className="text-xs font-serif text-secondary-light/60">{review.date}</p>
+                  <CardContent className="space-y-6 px-0 pt-3 pb-2">
+                    {isLoadingReviews ? (
+                      <div className="flex justify-center items-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        <span className="ml-2 text-muted-foreground">Loading reviews...</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {reviews.length > 0 ? (
+                          reviews.map((review) => (
+                            <div key={review.id} className="p-2 border rounded-lg">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-2">
+                                  <Avatar className="h-10 w-10">
+                                    <AvatarImage src={review.user.avatar || "/placeholder.svg"} alt={review.user.name} />
+                                    <AvatarFallback>{review.user.initials}</AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <p className="font-medium text-base/4">{review.user.name}</p>
+                                    <p className="text-xs font-serif text-secondary-light/60">{review.date}</p>
+                                  </div>
+                                </div>
+                                {getRatingIcon(review.rating)}
                               </div>
+                              <p className="text-sm">{review.text}</p>
                             </div>
-                            {getRatingIcon(review.rating)}
+                          ))
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                            <p>No reviews yet. Be the first to share your thoughts!</p>
                           </div>
-                          <p className="text-sm">{review.text}</p>
-                        </div>
-                      ))}
-                    </div>
+                        )}
+                      </div>
+                    )}
 
                     <Separator />
 
                     <div>
-                      <h3 className="text-lg font-medium mb-4">Write a Review</h3>
+                      <h3 className="text-lg font-medium mb-0">Write a Review</h3>
+                      <p className="text-xs text-muted-foreground mb-3">Share your detailed thoughts about this book</p>
                       <div className="space-y-4">
-                        <div className="flex items-center gap-4 mb-2">
-                          <p className="text-sm">Your Rating:</p>
+                        <div className="flex items-center gap-4 mb-0">
+                          <p className="text-sm font-medium">Rate this book:</p>
                           <div className="flex gap-2">
                             <button
-                              onClick={() => handleRating("heart")}
-                              className={`p-2 rounded-full ${userRating === "heart" ? "bg-primary/30" : "hover:bg-muted"}`}
+                              onClick={() => handleRating("HEART")}
+                              className={`p-2 rounded-full transition-colors ${userRating === "HEART" ? "bg-primary/30" : "hover:bg-muted"}`}
+                              disabled={isSubmittingReview}
                             >
                               <Heart
-                                className={`h-5 w-5 ${userRating === "heart" ? "text-primary-dark fill-primary-dark" : "text-muted-foreground"}`}
+                                className={`h-5 w-5 ${userRating === "HEART" ? "text-primary-dark fill-primary-dark" : "text-muted-foreground"}`}
                               />
                             </button>
                             <button
-                              onClick={() => handleRating("thumbsUp")}
-                              className={`p-2 rounded-full ${userRating === "thumbsUp" ? "bg-accent-variant/30" : "hover:bg-muted"}`}
+                              onClick={() => handleRating("THUMBS_UP")}
+                              className={`p-2 rounded-full transition-colors ${userRating === "THUMBS_UP" ? "bg-accent-variant/30" : "hover:bg-muted"}`}
+                              disabled={isSubmittingReview}
                             >
                               <ThumbsUp
-                                className={`h-5 w-5 ${userRating === "thumbsUp" ? "text-accent-variant" : "text-muted-foreground"}`}
+                                className={`h-5 w-5 ${userRating === "THUMBS_UP" ? "text-accent-variant" : "text-muted-foreground"}`}
                               />
                             </button>
                             <button
-                              onClick={() => handleRating("thumbsDown")}
-                              className={`p-2 rounded-full ${userRating === "thumbsDown" ? "bg-accent/25" : "hover:bg-muted"}`}
+                              onClick={() => handleRating("THUMBS_DOWN")}
+                              className={`p-2 rounded-full transition-colors ${userRating === "THUMBS_DOWN" ? "bg-accent/25" : "hover:bg-muted"}`}
+                              disabled={isSubmittingReview}
                             >
                               <ThumbsDown
-                                className={`h-5 w-5 ${userRating === "thumbsDown" ? "text-accent" : "text-muted-foreground"}`}
+                                className={`h-5 w-5 ${userRating === "THUMBS_DOWN" ? "text-accent" : "text-muted-foreground"}`}
                               />
                             </button>
                           </div>
@@ -340,15 +896,21 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                           placeholder="Share your thoughts on this book..."
                           value={reviewText}
                           onChange={(e) => setReviewText(e.target.value)}
-                          className="min-h-[120px] bg-secondary text-bookWhite border-none"
+                          className="min-h-[120px] bg-secondary-light text-bookWhite border-none"
+                          disabled={isSubmittingReview}
                         />
                         <div className="flex justify-end">
                         <Button
                           onClick={handleSubmitReview}
-                          disabled={!reviewText.trim() || !userRating}
+                          disabled={!reviewText.trim() || !userRating || isSubmittingReview}
                           className="bg-primary/75 hover:bg-primary rounded-full text-secondary"
                         >
-                          <MessageSquare className="mr-0 h-4 w-4" /> Post Review
+                          {isSubmittingReview ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <MessageSquare className="mr-2 h-4 w-4" />
+                          )}
+                          {isSubmittingReview ? 'Posting Review...' : 'Post Review'}
                         </Button>
                         </div>
                       </div>
@@ -357,49 +919,59 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                 </Card>
               </TabsContent>
 
-              <TabsContent value="book-clubs" className="mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-center">Book Clubs Reading This</CardTitle>
-                    <CardDescription className="font-serif font-mediun text-center">Join a club to discuss this book</CardDescription>
+              <TabsContent value="book-clubs" className="mt-3">
+                <Card className="p-3">
+                  <CardHeader className="p-0">
+                    <CardTitle className="">Book Clubs Reading This</CardTitle>
+                    <CardDescription className="font-serif font-medium">Join a club to discuss this book</CardDescription>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-6 px-0 pt-3 pb-2">
                     <div className="space-y-3">
-                      {book.clubs.map((club) => (
-                        <div key={club.id} className="p-4 border rounded-lg flex flex-col">
-                          <div>
-                            <div className="flex flex-wrap justify-between">
-                                <h3 className="font-medium">{club.name}</h3>
-                                <Button variant="outline" className="rounded-full bg-primary border-none">View Club</Button>
-                            </div>
-                            <div className="flex flex-col gap-0 mt-1 text-sm text-muted-foreground">
-                              <div className="flex items-center gap-1 font-serif text-secondary-light/60">
-                                <User className="h-4 w-4" />
-                                <span>{club.members} members</span>
+                      {book.clubs && book.clubs.length > 0 ? (
+                        book.clubs.map((club) => (
+                          <div key={club.id} className="p-2 border rounded-lg flex flex-col">
+                            <div>
+                              <div className="flex flex-wrap justify-between">
+                                  <h3 className="font-medium">{club.name}</h3>
+                                  <Button variant="outline" className="rounded-full bg-primary border-none">View Club</Button>
                               </div>
-                              <div className="flex items-center gap-1 font-serif text-secondary-light/60">
-                                <Calendar className="h-4 w-4" />
-                                <span>Meeting: {club.meetingDate}</span>
+                              <div className="flex flex-col gap-0 mt-1 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-1 font-serif text-secondary-light/60">
+                                  <User className="h-4 w-4" />
+                                  <span>{club.members} members</span>
+                                </div>
+                                <div className="flex items-center gap-1 font-serif text-secondary-light/60">
+                                  <Calendar className="h-4 w-4" />
+                                  <span>Meeting: {club.meetingDate}</span>
+                                </div>
                               </div>
                             </div>
                           </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <BookOpen className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                          <p>No book clubs are currently reading this book.</p>
+                          <Button variant="outline" className="mt-3 rounded-full">
+                            Browse Clubs
+                          </Button>
                         </div>
-                      ))}
+                      )}
                     </div>
                   </CardContent>
                 </Card>
               </TabsContent>
 
-              <TabsContent value="friends" className="mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-center">Friends Reading This</CardTitle>
-                    <CardDescription className="font-serif font-mediun text-center">Join a club to discuss this book</CardDescription>
+              <TabsContent value="friends" className="mt-3">
+                <Card className="p-3">
+                  <CardHeader className="p-0">
+                    <CardTitle className="">Friends Reading This</CardTitle>
+                    <CardDescription className="font-serif font-medium">See which friends are reading this book</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {book.reviews.map((review) => (
-                        <div key={review.id} className="p-4 border rounded-lg flex justify-between items-center">
+                  <CardContent className="space-y-6 px-0 pt-3 pb-2">
+                    <div className="space-y-3">
+                      {reviews.slice(0, 3).map((review) => (
+                        <div key={review.id} className="p-2 border rounded-lg flex justify-between items-center">
                           <div className="flex items-center gap-2">
                               <Avatar className="h-10 w-10">
                                 <AvatarImage src={review.user.avatar || "/placeholder.svg"} alt={review.user.name} />
@@ -420,9 +992,9 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
 
             </Tabs>
           </div>
-        </div>
+        
 
-        <div>
+        {/* <div>
           <Card>
             <CardHeader>
               <CardTitle className="text-center">Similar Books</CardTitle>
@@ -447,9 +1019,9 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                 )}
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
 
-          <Card className="mt-6 mb-12">
+          {/* <Card className="mt-6 mb-12">
             <CardHeader>
               <CardTitle className="text-center">Reading Stats</CardTitle>
             </CardHeader>
@@ -478,9 +1050,9 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                 </div>
               </div>
             </CardContent>
-          </Card>
-        </div>
-      </div>
+          </Card> */}
+        {/* </div> */}
+      
     </div>
   )
 }

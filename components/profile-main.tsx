@@ -25,6 +25,7 @@ export default function ProfileMain() {
   "Biography",
   "Children's",
   "Classics",
+  "Dark Romance",
   "Fantasy",
   "Fiction",
   "Historical Fiction",

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { BookOpen, CalendarDays, Plus, Search, Settings, Users, BookMarked, Clock, Loader2, Check } from "lucide-react"
+import { BookOpen, CalendarDays, Plus, Search, X, Settings, Users, BookMarked, Clock, Loader2, Check } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -24,13 +24,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { toast } from "sonner";
 import { DialogClose } from "@/components/ui/dialog" 
-import { Club } from "@/lib/clubs"; // Only Club type is needed
+import { Club, ClubInvitation } from "@/lib/clubs";
 import Link from "next/link";
 import { useRouter } from 'next/navigation'; // Import useRouter
+import { formatDate } from "@/lib/utils"
 
 interface ClubsMainProps {
   initialMyClubs: Club[];
   initialDiscoverClubs: Club[];
+  initialPendingInvitations: ClubInvitation[];
 }
 
 // Get base URL for API calls (this is copy of the function from lib/clubs.ts)
@@ -44,9 +46,29 @@ const getBaseUrl = () => {
     : 'http://localhost:3000';
 };
 
+// Helper function to calculate days until meeting
+const calculateDaysUntilMeeting = (meetingDate: string | Date): string => {
+  try {
+    const meetingTime = new Date(meetingDate).getTime();
+    const currentTime = new Date().getTime();
+    const daysUntil = Math.ceil((meetingTime - currentTime) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntil > 0) {
+      return `Meeting in ${daysUntil} days`;
+    } else if (daysUntil === 0) {
+      return `Meeting today`;
+    } else {
+      return `Meeting was ${Math.abs(daysUntil)} days ago`;
+    }
+  } catch (error) {
+    return `Meeting date unavailable`;
+  }
+};
+
 export default function ClubsMain({
   initialMyClubs,
-  initialDiscoverClubs
+  initialDiscoverClubs,
+  initialPendingInvitations
 }: ClubsMainProps) {
   const router = useRouter(); // Initialize router
   const [searchQuery, setSearchQuery] = useState("")
@@ -62,15 +84,21 @@ export default function ClubsMain({
   // Initialize with server-provided data
   const [myClubs, setMyClubs] = useState<Club[]>(initialMyClubs);
   const [discoverClubs, setDiscoverClubs] = useState<Club[]>(initialDiscoverClubs);
+  const [pendingInvitations, setPendingInvitations] = useState<ClubInvitation[]>(initialPendingInvitations);
 
   // Effect to update local state when props change (e.g., after router.refresh())
   useEffect(() => {
     setMyClubs(initialMyClubs);
   }, [initialMyClubs]);
-console.log(initialMyClubs)
+//console.log(initialMyClubs)
   useEffect(() => {
     setDiscoverClubs(initialDiscoverClubs);
   }, [initialDiscoverClubs]);
+
+  useEffect(() => {
+    setPendingInvitations(initialPendingInvitations);
+    console.log(initialPendingInvitations)
+  }, [initialPendingInvitations]);
 
   // --- API Integration Functions ---
   const handleCreateClub = async () => {
@@ -177,6 +205,103 @@ console.log(initialMyClubs)
     }
   };
 
+  const handleDenyMembership = async (clubId: string, membershipId: string, applicantName: string) => {
+  const baseUrl = getBaseUrl();
+  setLoadingAction(true);
+
+  try {
+    const response = await fetch(`${baseUrl}/api/clubs/deny`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ membershipId }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to deny membership.");
+    }
+
+    const result = await response.json();
+    console.log("Denial successful:", result);
+    toast.success(`Denied ${applicantName}'s membership request.`);
+
+    router.refresh(); // Refresh the list to reflect change
+  } catch (err: any) {
+    toast.error(`Error denying membership: ${err.message}`);
+    console.error("Error denying membership:", err);
+  } finally {
+    setLoadingAction(false);
+  }
+};
+
+  // Add new functions for handling invitations
+  const handleAcceptInvitation = async (invitationId: string, clubName: string) => {
+    const baseUrl = getBaseUrl();
+    setLoadingAction(true);
+    try {
+      const response = await fetch(`${baseUrl}/api/invitations/${invitationId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'accept' }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to accept invitation.");
+      }
+
+      const result = await response.json();
+      console.log("Invitation accepted:", result);
+      toast.success(`Successfully joined "${clubName}"!`);
+      
+      router.refresh(); // Refresh server-side data
+
+    } catch (err: any) {
+      toast.error(`Error accepting invitation: ${err.message}`);
+      console.error("Error accepting invitation:", err);
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  const handleDeclineInvitation = async (invitationId: string, clubName: string) => {
+    const baseUrl = getBaseUrl();
+    setLoadingAction(true);
+    try {
+      const response = await fetch(`${baseUrl}/api/invitations/${invitationId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'decline' }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to decline invitation.");
+      }
+
+      const result = await response.json();
+      console.log("Invitation declined:", result);
+      toast.success(`Declined invitation to "${clubName}".`);
+      
+      router.refresh(); // Refresh server-side data
+
+    } catch (err: any) {
+      toast.error(`Error declining invitation: ${err.message}`);
+      console.error("Error declining invitation:", err);
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  const filteredClubs = myClubs.filter((club) =>
+    club.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
   // --- Render Logic ---
 
   return (
@@ -258,7 +383,7 @@ console.log(initialMyClubs)
                         </div> */}
                         {/* Current Book and Invite Members logic is currently not handled by the API */}
                         {/* You would need to add specific API endpoints for these features */}
-                        <div className="grid gap-2 opacity-50 cursor-not-allowed">
+                        {/* <div className="grid gap-2 opacity-50 cursor-not-allowed">
                             <Label htmlFor="current-book">Current Book (Optional)</Label>
                             <Select disabled>
                                 <SelectTrigger id="current-book" className="rounded-full" >
@@ -269,7 +394,7 @@ console.log(initialMyClubs)
                                 </SelectContent>
                             </Select>
                             <p className="text-xs text-muted-foreground">This feature is not yet implemented.</p>
-                        </div>
+                        </div> */}
                         <div className="grid gap-2 opacity-50 cursor-not-allowed">
                             <Label htmlFor="invite">Invite Members (Optional)</Label>
                             <Input id="invite" placeholder="Enter email addresses, separated by commas" disabled />
@@ -296,13 +421,13 @@ console.log(initialMyClubs)
                 </div>
             </div>
 
-            <div className="relative">
+            <div className="relative mb-4">
                 <Search className="absolute left-3 top-2 h-4 w-4 text-secondary" />
                 <Input
-                placeholder="Search reading clubs..."
-                className="pl-10 bg-bookWhite placeholder:text-secondary"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search reading clubs..."
+                    className="pl-10 bg-bookWhite placeholder:text-secondary/60 text-secondary"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                 />
             </div>
 
@@ -325,84 +450,243 @@ console.log(initialMyClubs)
                 </div>
 
                 <TabsContent value="my-clubs" className="space-y-6">
-                {myClubs.length === 0 ? (
+                {/* Add Pending Invitations Section */}
+                {pendingInvitations.length > 0 && (
+                  <div className="space-y-4">
+                    {pendingInvitations.map((invitation) => (
+                      <Card key={invitation.id} className="border-none pb-3">
+                        <CardHeader className="px-3 py-3">
+                          <div className="flex flex-col w-full">
+                            <div className="flex w-full items-start gap-2">
+                              {/* Left side: Title */}
+                              <div className="flex-1 min-w-0">
+                                <CardTitle className="text-xl/5 break-words text-secondary-light m-0 p-0">
+                                  {invitation.club.name}
+                                </CardTitle>
+                              </div>
+
+                              {/* Right side: Invitation Badge */}
+                              <div className="flex flex-row items-start flex-none gap-2">
+                                <Badge variant="outline" className="h-6 bg-accent/40 border-none text-secondary font-serif">
+                                  Invitation
+                                </Badge>
+                              </div>
+                            </div>
+
+                            {/* Description */}
+                            <CardDescription className="font-serif font-medium text-sm/4 pt-2">
+                              {invitation.club.description}
+                            </CardDescription>
+
+                            {/* Invitation Details */}
+                            {/* <div className="mt-2 p-2 bg-accent/10 rounded-md">
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-6 w-6">
+                                  <AvatarImage src={invitation.inviter_avatar || "/placeholder.svg"} alt={invitation.inviter_name} />
+                                  <AvatarFallback className="bg-blue-500 text-white text-xs">
+                                    {invitation.inviter_name.charAt(0)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <p className="text-sm font-medium text-secondary">
+                                  Invited by {invitation.inviter_name}
+                                </p>
+                                <span className="text-xs text-secondary/60 font-serif">
+                                  {formatDate(invitation.created_at)}
+                                </span>
+                              </div>
+                              {invitation.message && (
+                                <p className="text-sm text-secondary/80 font-serif italic mt-1 pl-8">
+                                  "{invitation.message}"
+                                </p>
+                              )}
+                            </div> */}
+                          </div>
+                        </CardHeader>
+                        <CardContent className="px-3 py-0">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-1">
+                            {invitation.club.current_book ? (
+                              <div className="col-span-1">
+                                <p className="text-sm font-medium mb-1 text-secondary-light">Current Book</p>
+                                <div className="bg-secondary/5 p-3 w-auto rounded-lg flex gap-3">
+                                  <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
+                                    <img
+                                      src={invitation.club.current_book?.cover_url || "/placeholder.svg"}
+                                      alt={`${invitation.club.current_book?.title || 'No book'} cover`}
+                                      className="max-h-full"
+                                    />
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-sm/4">{invitation.club.current_book?.title || 'No current book'}</p>
+                                    <p className="text-xs text-secondary font-serif font-medium">{invitation.club.current_book?.author}</p>
+                                    <p className="text-xs mt-2 font-serif underline text-secondary">view book details</p>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="col-span-1">
+                                <p className="text-sm font-normal mb-1 bg-secondary/5 py-1 px-2 inline-block text-secondary/60 rounded-md italic">
+                                  No book has been chosen
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="mt-4">
+                            <p className="text-sm font-medium mb-1 text-secondary-light">Members</p>
+                            <div className="flex flex-wrap gap-2">
+                              {[...Array(Math.min(8, invitation.club.memberCount))].map((_, i) => (
+                                <Avatar key={i} className="h-8 w-8">
+                                  <AvatarImage src={`/placeholder.svg?height=32&width=32&text=${String.fromCharCode(65 + i)}`} alt="Member" />
+                                  <AvatarFallback
+                                    className={
+                                      i === 0 ? "bg-primary text-primary-foreground" : "bg-secondary text-bookWhite"
+                                    }
+                                  >
+                                    {String.fromCharCode(65 + i)}
+                                  </AvatarFallback>
+                                </Avatar>
+                              ))}
+                              {invitation.club.memberCount > 8 && (
+                                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs text-bookWhite">
+                                  +{invitation.club.memberCount - 8}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Invitation Action Card */}
+                          <div className="mt-2">
+                            <Card className="bg-secondary/5 p-2 rounded-lg">
+                              <CardHeader className="pb-0 px-0 pt-0">
+                                <CardTitle className="text-secondary-light text-sm font-medium flex items-center gap-2">
+                                  <Users className="h-4 w-4" />
+                                  {invitation.inviter_name} invited you to join this club!
+                                </CardTitle>
+                                <span className="text-xs text-secondary/60 font-serif pl-6">
+                                  {formatDate(invitation.created_at)}
+                                </span>
+                              </CardHeader>
+                              <CardContent className="px-0 py-0">
+                                <div className="flex flex-row justify-end items-center">
+                                  <div className="flex gap-2">
+                                    <Button
+                                      onClick={() => handleDeclineInvitation(invitation.id, invitation.club.name)}
+                                      disabled={loadingAction}
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-none text-bookWhite bg-red-600 hover:bg-red-900 rounded-full h-7 text-xs px-3"
+                                    >
+                                      {loadingAction ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <X className="h-4 w-4" />
+                                      )}
+                                      Decline
+                                    </Button>
+                                    <Button
+                                      onClick={() => handleAcceptInvitation(invitation.id, invitation.club.name)}
+                                      disabled={loadingAction}
+                                      size="sm"
+                                      className="bg-accent-variant/80 hover:bg-accent-variant text-white rounded-full h-7 text-xs px-3"
+                                    >
+                                      {loadingAction ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <Check className="h-4 w-4" />
+                                      )}
+                                      Accept
+                                    </Button>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+
+                {/* Existing My Clubs Section */}
+                {myClubs.length === 0 && pendingInvitations.length === 0 ? (
                   <p className="text-center text-muted-foreground py-10">You are not a member of any clubs yet. Explore the "Discover" tab!</p>
+                ) : myClubs.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-10">No active club memberships. Check your invitations above or explore the "Discover" tab!</p>
                 ) : (
-                  myClubs.map((club) => (
+                  filteredClubs.map((club) => (
                       <Card key={club.id}>
-                      <CardHeader className="pb-2">
-                          <div className="flex flex-col justify-between items-start w-full">
-                            <div className="flex flex-row">
-                                <div className="flex items-center gap-2 text-secondary-light">
-                                    <Link href={`/clubs/${club.id}`} className="truncate">
-                                    <CardTitle className="p-0 m-0 truncate">
+                      <CardHeader className="px-3 py-3">
+                        <div className="flex flex-col w-full">
+                            <div className="flex w-full items-start gap-2">
+                                {/* Left side: Title */}
+                                <div className="flex-1 min-w-0">
+                                    <Link href={`/clubs/${club.id}`}>
+                                    <CardTitle className="text-xl/5 break-words text-secondary-light m-0 p-0">
                                         {club.name}
                                     </CardTitle>
                                     </Link>
-                                    
-                                    {club.admin && (
-                                        <Badge variant="outline" className="ml-2 bg-primary/25 border-none text-secondary font-serif">
-                                        Admin
-                                        </Badge>
-                                    )}
                                 </div>
 
-                                {club.admin && (
-                                <Button variant="ghost" size="icon" className="mt-2 md:mt-0 shrink-0 self-end md:self-auto">
-                                    <Settings className="h-4 w-4 text-secondary-light" />
-                                </Button>
-                                )}
+                                {/* Right side: Badges + Button */}
+                                <div className="flex flex-row items-start flex-none gap-2">
+                                    {club.admin && (
+                                    <Badge variant="outline" className="h-6 bg-primary/25 border-none text-secondary font-serif">
+                                        Admin
+                                    </Badge>
+                                    )}
+                                    {club.membershipStatus === 'ACTIVE' && (
+                                    <Badge className="bg-accent-variant/30 text-secondary font-serif">
+                                        Member
+                                    </Badge>
+                                    )}
+                                    {/* {club.admin && (
+                                    <Button variant="ghost" size="icon" className="shrink-0 self-start h-6 hover:bg-secondary/10">
+                                        <Settings className="h-4 w-4 text-secondary-light" />
+                                    </Button>
+                                    )} */}
+                                </div>
                             </div>
 
-                            <CardDescription className="font-serif font-medium text-sm/4">
-                                {club.description}
+                            {/* Description */}
+                            <CardDescription className="font-serif font-medium text-sm/4 pt-2">
+                            {club.description}
                             </CardDescription>
-                          </div>
+                        </div>
                       </CardHeader>
-                      <CardContent>
-                          <div className="grid grid-cols-2 gap-4 pt-2">
-                              <div className="flex items-center gap-2">
-                                  <Users className="h-5 w-5 text-accent-variant" />
-                                  <div>
-                                  <p className="text-sm/3 font-medium">Members</p>
-                                  {/* Assuming 'members' property from API is the actual count */}
-                                  <p className="text-sm font-serif text-secondary/50 font-medium">{club.memberCount} people</p>
-                                  </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                  <CalendarDays className="h-5 w-5 text-accent-variant" />
-                                  <div>
-                                  <p className="text-sm/3 font-medium">Next Meeting</p>
-                                  {/* These fields (`currentBook`, `nextMeeting`, `history`) are not returned by your new APIs. */}
-                                  {/* You'd need to extend your API or fetch this from `/api/clubs/[id]` separately. */}
-                                  <p className="text-sm font-serif text-secondary/50 font-medium">{club.nextMeeting || 'TBD'}</p>
-                                  </div>
-                              </div>
-                          </div>
-
-                          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-1">
-                          <div className="col-span-1">
-                              <p className="text-sm font-medium mb-1">Current Book</p>
-                              <div className="bg-secondary-light/10 p-3 w-auto rounded-lg flex gap-3">
-                              <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
-                                  <img
-                                  src={club.current_book?.cover_url || "/placeholder.svg"} // Use optional chaining
-                                  alt={`${club.current_book?.title || 'No book'} cover`}
-                                  className="max-h-full"
-                                  />
-                              </div>
-                              <div>
-                                  <p className="font-medium text-sm/4">{club.current_book?.title || 'No current book'}</p>
-                                  <p className="text-xs text-secondary font-serif font-medium">{club.current_book?.author}</p>
-                                  {/* This `Meeting in 3 days` is static, would need dynamic data */}
-                                  <div className="mt-2 flex items-center gap-1 text-xs font-serif font-medium text-secondary rounded-full py-0 px-2 bg-accent/60">
-                                      <Clock className="h-3 w-3" />
-                                      <span>Meeting in 3 days</span>
-                                  </div>
-                                  <p className="text-xs mt-2 font-serif underline text-secondary">view book details</p>
-                              </div>
-                              </div>
-                          </div>
+                      <CardContent className="px-3 py-0">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-1">
+                            {club.current_book ? (
+                            <div className="col-span-1">
+                                <p className="text-sm font-medium mb-1 text-secondary-light">Current Book</p>
+                                <div className="bg-secondary/5 p-3 w-auto rounded-lg flex gap-3">
+                                    <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
+                                        <img
+                                        src={club.current_book?.cover_url || "/placeholder.svg"} // Use optional chaining
+                                        alt={`${club.current_book?.title || 'No book'} cover`}
+                                        className="max-h-full"
+                                        />
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-sm/4">{club.current_book?.title || 'No current book'}</p>
+                                        <p className="text-xs text-secondary font-serif font-medium">{club.current_book?.author}</p>
+                                        {/* This `Meeting in 3 days` is static, would need dynamic data 
+                                        {Math.ceil((club.meetings[0].meeting_date - new Date()) / (1000 * 60 * 60 * 24)) > 0 ? `Meeting in ${Math.ceil((club.meetings[0].meeting_date - new Date()) / (1000 * 60 * 60 * 24))} days` : `Meeting in ${Math.ceil((club.meetings[0].meeting_date - new Date()) / (1000 * 60 * 60 * 24))} days`}
+                                        */}
+                                        {club.meetings && club.meetings.length > 0 && (
+                                        <div className="mt-2 flex items-center gap-1 text-xs font-serif font-medium text-secondary rounded-full py-0 px-2 bg-accent/60">
+                                            <Clock className="h-3 w-3" />
+                                            <span>{calculateDaysUntilMeeting(club.meetings[0].meeting_date)}</span>
+                                        </div>
+                                        )}
+                                        <p className="text-xs mt-2 font-serif underline text-secondary">view book details</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ):(
+                            <div className="col-span-1">
+                                <p className="text-sm font-normal mb-1 bg-secondary/5 py-1 px-2 inline-block text-secondary/60 rounded-md italic">No book has been chosen</p>
+                            </div>
+                        )} 
 
                           {/* <div className="col-span-2">
                               <Accordion type="single" collapsible className="w-full">
@@ -437,40 +721,39 @@ console.log(initialMyClubs)
                           </div> */}
                           </div>
 
-                          <div className="mt-6">
-                          <p className="text-sm font-medium mb-2">Members</p>
-                          <div className="flex flex-wrap gap-2">
-                              {[...Array(Math.min(8, club.memberCount))].map((_, i) => (
-                              <Avatar key={i} className="h-8 w-8">
-                                  <AvatarImage src={`/placeholder.svg?height=32&width=32&text=${String.fromCharCode(65 + i)}`} alt="Member" />
-                                  <AvatarFallback
-                                  className={
-                                      i === 0 ? "bg-primary text-primary-foreground" : "bg-secondary text-bookWhite"
-                                  }
-                                  >
-                                  {String.fromCharCode(65 + i)}
-                                  </AvatarFallback>
-                              </Avatar>
-                              ))}
-                              {club.memberCount > 8 && (
-                              <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs text-bookWhite">
-                                  +{club.memberCount - 8}
-                              </div>
-                              )}
-                          </div>
+                          <div className="mt-4">
+                            <p className="text-sm font-medium mb-1 text-secondary-light">Members</p>
+                            <div className="flex flex-wrap gap-2">
+                                {[...Array(Math.min(8, club.memberCount))].map((_, i) => (
+                                <Avatar key={i} className="h-8 w-8">
+                                    <AvatarImage src={`/placeholder.svg?height=32&width=32&text=${String.fromCharCode(65 + i)}`} alt="Member" />
+                                    <AvatarFallback
+                                    className={
+                                        i === 0 ? "bg-primary text-primary-foreground" : "bg-secondary text-bookWhite"
+                                    }
+                                    >
+                                    {String.fromCharCode(65 + i)}
+                                    </AvatarFallback>
+                                </Avatar>
+                                ))}
+                                {club.memberCount > 8 && (
+                                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs text-bookWhite">
+                                    +{club.memberCount - 8}
+                                </div>
+                                )}
+                            </div>
                           </div>
 
                           {/* --- Admin section for Pending Applications --- */}
                           {club.admin && club.pendingMemberships && club.pendingMemberships.length > 0 && (
-                              <div className="mt-6">
-                                  <Card>
-                                      <CardHeader className="pb-2">
-                                          <CardTitle className="text-secondary-light text-lg">Pending Applications</CardTitle>
-                                          <CardDescription className="font-serif font-medium text-sm/4">Review new membership requests.</CardDescription>
+                              <div className="mt-0">
+                                  <Card className="">
+                                      <CardHeader className="pb-2 px-0 pt-3">
+                                          <CardTitle className="text-secondary-light text-sm font-medium">Pending Applications</CardTitle>
                                       </CardHeader>
-                                      <CardContent className="space-y-4">
+                                      <CardContent className="space-y-2 px-0 py-0">
                                           {club.pendingMemberships.map((applicant) => (
-                                              <div key={applicant.id} className="flex items-center justify-between p-2 border rounded-md">
+                                              <div key={applicant.id} className="flex items-center justify-between p-2 bg-secondary/5 rounded-md">
                                                   <div className="flex items-center gap-3">
                                                       <Avatar className="h-8 w-8">
                                                           <AvatarImage src={applicant.userAvatar || "/placeholder.svg"} alt={applicant.userName} />
@@ -478,24 +761,42 @@ console.log(initialMyClubs)
                                                               {applicant.userInitials}
                                                           </AvatarFallback>
                                                       </Avatar>
-                                                      <div>
-                                                          <p className="text-sm font-medium">{applicant.userName}</p>
-                                                          <p className="text-xs text-muted-foreground">Applied {new Date(applicant.appliedAt).toLocaleDateString()}</p>
+                                                      <div className="flex-1 min-w-0">
+                                                          <p className="text-sm font-medium break-words">{applicant.userName}</p>
+                                                          {/* <p className="font-serif font-medium text-xs/4 text-secondary/60">Applied {new Date(applicant.appliedAt).toLocaleDateString()}</p> */}
+                                                      <p className="font-serif font-medium text-xs/4 text-secondary/60">Applied {formatDate(applicant.appliedAt)}</p>
                                                       </div>
                                                   </div>
-                                                  <Button
-                                                      onClick={() => handleApproveMembership(club.id, applicant.id, applicant.userName)}
-                                                      disabled={loadingAction}
-                                                      size="sm"
-                                                      className="bg-green-500 hover:bg-green-600 text-white"
-                                                  >
-                                                      {loadingAction ? (
-                                                          <Loader2 className="h-4 w-4 animate-spin" />
-                                                      ) : (
-                                                          <Check className="mr-1 h-4 w-4" />
-                                                      )}
-                                                      Approve
-                                                  </Button>
+                                                  <div className="flex items-center">
+                                                    {/* // Make sure you also have an API route at /api/clubs/deny on the backend, 
+                                                    expecting a POST request with membershipId, and removing or updating that membership accordingly. */}
+                                                    <Button
+                                                        onClick={() => handleDenyMembership(club.id, applicant.id, applicant.userName)}
+                                                        disabled={loadingAction}
+                                                        size="sm"
+                                                        className="bg-red-600 hover:bg-red-900 text-white rounded-full h-6 mr-1 text-xs px-2"
+                                                    >
+                                                        {loadingAction ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <X className="h-4 w-4" />
+                                                        )}
+                                                        Deny
+                                                    </Button>
+                                                    <Button
+                                                        onClick={() => handleApproveMembership(club.id, applicant.id, applicant.userName)}
+                                                        disabled={loadingAction}
+                                                        size="sm"
+                                                        className="bg-accent-variant/80 hover:bg-accent-variant text-white rounded-full h-6 text-xs px-2"
+                                                    >
+                                                        {loadingAction ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <Check className="h-4 w-4" />
+                                                        )}
+                                                        Approve
+                                                    </Button>
+                                                  </div>
                                               </div>
                                           ))}
                                       </CardContent>
@@ -504,7 +805,7 @@ console.log(initialMyClubs)
                           )}
 
                       </CardContent>
-                      <CardFooter className="flex flex-wrap gap-2">
+                      <CardFooter className="flex flex-wrap gap-0">
                           {/* <Button className="bg-primary rounded-full hover:bg-primary-light text-primary-foreground">Exit Club</Button> */}
                           {/* {club.admin && (
                           <>
@@ -628,63 +929,85 @@ console.log(initialMyClubs)
                 )}
                 </TabsContent>
 
-                <TabsContent value="discover" className="space-y-6">
+                <TabsContent value="discover" className="space-y-3">
                 {discoverClubs.length === 0 ? (
                   <p className="text-center text-muted-foreground py-10">No new clubs to discover at the moment. Check back later!</p>
                 ) : (
                   discoverClubs.map((club) => (
                       <Card key={club.id}>
-                      <CardHeader className="pb-2 text-secondary-light">
-                          <CardTitle>{club.name}</CardTitle>
+                      <CardHeader className="pb-2 text-secondary-light items-start px-3 pt-3">
+                        {/* Left side: Title */}
+                            <div className="flex-1 min-w-0">
+                                <CardTitle className="text-xl/5 break-words text-secondary-light m-0 p-0">
+                                    {club.name}
+                                </CardTitle>
+                            </div>
                           <CardDescription className="pt-1 font-serif font-medium text-sm/4">{club.description}</CardDescription>
                       </CardHeader>
-                      <CardContent>
-                          <div className="grid grid-cols-2 gap-4 pt-2">
-                              <div className="flex items-center gap-2">
-                                  <Users className="h-5 w-5 text-accent-variant" />
-                                  <div>
-                                  <p className="text-sm/3 font-medium">Members</p>
-                                  <p className="text-sm font-serif text-secondary/50 font-medium">{club.memberCount} people</p>
-                                  </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                  <CalendarDays className="h-5 w-5 text-accent-variant" />
-                                  <div>
-                                  <p className="text-sm/3 font-medium">Next Meeting</p>
-                                  <p className="text-sm font-serif text-secondary/50 font-medium">June 17, 2025</p> {/* This is hardcoded static data */}
-                                  </div>
-                              </div>
-                          </div>
-
-                          <div className="mt-3">
-                          <p className="text-sm font-medium mb-1">Current Book</p>
-                          <div className="bg-secondary-light/10 p-3 rounded-lg flex gap-3">
-                              <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
-                              <img
-                                  src={club.currentBook?.cover || "/placeholder.svg"} // Optional chaining
-                                  alt={`${club.currentBook?.title || 'No book'} cover`}
-                                  className="max-h-full"
-                              />
-                              </div>
-                              <div>
-                              <p className="font-medium text-sm/4">{club.currentBook?.title || 'No current book'}</p>
-                              <p className="text-xs text-secondary font-serif font-medium">{club.currentBook?.author}</p>
-                              <p className="mt-2 flex items-center gap-1 text-xs font-serif font-medium text-secondary rounded-full py-0 px-2 bg-accent-variant/40">
-                                  567 pages - 7h 23min {/* This is hardcoded static data */}
-                              </p>
-                              <p className="text-xs mt-2 font-serif underline text-secondary">view book details</p>
-                              </div>
-                          </div>
-                          </div>
+                      <CardContent className="px-3 py-0">
+                        {club.current_book ? (
+                            <div className="col-span-1">
+                                <p className="text-sm font-medium mb-1">Current Book</p>
+                                <div className="bg-secondary/5 p-3 w-auto rounded-lg flex gap-3">
+                                    <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
+                                        <img
+                                        src={club.current_book?.cover_url || "/placeholder.svg"} // Use optional chaining
+                                        alt={`${club.current_book?.title || 'No book'} cover`}
+                                        className="max-h-full"
+                                        />
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-sm/4">{club.current_book?.title || 'No current book'}</p>
+                                        <p className="text-xs text-secondary font-serif font-medium">{club.current_book?.author}</p>
+                                        {/* This `Meeting in 3 days` is static, would need dynamic data 
+                                        {Math.ceil((club.meetings[0].meeting_date - new Date()) / (1000 * 60 * 60 * 24)) > 0 ? `Meeting in ${Math.ceil((club.meetings[0].meeting_date - new Date()) / (1000 * 60 * 60 * 24))} days` : `Meeting in ${Math.ceil((club.meetings[0].meeting_date - new Date()) / (1000 * 60 * 60 * 24))} days`}
+                                        */}
+                                        {club.meetings && club.meetings.length > 0 && (
+                                        <div className="mt-2 flex items-center gap-1 text-xs font-serif font-medium text-secondary rounded-full py-0 px-2 bg-accent/60">
+                                            <Clock className="h-3 w-3" />
+                                            <span>{calculateDaysUntilMeeting(club.meetings[0].meeting_date)}</span>
+                                        </div>
+                                        )}
+                                        <p className="text-xs mt-2 font-serif underline text-secondary">view book details</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ):(
+                            <div className="col-span-1">
+                                <p className="text-sm font-normal mb-1 bg-secondary/5 py-1 px-2 inline-block text-secondary/60 rounded-md italic">No book has been chosen</p>
+                            </div>
+                        )} 
+                        <div className="mt-2">
+                            <p className="text-sm font-medium mb-1 text-secondary-light">Members</p>
+                            <div className="flex flex-wrap gap-2">
+                                {[...Array(Math.min(8, club.memberCount))].map((_, i) => (
+                                <Avatar key={i} className="h-8 w-8">
+                                    <AvatarImage src={`/placeholder.svg?height=32&width=32&text=${String.fromCharCode(65 + i)}`} alt="Member" />
+                                    <AvatarFallback
+                                    className={
+                                        i === 0 ? "bg-primary text-primary-foreground" : "bg-secondary text-bookWhite"
+                                    }
+                                    >
+                                    {String.fromCharCode(65 + i)}
+                                    </AvatarFallback>
+                                </Avatar>
+                                ))}
+                                {club.memberCount > 8 && (
+                                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs text-bookWhite">
+                                    +{club.memberCount - 8}
+                                </div>
+                                )}
+                            </div>
+                        </div>
                       </CardContent>
-                      <CardFooter className="flex justify-end">
+                      <CardFooter className="flex justify-end pt-3 pb-3">
                           {/* --- Conditional Join Button in Discover Tab --- */}
                           {club.membershipStatus === 'PENDING' ? (
                               <Badge variant="secondary" className="px-4 py-2 text-primary font-serif">
-                                  Pending Application
+                                  Pending Response
                               </Badge>
                           ) : club.membershipStatus === 'ACTIVE' ? (
-                              <Badge className="bg-green-500 text-white px-4 py-2 font-serif">
+                              <Badge className="bg-accent-variant/70 text-white px-4 py-2 font-serif">
                                   Already a Member
                               </Badge>
                           ) : (
@@ -694,9 +1017,9 @@ console.log(initialMyClubs)
                                   className="bg-primary rounded-full hover:bg-primary-light text-primary-foreground"
                               >
                                   {loadingAction ? (
-                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      <Loader2 className="h-4 w-4 animate-spin" />
                                   ) : (
-                                      <Plus className="mr-2 h-4 w-4" />
+                                      <Plus className="h-4 w-4" />
                                   )}
                                   Join Club
                               </Button>

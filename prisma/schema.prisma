@@ -16,7 +16,9 @@ model Profile {
   id              String   @id @db.Uuid // PK *and* FK to auth.users.id
   email           String?  @unique
   display_name    String
+  nickname        String?
   about           String?  @db.Text
+  avatar_url      String?
   kindle_email    String?  @db.Text
   favorite_genres String[]
   created_at      DateTime @default(now()) @db.Timestamptz(6)
@@ -41,6 +43,13 @@ model Profile {
   // New meeting-related relations
   createdMeetings   ClubMeeting[]         @relation("MeetingCreator")
   meetingAttendance ClubMeetingAttendee[] @relation("MeetingAttendee")
+  
+  // New review relation
+  bookReviews BookReview[] @relation("UserReviews")
+
+  // New invitation-related relations
+  sentInvitations     ClubInvitation[]    @relation("SentInvitations")
+  receivedInvitations ClubInvitation[]    @relation("ReceivedInvitations")
 
   @@map("profiles")
   @@schema("public")
@@ -65,6 +74,9 @@ model Book {
 
   file             BookFile[]       @relation("BookToBookFile")
   UserBook         UserBook[]
+  
+  // New review relation
+  reviews BookReview[] @relation("BookReviews")
   current_in_clubs Club[]           @relation("CurrentClubBook")
   club_history     ClubBook[]
   ClubDiscussion   ClubDiscussion[]
@@ -144,6 +156,7 @@ model Club {
   book_history   ClubBook[]
   ClubDiscussion ClubDiscussion[]
   meetings       ClubMeeting[]    // New relation for club meetings
+  invitations    ClubInvitation[] // New relation for club invitations
 
   @@map("clubs")
   @@schema("public")
@@ -180,6 +193,37 @@ enum ClubMembershipStatus {
   LEFT
   SUSPENDED
 
+  @@schema("public")
+}
+
+enum ClubInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+
+  @@schema("public")
+}
+
+model ClubInvitation {
+  id          String                @id @default(uuid()) @db.Uuid
+  club_id     String                @db.Uuid
+  inviter_id  String                @db.Uuid // Who sent the invitation
+  invitee_id  String?               @db.Uuid // If inviting existing user
+  email       String?               // If inviting by email
+  status      ClubInvitationStatus  @default(PENDING)
+  message     String?               // Optional invitation message
+  expires_at  DateTime?             @db.Timestamptz(6)
+  created_at  DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime              @updatedAt @db.Timestamptz(6)
+
+  club     Club     @relation(fields: [club_id], references: [id], onDelete: Cascade)
+  inviter  Profile  @relation("SentInvitations", fields: [inviter_id], references: [id])
+  invitee  Profile? @relation("ReceivedInvitations", fields: [invitee_id], references: [id])
+
+  @@unique([club_id, invitee_id])
+  @@unique([club_id, email])
+  @@map("club_invitations")
   @@schema("public")
 }
 
@@ -430,5 +474,22 @@ enum ClubMeetingAttendeeStatus {
   NOT_ATTENDING
   MAYBE
 
+  @@schema("public")
+}
+
+model BookReview {
+  id         String      @id @default(uuid()) @db.Uuid
+  user_id    String      @db.Uuid
+  book_id    String      @db.Uuid
+  content    String      @db.Text
+  rating     ReactionType // Using existing ReactionType enum (HEART, THUMBS_UP, THUMBS_DOWN)
+  created_at DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at DateTime    @updatedAt @db.Timestamptz(6)
+
+  user Profile @relation("UserReviews", fields: [user_id], references: [id], onDelete: Cascade)
+  book Book    @relation("BookReviews", fields: [book_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, book_id]) // One review per user per book
+  @@map("book_reviews")
   @@schema("public")
 }

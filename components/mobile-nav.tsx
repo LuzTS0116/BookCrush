@@ -84,13 +84,13 @@ export function MobileNav() {
     {
       href: "/clubs",
       label: "Clubs",
-      icon: Users,
+      icon: Coffee,
       active: pathname === "/clubs" || pathname.startsWith("/clubs/"),
     },
     {
       href: "/friends",
       label: "Friends",
-      icon: Coffee,
+      icon: Users,
       active: pathname === "/friends",
     },
   ]

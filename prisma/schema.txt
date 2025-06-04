@@ -1,0 +1,495 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../lib/generated/prisma"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas  = ["public"]
+  
+}
+
+model Profile {
+  id              String   @id @db.Uuid // PK *and* FK to auth.users.id
+  email           String?  @unique
+  display_name    String
+  nickname        String?
+  about           String?  @db.Text
+  avatar_url      String?
+  kindle_email    String?  @db.Text
+  favorite_genres String[]
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @updatedAt @db.Timestamptz(6)
+
+  // Relationships moved from the old User model
+  ownedClubs       Club[]           @relation("ClubOwner")
+  memberships      ClubMembership[]
+  reactions        Reaction[]
+  userBooks        UserBook[]
+  clubDiscussions  ClubDiscussion[] @relation("DiscussionAuthor")
+  sentRequests     FriendRequest[]  @relation("SentRequests")
+  receivedRequests FriendRequest[]  @relation("ReceivedRequests")
+  friendshipsAsUser1 Friendship[]   @relation("FriendshipAsUser1")
+  friendshipsAsUser2 Friendship[]   @relation("FriendshipAsUser2")
+
+  // Optional: if Book.added_by was meant to be a user, add this relation
+  // addedBooks Book[] @relation("BookCreator")
+  relatedActivities ActivityLog[] @relation("RelatedUserActivities") // For activities where this user is secondary
+  activities        ActivityLog[] // Activities performed by this user
+  
+  // New meeting-related relations
+  createdMeetings   ClubMeeting[]         @relation("MeetingCreator")
+  meetingAttendance ClubMeetingAttendee[] @relation("MeetingAttendee")
+  
+  // New review relation
+  bookReviews BookReview[] @relation("UserReviews")
+
+  // New invitation-related relations
+  sentInvitations     ClubInvitation[]    @relation("SentInvitations")
+  receivedInvitations ClubInvitation[]    @relation("ReceivedInvitations")
+
+  @@map("profiles")
+  @@schema("public")
+}
+
+model Book {
+  id             String   @id @default(uuid()) @db.Uuid
+  title          String
+  author         String?
+  cover_url      String?
+  description    String?
+  reading_time   String?
+  pages          Int?
+  genres         String[]
+  published_date String?
+  rating         Float?
+  added_by       String?  @db.Uuid // This will now point to Profile.id
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  // Optional: Relation for added_by if it points to a Profile
+  // creator Profile? @relation("BookCreator", fields: [added_by], references: [id])
+
+  file             BookFile[]       @relation("BookToBookFile")
+  UserBook         UserBook[]
+  
+  // New review relation
+  reviews BookReview[] @relation("BookReviews")
+  current_in_clubs Club[]           @relation("CurrentClubBook")
+  club_history     ClubBook[]
+  ClubDiscussion   ClubDiscussion[]
+  club_meetings    ClubMeeting[]    // New relation for meetings about this book
+
+  @@map("books")
+  @@schema("public")
+}
+
+model BookFile {
+  id            String  @id @default(uuid()) @db.Uuid
+  book_id       String  @db.Uuid
+  storage_key   String
+  original_name String?
+  mime_type     String?
+  size_bytes    Int?
+
+  book Book @relation("BookToBookFile", fields: [book_id], references: [id]) // <-- Used same explicit relation name
+  // REMOVED: If you had @@unique([book_id]) here previously, remove it. It's incorrect for one-to-many.
+
+  @@map("book_files")
+  @@schema("public")
+}
+
+model FriendRequest {
+  id         String              @id @default(uuid()) @db.Uuid
+  senderId   String              @db.Uuid
+  receiverId String              @db.Uuid
+  status     FriendRequestStatus @default(PENDING)
+  sentAt     DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime            @updatedAt @db.Timestamptz(6)
+
+  sender   Profile @relation("SentRequests", fields: [senderId], references: [id])
+  receiver Profile @relation("ReceivedRequests", fields: [receiverId], references: [id])
+
+  @@unique([senderId, receiverId])
+  @@map("friend_requests")
+  @@schema("public")
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+
+  @@schema("public")
+}
+
+model Friendship {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId1       String   @db.Uuid // Conceptually Profile.id
+  userId2       String   @db.Uuid // Conceptually Profile.id
+  establishedAt DateTime @default(now()) @db.Timestamptz(6)
+
+  user_one Profile @relation("FriendshipAsUser1", fields: [userId1], references: [id])
+  user_two Profile @relation("FriendshipAsUser2", fields: [userId2], references: [id])
+
+  @@unique([userId1, userId2])
+  @@map("friendships")
+  @@schema("public")
+}
+
+model Club {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String   @unique
+  description     String?
+  owner_id        String   @db.Uuid // This will now point to Profile.id
+  memberCount     Int      @default(0)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @updatedAt @db.Timestamptz(6)
+  is_private      Boolean
+  current_book_id String?  @db.Uuid
+
+  owner          Profile          @relation("ClubOwner", fields: [owner_id], references: [id], onDelete: Restrict)
+  memberships    ClubMembership[]
+  current_book   Book?            @relation("CurrentClubBook", fields: [current_book_id], references: [id])
+  book_history   ClubBook[]
+  ClubDiscussion ClubDiscussion[]
+  meetings       ClubMeeting[]    // New relation for club meetings
+  invitations    ClubInvitation[] // New relation for club invitations
+
+  @@map("clubs")
+  @@schema("public")
+}
+
+model ClubMembership {
+  id        String               @id @default(uuid()) @db.Uuid
+  user_id   String               @db.Uuid // This will now point to Profile.id
+  club_id   String               @db.Uuid
+  role      ClubRole             @default(MEMBER)
+  status    ClubMembershipStatus @default(ACTIVE)
+  joined_at DateTime             @default(now()) @db.Timestamptz(6)
+
+  user Profile @relation(fields: [user_id], references: [id])
+  club Club    @relation(fields: [club_id], references: [id])
+
+  @@unique([user_id, club_id])
+  @@map("club_memberships")
+  @@schema("public")
+}
+
+enum ClubRole {
+  MEMBER
+  ADMIN
+  OWNER
+
+  @@schema("public")
+}
+
+enum ClubMembershipStatus {
+  ACTIVE
+  PENDING
+  REJECTED
+  LEFT
+  SUSPENDED
+
+  @@schema("public")
+}
+
+enum ClubInvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+
+  @@schema("public")
+}
+
+model ClubInvitation {
+  id          String                @id @default(uuid()) @db.Uuid
+  club_id     String                @db.Uuid
+  inviter_id  String                @db.Uuid // Who sent the invitation
+  invitee_id  String?               @db.Uuid // If inviting existing user
+  email       String?               // If inviting by email
+  status      ClubInvitationStatus  @default(PENDING)
+  message     String?               // Optional invitation message
+  expires_at  DateTime?             @db.Timestamptz(6)
+  created_at  DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime              @updatedAt @db.Timestamptz(6)
+
+  club     Club     @relation(fields: [club_id], references: [id], onDelete: Cascade)
+  inviter  Profile  @relation("SentInvitations", fields: [inviter_id], references: [id])
+  invitee  Profile? @relation("ReceivedInvitations", fields: [invitee_id], references: [id])
+
+  @@unique([club_id, invitee_id])
+  @@unique([club_id, email])
+  @@map("club_invitations")
+  @@schema("public")
+}
+
+model Reaction {
+  id          String             @id @default(uuid()) @db.Uuid
+  user_id     String             @db.Uuid // This will now point to Profile.id
+  target_type ReactionTargetType
+  target_id   String             @db.Uuid
+  type        ReactionType
+  created_at  DateTime           @default(now()) @db.Timestamptz(6)
+
+  user             Profile         @relation(fields: [user_id], references: [id])
+  ClubDiscussion   ClubDiscussion? @relation(fields: [clubDiscussionId], references: [id])
+  clubDiscussionId String?         @db.Uuid
+
+  @@unique([user_id, target_type, target_id, type])
+  @@map("reactions")
+  @@schema("public")
+}
+
+enum ReactionTargetType {
+  BOOK
+  COMMENT
+  CLUB_DISCUSSION
+
+  @@schema("public")
+}
+
+enum ReactionType {
+  LIKE // Added LIKE as a common reaction type
+  HEART
+  THUMBS_UP
+  THUMBS_DOWN
+
+  @@schema("public")
+}
+
+enum shelf_type {
+  favorite
+  currently_reading
+  queue
+  history
+
+  @@schema("public")
+}
+
+enum status_type {
+  in_progress
+  almost_done
+  finished
+
+  @@schema("public")
+}
+
+model UserBook {
+  user_id  String      @db.Uuid // This will now point to Profile.id
+  book_id  String      @db.Uuid
+  shelf    shelf_type 
+  status   status_type
+  position Int?
+  added_at DateTime    @default(now()) @db.Timestamptz(6)
+  comment  String?
+
+  book Book    @relation(fields: [book_id], references: [id])
+  user Profile @relation(fields: [user_id], references: [id])
+
+  @@id([user_id, book_id, shelf])
+  @@map("user_books")
+  @@schema("public")
+}
+
+// New model to track book reading history in clubs
+model ClubBook {
+  id          String           @id @default(uuid()) @db.Uuid
+  club_id     String           @db.Uuid
+  book_id     String           @db.Uuid
+  started_at  DateTime         @default(now()) @db.Timestamptz(6)
+  finished_at DateTime?        @db.Timestamptz(6)
+  status      club_book_status @default(IN_PROGRESS)
+
+  club Club @relation(fields: [club_id], references: [id])
+  book Book @relation(fields: [book_id], references: [id])
+
+  @@map("club_books")
+  @@schema("public")
+}
+
+enum club_book_status {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+
+  @@schema("public")
+}
+
+// New model for Club Discussions
+model ClubDiscussion {
+  id                   String   @id @default(uuid()) @db.Uuid
+  user_id              String   @db.Uuid // This will now point to Profile.id
+  club_id              String   @db.Uuid
+  book_id              String   @db.Uuid
+  content              String
+  parent_discussion_id String?  @db.Uuid
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+
+  user              Profile          @relation("DiscussionAuthor", fields: [user_id], references: [id], onDelete: Cascade)
+  club              Club             @relation(fields: [club_id], references: [id], onDelete: Cascade)
+  book              Book             @relation(fields: [book_id], references: [id], onDelete: Cascade)
+  parent_discussion ClubDiscussion?  @relation("DiscussionReplies", fields: [parent_discussion_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies           ClubDiscussion[] @relation("DiscussionReplies")
+  reactions         Reaction[]
+
+  @@map("club_discussions")
+  @@schema("public")
+}
+
+// --------------- NEW ACTIVITY FEED MODELS AND ENUMS -----------------
+
+enum ActivityType {
+  // Books / Reading
+  ADDED_BOOK_TO_LIBRARY // User added a new book to the general 'books' table
+  ADDED_BOOK_TO_SHELF   // User added an existing book to one of their shelves (UserBook: favorite, currently_reading, queue)
+  CHANGED_BOOK_STATUS   // User changed status of a book they are reading (UserBook: in_progress, almost_done, finished)
+  FINISHED_READING_BOOK // Specifically when a book status changes to 'finished'
+  REVIEWED_BOOK         // User added a review (requires a Review model)
+
+  // Social - Friends
+  SENT_FRIEND_REQUEST
+  ACCEPTED_FRIEND_REQUEST
+  // DECLINED_FRIEND_REQUEST
+  // REMOVED_FRIEND
+
+  // Social - Clubs
+  CREATED_CLUB
+  JOINED_CLUB          // User's request was approved, or they joined a public club
+  LEFT_CLUB
+  CLUB_SELECTED_BOOK   // A club the user is a member of selected a new current book
+  CLUB_NEW_MEMBER      // A new member joined a club the user is part of
+
+  // Milestones / Achievements
+  FINISHED_BOOKS_MONTHLY_MILESTONE // e.g., "User finished X books this month"
+  FRIENDSHIP_ANNIVERSARY
+
+  @@schema("public")
+}
+
+enum ActivityTargetEntityType {
+  BOOK      // Represents an actual Book table entry
+  USER_BOOK // Represents a UserBook table entry (book on a specific user's shelf)
+  PROFILE   // Represents another user/profile (e.g. friend request target, new friend)
+  CLUB
+  FRIEND_REQUEST
+  // REVIEW // if you add reviews
+  // GENERIC // For activities not tied to a specific DB entity ID e.g. monthly milestone
+  @@schema("public")
+}
+
+model ActivityLog {
+  id                       String    @id @default(uuid()) @db.Uuid
+  user_id                  String    @db.Uuid // FK to Profile: The user who performed the action / whose activity this is
+  activity_type            ActivityType
+  
+  target_entity_type       ActivityTargetEntityType? // e.g., BOOK, CLUB, PROFILE, USER_BOOK
+  target_entity_id         String?                   // ID of the book, club_id, profile_id, user_book_id (book_id part of composite or main ID if UserBook gets a UUID PK)
+  target_entity_secondary_id String?               // e.g., for UserBook (shelf_type part, or new status from status_type enum for CHANGED_BOOK_STATUS), or club_name for context
+  
+  related_user_id          String?   @db.Uuid      // e.g., the friend who was sent/received a request, or new member who joined club
+
+  details                  Json?     // Store extra contextual info: old_status, book_title, club_name, milestone_count etc.
+  created_at               DateTime  @default(now()) @db.Timestamptz(6)
+
+  user                     Profile   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  related_user             Profile?  @relation("RelatedUserActivities", fields: [related_user_id], references: [id], onDelete:SetNull)
+
+  @@index([user_id, created_at]) // For fetching a user's own activities or a feed of those they follow
+  @@index([activity_type])
+  @@map("activity_logs")
+  @@schema("public")
+}
+
+// New enums for club meetings
+enum ClubMeetingStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+
+  @@schema("public")
+}
+
+enum ClubMeetingType {
+  DISCUSSION
+  BOOK_SELECTION
+  AUTHOR_QA
+  SOCIAL
+  OTHER
+
+  @@schema("public")
+}
+
+// New model for Club Meetings
+model ClubMeeting {
+  id               String            @id @default(uuid()) @db.Uuid
+  club_id          String            @db.Uuid
+  book_id          String?           @db.Uuid // Optional: meeting might not be about a specific book
+  title            String
+  description      String?
+  meeting_date     DateTime          @db.Timestamptz(6)
+  duration_minutes Int?              @default(90) // Default 90 minutes
+  location         String?           // "Virtual (Zoom)" or physical address
+  meeting_type     ClubMeetingType   @default(DISCUSSION)
+  status           ClubMeetingStatus @default(SCHEDULED)
+  created_by       String            @db.Uuid // Profile ID of who created the meeting
+  created_at       DateTime          @default(now()) @db.Timestamptz(6)
+ 
+
+model BookReview {
+  id         String      @id @default(uuid()) @db.Uuid
+  user_id    String      @db.Uuid
+  book_id    String      @db.Uuid
+  content    String      @db.Text
+  rating     ReactionType // Using existing ReactionType enum (HEART, THUMBS_UP, THUMBS_DOWN)
+  created_at DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at DateTime    @updatedAt @db.Timestamptz(6)
+
+  user Profile @relation("UserReviews", fields: [user_id], references: [id], onDelete: Cascade)
+  book Book    @relation("BookReviews", fields: [book_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, book_id]) // One review per user per book
+  @@map("book_reviews")
+  @@schema("public")
+} updated_at       DateTime          @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  club       Club     @relation(fields: [club_id], references: [id], onDelete: Cascade)
+  book       Book?    @relation(fields: [book_id], references: [id], onDelete: SetNull)
+  creator    Profile  @relation("MeetingCreator", fields: [created_by], references: [id])
+  attendees  ClubMeetingAttendee[]
+
+  @@map("club_meetings")
+  @@schema("public")
+}
+
+// Track meeting attendance
+model ClubMeetingAttendee {
+  id           String                    @id @default(uuid()) @db.Uuid
+  meeting_id   String                    @db.Uuid
+  user_id      String                    @db.Uuid
+  status       ClubMeetingAttendeeStatus @default(NOT_RESPONDED)
+  responded_at DateTime?                 @db.Timestamptz(6)
+  created_at   DateTime                  @default(now()) @db.Timestamptz(6)
+
+  meeting ClubMeeting @relation(fields: [meeting_id], references: [id], onDelete: Cascade)
+  user    Profile     @relation("MeetingAttendee", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([meeting_id, user_id])
+  @@map("club_meeting_attendees")
+  @@schema("public")
+}
+
+enum ClubMeetingAttendeeStatus {
+  NOT_RESPONDED
+  ATTENDING
+  NOT_ATTENDING
+  MAYBE
+
+  @@schema("public")
+}

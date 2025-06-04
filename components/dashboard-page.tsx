@@ -4,7 +4,7 @@ import React, { useRef, useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { BookOpen, Calendar, BookMarked, ChevronRight, Plus, Upload, Share2 } from "lucide-react"
+import { BookOpen, Calendar, BookMarked, ChevronRight, Plus, Loader2, Upload, Share2 } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -66,7 +66,7 @@ export default function DashboardPage({
   const [showOverlay, setShowOverlay] = useState(false);
   const quoteImageRef = useRef<HTMLDivElement>(null);
   const [downloadedImageUrl, setDownloadedImageUrl] = useState<string | null>(null);
-  const [showDialog, setShowDialog] = useState(false);
+  const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false); // For Radix dialog
 
 const { expired, expiryTime, timeUntilExpiry, isExpiringSoon } = useSupabaseTokenExpiry();
@@ -92,41 +92,64 @@ const { expired, expiryTime, timeUntilExpiry, isExpiringSoon } = useSupabaseToke
     })();
   }, []);    // ← effect runs exactly once (prod) / twice (dev-strict)
 
+// useEffect(() => {
+//   const generateImage = async () => {
+//     if (quoteImageRef.current && showOverlay) {
+//       setLoading(true);
+//       try {
+//         const canvas = await html2canvas(quoteImageRef.current);
+//         const dataUrl = canvas.toDataURL('image/png');
+//         setDownloadedImageUrl(dataUrl);
+//       } catch (err) {
+//         console.error('Failed to generate image:', err);
+//         setDownloadedImageUrl(null);
+//       } finally {
+//         setLoading(false);
+//       }
+//     }
+//   };
+
+//   generateImage();
+// }, [showOverlay]);
 
 // Shareable Image
-const handleImageShare = async (ref: HTMLDivElement | null): Promise<string | null> => {
-  if (!ref) return null;
+// const handleImageShare = async (ref: HTMLDivElement | null): Promise<string | null> => {
+//   if (!ref) return null;
 
-  const canvas = await html2canvas(ref, {
-    backgroundColor: null,
-    useCORS: true,
-  });
+//   const canvas = await html2canvas(ref, {
+//     backgroundColor: null,
+//     useCORS: true,
+//   });
 
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve));
-  if (!blob) return null;
+//   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve));
+//   if (!blob) return null;
 
-  const url = URL.createObjectURL(blob);
+//   const url = URL.createObjectURL(blob);
 
-  // Download automatically
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'daily-quote.png';
-  a.click();
+//   // Download automatically
+//   const a = document.createElement('a');
+//   a.href = url;
+//   a.download = 'daily-quote.png';
+//   a.click();
 
-  return url; // We’ll use this for the preview dialog
-};
+//   return url; // We’ll use this for the preview dialog
+// };
   
 const handleClickShare = async () => {
   if (!quoteImageRef.current) return;
 
+  setLoading(true);
   try {
     const canvas = await html2canvas(quoteImageRef.current);
-    const dataUrl = canvas.toDataURL('image/png');
-
-    setDownloadedImageUrl(dataUrl); // Set the image for preview
+    const dataUrl = canvas.toDataURL("image/png");
+    setDownloadedImageUrl(dataUrl);
+    setOpen(true); // Only open the dialog after the image is ready
   } catch (err) {
-    console.error('Failed to generate image:', err);
+    console.error("Failed to generate image:", err);
     setDownloadedImageUrl(null);
+    setOpen(true); // Open dialog anyway to show error
+  } finally {
+    setLoading(false);
   }
 };
 
@@ -137,76 +160,6 @@ const handleClickShare = async () => {
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-bookWhite pb-0">Hello, {session?.user?.name ?? "mysterious reader"}!</h1>
             <p className="text-bookWhite/70 font-serif">Good to see you again! Let's get reading.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button className="bg-bookWhite/20 hover:bg-primary-light text-bookWhite rounded-full">
-                  <Plus className="mr-2 h-4 w-4" /> Add Book
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Add New Book</DialogTitle>
-                  <DialogDescription>Enter the details of the book you want to add to your collection.</DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="cover">Book Cover</Label>
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="h-40 w-32 bg-muted flex items-center justify-center rounded-md overflow-hidden">
-                        <img
-                          src="/placeholder.svg?height=160&width=120"
-                          alt="Book cover preview"
-                          className="max-h-full max-w-full"
-                        />
-                      </div>
-                      <Button variant="outline" size="sm" className="w-full">
-                        <Upload className="mr-2 h-4 w-4" /> Upload Cover
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="title">Title</Label>
-                    <Input id="title" placeholder="Enter book title" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="author">Author</Label>
-                    <Input id="author" placeholder="Enter author name" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="genre">Genre</Label>
-                    <Select>
-                      <SelectTrigger id="genre">
-                        <SelectValue placeholder="Select genre" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="fiction">Fiction</SelectItem>
-                        <SelectItem value="non-fiction">Non-Fiction</SelectItem>
-                        <SelectItem value="sci-fi">Science Fiction</SelectItem>
-                        <SelectItem value="fantasy">Fantasy</SelectItem>
-                        <SelectItem value="mystery">Mystery</SelectItem>
-                        <SelectItem value="romance">Romance</SelectItem>
-                        <SelectItem value="biography">Biography</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="pages">Number of Pages</Label>
-                    <Input id="pages" type="number" placeholder="Enter number of pages" />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="file">Upload Book File (PDF/EPUB)</Label>
-                    <Input id="file" type="file" />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="submit" className="bg-primary hover:bg-primary-light text-primary-foreground">
-                    Add Book
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
           </div>
         </div>
 
@@ -246,7 +199,7 @@ const handleClickShare = async () => {
               onClick={() => setShowOverlay((prev) => !prev)}
               className="relative group h-full col-span-2"
             >
-              <div className="h-full flex flex-col justify-between bg-[url('/images/quote-img.png')] bg-cover rounded-br-3xl">
+              <div ref={quoteImageRef} className="h-full flex flex-col justify-between bg-[url('/images/quote-img.png')] bg-cover rounded-br-3xl">
                 <div className="flex-1 flex flex-col justify-center pt-4 px-3">
                   <blockquote className="text-[13px]/4 text-center font-semibold text-bookBlack">
                     {quote}
@@ -258,12 +211,14 @@ const handleClickShare = async () => {
               {/* Overlay with centered Share button */}
               {showOverlay && (
                 <div className="absolute inset-0 bg-black/50 flex items-center rounded-br-3xl justify-center z-10">
-                  <Dialog open={open} onOpenChange={setOpen}>
-                    <DialogTrigger asChild>
-                      <Button className="bg-white p-2 rounded-full shadow-md" onClick={handleClickShare}>
+                  <Button onClick={handleClickShare} className="bg-white p-2 rounded-full shadow-md">
+                      {loading ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-black" />
+                      ) : (
                         <Share2 className="w-6 h-6 text-black" />
-                      </Button>
-                    </DialogTrigger>
+                      )}
+                    </Button>
+                  <Dialog open={open} onOpenChange={setOpen}>
                       <DialogContent className="w-[85vw] rounded-2xl">
                         {!downloadedImageUrl ? (
                           <p className="text-sm text-red-500">Failed to generate image. Try again.</p>

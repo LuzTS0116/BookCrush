@@ -55,6 +55,11 @@ interface UserClub {
   id: string;
   name: string;
   role: string;
+  current_book?: {
+    id: string;
+    title: string;
+    author?: string;
+  };
   books?: Array<{
     id: string;
     title: string;
@@ -62,8 +67,19 @@ interface UserClub {
   }>;
 }
 
+// Extend the session type to include our custom properties
+interface ExtendedSession {
+  user?: {
+    id?: string;
+    name?: string | null;
+    email?: string | null;
+    image?: string | null;
+  };
+  supabaseAccessToken?: string;
+}
+
 export default function CalendarMain() {
-  const { data: session } = useSession();
+  const { data: session } = useSession() as { data: ExtendedSession | null };
   const [date, setDate] = useState<Date | undefined>(new Date())
   const [meetings, setMeetings] = useState<ClubMeeting[]>([])
   const [userClubs, setUserClubs] = useState<UserClub[]>([])
@@ -119,25 +135,27 @@ export default function CalendarMain() {
       const adminClubs = data.filter((club: any) => 
         club.role === 'ADMIN' || club.role === 'OWNER' || club.admin
       );
+
+      
       
       // Fetch books for each club if needed
-      const clubsWithBooks = await Promise.all(
-        adminClubs.map(async (club: any) => {
-          try {
-            const booksResponse = await fetch(`/api/clubs/${club.id}/books`);
-            if (booksResponse.ok) {
-              const booksData = await booksResponse.json();
-              return { ...club, books: booksData.books || [] };
-            }
-            return { ...club, books: [] };
-          } catch (error) {
-            console.error(`Error fetching books for club ${club.id}:`, error);
-            return { ...club, books: [] };
-          }
-        })
-      );
+    //   const clubsWithBooks = await Promise.all(
+    //     adminClubs.map(async (club: any) => {
+    //       try {
+    //         const booksResponse = await fetch(`/api/clubs/${club.id}/books`);
+    //         if (booksResponse.ok) {
+    //           const booksData = await booksResponse.json();
+    //           return { ...club, books: booksData.books || [] };
+    //         }
+    //         return { ...club, books: [] };
+    //       } catch (error) {
+    //         console.error(`Error fetching books for club ${club.id}:`, error);
+    //         return { ...club, books: [] };
+    //       }
+    //     })
+    //   );
       
-      setUserClubs(clubsWithBooks);
+      setUserClubs(adminClubs);
     } catch (error) {
       console.error('Error fetching user clubs:', error);
       toast.error('Failed to load your clubs');
@@ -180,7 +198,7 @@ export default function CalendarMain() {
           duration_minutes: formData.duration_minutes,
           location: formData.location,
           meeting_type: formData.meeting_type,
-          book_id: formData.book_id || null
+          book_id: formData.book_id === 'none' ? null : formData.book_id || null
         }),
       });
 
@@ -356,7 +374,7 @@ export default function CalendarMain() {
                           </Select>
                         </div>
                         
-                        {formData.club_id && userClubs.find(c => c.id === formData.club_id)?.books && (
+                        {formData.club_id && userClubs.find(c => c.id === formData.club_id)?.current_book && (
                           <div className="grid gap-2">
                             <Label htmlFor="book">Book (Optional)</Label>
                             <Select 
@@ -367,12 +385,16 @@ export default function CalendarMain() {
                                 <SelectValue placeholder="Select book (optional)" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="">No specific book</SelectItem>
-                                {userClubs.find(c => c.id === formData.club_id)?.books?.map(book => (
-                                  <SelectItem key={book.id} value={book.id}>
-                                    {book.title} {book.author && `by ${book.author}`}
-                                  </SelectItem>
-                                ))}
+                                <SelectItem value="none">No specific book</SelectItem>
+                                {(() => {
+                                  const selectedClub = userClubs.find(c => c.id === formData.club_id);
+                                  const currentBook = selectedClub?.current_book;
+                                  return currentBook ? (
+                                    <SelectItem key={currentBook.id} value={currentBook.id}>
+                                      {currentBook.title} {currentBook.author && `by ${currentBook.author}`}
+                                    </SelectItem>
+                                  ) : null;
+                                })()}
                               </SelectContent>
                             </Select>
                           </div>

@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { BookOpen, Filter, Plus, Search, Send, ThumbsDown, ThumbsUp, Grid, List, MoreVertical, Upload, ChevronDown } from "lucide-react" // Added ChevronDown for dropdown
 import { Heart } from "@phosphor-icons/react"
+import Link from "next/link"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"; // Radix DropdownMenu
 import {
   Dialog,
@@ -209,7 +210,7 @@ const handleFavorite = (bookId: string) => {
                 variant={viewMode === "table" ? "default" : "outline"}
                 size="icon"
                 onClick={() => setViewMode("table")}
-                className={viewMode === "table" ? "bg-table" : ""} // Fix: assuming table class
+                className={viewMode === "table" ? "bg-primary text-primary-foreground" : ""} // Fix: assuming table class
               >
                 <List className="h-4 w-4" />
               </Button>
@@ -260,22 +261,28 @@ const handleFavorite = (bookId: string) => {
                         <Card key={book.id} className="flex flex-col gap-2">
                           <div className="flex gap-4 px-4 pt-4 pb-4">
                             {/* Cover Image */}
-                            <div className="w-[110px] h-35 bg-muted/30 rounded flex items-center justify-center overflow-hidden shrink-0">
-                              <img
-                                src={book.cover_url || "/placeholder.svg"}
-                                alt={`${book.title} cover`}
-                                className="object-cover h-full w-full" // Added w-full
-                              />
-                            </div>
+                            <Link href={`/books/${book.id}`}>
+                              <div className="w-[110px] h-35 bg-muted/30 rounded flex items-center justify-center overflow-hidden shrink-0">
+                                <img
+                                  src={book.cover_url || "/placeholder.svg"}
+                                  alt={`${book.title} cover`}
+                                  className="object-cover h-full w-full" // Added w-full
+                                />
+                              </div>
+                            </Link>
 
                             {/* Right Section */}
                             <div className="flex-1 flex flex-col justify-between gap-2">
                               {/* Title and Author */}
                               <div>
-                                <div className="flex flex-wrap justify-between">
-                                  <h3 className="text-lg/4 font-semibold text-secondary">{book.title}</h3>
+                                <div className="flex flex-row justify-between">
+                                  <div className="flex-1 min-w-0">
+                                    <Link href={`/books/${book.id}`}>
+                                      <h3 className="text-lg/5 font-semibold break-words text-secondary">{book.title}</h3>
+                                    </Link>
+                                  </div>
                                   {/* --- NEW: Add to Shelf Dropdown --- */}
-                                  <div className="relative inline-block">
+                                  <div className="flex items-start">
                                   <DropdownMenu.Root>
                                     <DropdownMenu.Trigger asChild>
                                       <Button
@@ -386,14 +393,13 @@ const handleFavorite = (bookId: string) => {
                 ) : (
                   // --- Table View (Placeholder) ---
                   <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Title</TableHead>
-                          <TableHead>Author</TableHead>
-                          <TableHead>Pages</TableHead>
-                          <TableHead>Added</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
+                    <Table className="rounded-lg">
+                      <TableHeader >
+                        <TableRow className="py-1 bg-secondary-light">
+                          <TableHead className="p-2">Title</TableHead>
+                          <TableHead className="p-2">Author</TableHead>
+                          <TableHead className="p-2">Pages</TableHead>
+                          <TableHead className="p-2">Genre</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -401,45 +407,18 @@ const handleFavorite = (bookId: string) => {
                           const currentShelfStatus = shelfActionsStatus[book.id];
                           return (
                             <TableRow key={book.id}>
-                              <TableCell className="font-medium">{book.title}</TableCell>
-                              <TableCell>{book.author}</TableCell>
-                              <TableCell>{book.pages}</TableCell>
-                              <TableCell>{formatDate(book.created_at)}</TableCell>
-                              <TableCell className="text-right">
-                                {/* Actions for table view */}
-                                <DropdownMenu.Root>
-                                  <DropdownMenu.Trigger asChild>
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      disabled={currentShelfStatus?.isLoading}
-                                    >
-                                      {currentShelfStatus?.isLoading ? "Adding..." : "Add to Shelf"}
-                                      <ChevronDown className="h-4 w-4 ml-1" />
-                                    </Button>
-                                  </DropdownMenu.Trigger>
-                                  <DropdownMenu.Portal>
-                                    <DropdownMenu.Content
-                                      className="min-w-[160px] rounded-2xl bg-secondary-light shadow-xl p-1 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
-                                      sideOffset={5}
-                                    >
-                                      {SHELF_OPTIONS.map((shelf) => (
-                                        <DropdownMenu.Item
-                                          key={shelf.value}
-                                          onSelect={() => handleAddToShelf(book.id, shelf.value)}
-                                          className="px-3 py-2 text-sm rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
-                                        >
-                                          {shelf.label}
-                                        </DropdownMenu.Item>
-                                      ))}
-                                    </DropdownMenu.Content>
-                                  </DropdownMenu.Portal>
-                                </DropdownMenu.Root>
-                                {currentShelfStatus?.message && (
-                                  <p className="text-xs mt-1" style={{ color: currentShelfStatus.message.startsWith('Error') ? 'red' : 'green' }}>
-                                    {currentShelfStatus.message}
-                                  </p>
-                                )}
+                              <TableCell className="font-medium p-2">{book.title}</TableCell>
+                              <TableCell className="p-2">{book.author}</TableCell>
+                              <TableCell className="p-2">{book.pages}</TableCell>
+                              <TableCell className="p-2">
+                                {book.genres?.slice(0, 1).map((genre: string) => (
+                                  <span
+                                    key={genre}
+                                    className=""
+                                  >
+                                    {genre}
+                                  </span>
+                                ))}
                               </TableCell>
                             </TableRow>
                           );

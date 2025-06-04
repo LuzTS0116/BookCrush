@@ -1,7 +1,5 @@
 import type React from "react"
 import Image from "next/image";
-import { MainNav } from "@/components/main-nav"
-import { MobileNav } from "@/components/mobile-nav"
 import DashboardPage from "@/components/dashboard-page";
 import DashboardReading from "@/components/dashboard-reading";
 import { ClubActivityCard } from "@/components/club-activity-card"
@@ -10,6 +8,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 import { cookies } from 'next/headers';
+import DashboardFeedback from "@/components/dashboard-feedback";
 
 export default async function DashboardLayout() {
   
@@ -45,9 +44,9 @@ export default async function DashboardLayout() {
       
       <DashboardPage quote={quote} author={author}/>
       <DashboardReading />
+      <DashboardFeedback />
       <ClubActivityCard />
       {/* <SupportSection /> */}
-      <MobileNav />
     </div>
   )
 }

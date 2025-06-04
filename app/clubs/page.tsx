@@ -7,7 +7,7 @@ import { MainNav } from "@/components/main-nav";
 import { MobileNav } from "@/components/mobile-nav";
 import ClubsMain from "@/components/clubs-main";
 import ClubsTitle from "@/components/clubs-title";
-import { getMyClubs, getDiscoverClubs, Club } from '@/lib/clubs';
+import { getMyClubs, getDiscoverClubs, getPendingInvitations, Club, ClubInvitation } from '@/lib/clubs';
 import { Loader2 } from "lucide-react";
 import { cookies } from 'next/headers'; // Import cookies
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'; // Import Supabase helper
@@ -32,27 +32,29 @@ interface ClubsPageError {
 export default async function ClubsPage() {
   let myClubs: Club[] = [];
   let discoverClubs: Club[] = [];
+  let pendingInvitations: ClubInvitation[] = [];
   let error: ClubsPageError | null = null;
   let accessToken: string | undefined = undefined;
 
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerComponentClient({ cookies: () => cookieStore });
+    const cookieStore = cookies();
+    const supabase = createServerComponentClient({ 
+      cookies: () => cookieStore 
+    });
     const { data: { session } } = await supabase.auth.getSession();
     accessToken = session?.access_token;
 
     if (!accessToken) {
-      console.warn("ClubsPage: User not authenticated or access token unavailable for fetching my clubs.");
+      console.warn("ClubsPage: User not authenticated or access token unavailable for fetching clubs data.");
     }
 
     // Fetch data concurrently
-    const [myClubsResult, discoverClubsResult] = await Promise.allSettled([
+    const [myClubsResult, discoverClubsResult, pendingInvitationsResult] = await Promise.allSettled([
       getMyClubs(accessToken),
-      getDiscoverClubs(accessToken)
-      
+      getDiscoverClubs(accessToken),
+      getPendingInvitations(accessToken)
     ]);
 
-    
     // Process results from Promise.allSettled
     if (myClubsResult.status === 'fulfilled') {
       myClubs = myClubsResult.value;
@@ -69,7 +71,13 @@ export default async function ClubsPage() {
       if (!error) error = { message: discoverClubsResult.reason?.message || 'Failed to load discoverable clubs.' };
     }
 
-    // If any critical fetch failed and set an error, it will be handled by the UI
+    if (pendingInvitationsResult.status === 'fulfilled') {
+      pendingInvitations = pendingInvitationsResult.value;
+    } else {
+      console.error("Error fetching pendingInvitations:", pendingInvitationsResult.reason);
+      // Don't set this as a critical error since invitations are optional
+      console.warn("Pending invitations could not be loaded, continuing without them.");
+    }
 
   } catch (err: unknown) { // Catch errors from cookie/session retrieval or other synchronous code
     console.error("Error loading clubs data on server (ClubsPage initial setup):", err);
@@ -78,7 +86,7 @@ export default async function ClubsPage() {
   }
 
   return (
-    <div className="min-h-screen relative w-full h-auto overflow-hidden">
+    <div className="min-h-screen relative w-full mt-[-11px] h-auto overflow-hidden">
       <Image 
         src="/images/background.png"
         alt="Create and Manage your Book Clubs | BookCrush"
@@ -100,6 +108,7 @@ export default async function ClubsPage() {
         <ClubsMain 
           initialMyClubs={myClubs}
           initialDiscoverClubs={discoverClubs}
+          initialPendingInvitations={pendingInvitations}
         />
       )}
       

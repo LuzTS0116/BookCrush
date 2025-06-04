@@ -54,10 +54,22 @@ export async function GET(req: NextRequest) {
             owner_id: true,
             memberCount: true,
             current_book: true,
+            //select meetings with status scheduled and date in the future
+            meetings: {
+              where: {
+                status: 'SCHEDULED',
+                meeting_date: {
+                  gt: new Date(),
+                },
+              },
+            },
           },
         },
       },
     });
+
+    //get the a single meeting with status scheduled from userMemberships.club.meetings
+    // const nextMeeting = userMemberships.map(membership => membership.club.meetings.find(meeting => meeting.status === 'SCHEDULED'));
 
     const clubsWithStatus = userMemberships.map(membership => ({
       id: membership.club.id,
@@ -70,6 +82,8 @@ export async function GET(req: NextRequest) {
       // Corrected admin check
       admin: membership.club.owner_id === user.id,
       current_book: membership.club.current_book,
+      meetings: membership.club.meetings,
+      
     }));
 
     return NextResponse.json(clubsWithStatus, { status: 200 });

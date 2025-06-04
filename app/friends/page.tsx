@@ -2,8 +2,6 @@
 
 import React, { useState, useEffect } from "react"
 import Image from "next/image";
-import { MainNav } from "@/components/main-nav"
-import { MobileNav } from "@/components/mobile-nav"
 import FriendsTitle from "@/components/friends-title";
 import FriendsMain from "@/components/friends-main";
 import FriendsActivityExplore from "@/components/friends-activity-explore";
@@ -43,7 +41,7 @@ export default function FriendsPage() {
   }, [sessionStatus, currentUserId]); // Re-fetch when auth status or user ID changes
 
   return (
-      <div className="min-h-screen relative w-full h-auto overflow-hidden">
+      <div className="min-h-screen relative w-full mt-[-11px] h-auto overflow-hidden">
         <Image 
           src="/images/background.png"
           alt="Create and Manage your Book Clubs | BookCrush"
@@ -51,13 +49,11 @@ export default function FriendsPage() {
           height={2871}
           className="absolute inset-0 w-auto h-full md:w-full md:h-auto object-cover z-[-1]"
         />
-        <MainNav />
         <FriendsTitle 
           friends={totalFriends}
           sent={totalsentRequests}
           request={totalreceivedRequests}/>  
         <FriendsActivityExplore />      
-        <MobileNav />
       </div>
   )
 }

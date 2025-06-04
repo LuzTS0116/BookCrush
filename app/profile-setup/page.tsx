@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image";
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -35,26 +35,37 @@ export default function ProfileSetupPage() {
   const [nickname, setNickname] = useState("")
   const [kindleEmail, setKindleEmail] = useState("")
   const [error, setError] = useState<string | null>(null)
+  
+  // Profile picture states
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [profilePicturePreview, setProfilePicturePreview] = useState<string | null>(null)
+  const [isUploadingPicture, setIsUploadingPicture] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectedFrom = searchParams.get('redirectedFrom')
 
   const genres = [
-    "Fiction",
-    "Non-Fiction",
-    "Science Fiction",
-    "Fantasy",
-    "Mystery",
-    "Thriller",
-    "Romance",
-    "Historical Fiction",
     "Biography",
-    "Self-Help",
-    "Horror",
-    "Poetry",
-    "Young Adult",
     "Children's",
     "Classics",
+    "Dark Romance",
+    "Fantasy",
+    "Fiction",
+    "Historical Fiction",
+    "Horror",
+    "Literary Fiction",
+    "Manga",
+    "Mystery",
+    "Non-Fiction",
+    "Poetry",
+    "Romance",
+    "Romantasy",
+    "Science Fiction",
+    "Self-Help",
+    "Thriller",
+    "Young Adult"
   ]
 
   const addGenre = () => {
@@ -66,6 +77,78 @@ export default function ProfileSetupPage() {
 
   const removeGenre = (genre: string) => {
     setFavoriteGenres(favoriteGenres.filter((g) => g !== genre))
+  }
+
+  // Profile picture upload handler
+  const handleProfilePictureUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      setError('Please select a valid image file (JPEG, PNG, or WebP)')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image file size must be less than 5MB')
+      return
+    }
+
+    setIsUploadingPicture(true)
+    setError(null)
+
+    try {
+      // Create preview URL for immediate display
+      const previewUrl = URL.createObjectURL(file)
+      setProfilePicturePreview(previewUrl)
+
+      // Get presigned URL
+      const presignResponse = await fetch('/api/profile/presign', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type
+        })
+      })
+
+      if (!presignResponse.ok) {
+        const errorData = await presignResponse.json()
+        throw new Error(errorData.error || 'Failed to get upload URL')
+      }
+
+      const { signedUrl, path } = await presignResponse.json()
+
+      // Upload file to storage
+      const uploadResponse = await fetch(signedUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type
+        }
+      })
+
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload image')
+      }
+
+      // Store the path for form submission
+      setAvatarUrl(path)
+
+    } catch (err) {
+      setError((err as Error).message)
+      console.error('Profile picture upload error:', err)
+      // Clear preview on error
+      setProfilePicturePreview(null)
+    } finally {
+      setIsUploadingPicture(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -86,7 +169,8 @@ export default function ProfileSetupPage() {
           about: bio.trim(),
           favorite_genres: favoriteGenres,      // array of strings
           nickname: nickname.trim(),
-          kindle_email: kindleEmail.trim() || null
+          kindle_email: kindleEmail.trim() || null,
+          avatar_url: avatarUrl       // include avatar URL path
         })
       })
 
@@ -119,10 +203,16 @@ export default function ProfileSetupPage() {
     setIsLoading(false);
   }, []);
 
-  return (
-    
+  // Cleanup profile picture preview URL
+  useEffect(() => {
+    return () => {
+      if (profilePicturePreview && profilePicturePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(profilePicturePreview);
+      }
+    };
+  }, [profilePicturePreview]);
 
-      
+  return (
     <div className="relative w-full h-auto overflow-hidden px-4 pt-9">
       <Image 
         src="/images/background.png"
@@ -169,18 +259,40 @@ export default function ProfileSetupPage() {
               <div className="flex flex-col items-center mb-2">
                 <div className="relative mb-2">
                   <Avatar className="h-[160px] w-[160px]">
-                    <AvatarImage src="/placeholder.svg?height=96&width=96" alt="@user" />
+                    <AvatarImage 
+                      src={profilePicturePreview || "/placeholder.svg?height=96&width=96"} 
+                      alt="@user" 
+                    />
                     <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
                       {name ? name.charAt(0).toUpperCase() : "U"}
                     </AvatarFallback>
                   </Avatar>
                   <Button
+                    type="button"
                     size="icon"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingPicture}
                     className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-accent hover:bg-primary-light"
                   >
-                    <Pencil className="h-4 w-4" />
+                    {isUploadingPicture ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Pencil className="h-4 w-4" />
+                    )}
                   </Button>
                 </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleProfilePictureUpload}
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  style={{ display: 'none' }}
+                />
+                {profilePicturePreview && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Profile picture uploaded successfully
+                  </p>
+                )}
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
@@ -190,19 +302,19 @@ export default function ProfileSetupPage() {
                     id="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="bg-bookWhite text-secondary border border-secondary-light file:text-bookWhite placeholder:text-secondary/70"
+                    className="bg-white/60 text-secondary border border-secondary-light file:text-bookWhite placeholder:text-secondary/70"
                     placeholder="Your full name"
                     required
                   />
                 </div>
                 <div className="space-y-0">
-                  <Label htmlFor="nickname">Nickname</Label>
+                  <Label htmlFor="nickname">Username</Label>
                   <Input
                     id="nickname"
                     value={nickname}
                     onChange={(e) => setNickname(e.target.value)}
-                    className="bg-bookWhite text-secondary border border-secondary-light file:text-bookWhite placeholder:text-secondary/70"
-                    placeholder="Your nickname"
+                    className="bg-white/60 text-secondary border border-secondary-light file:text-bookWhite placeholder:text-secondary/70"
+                    placeholder="Your username"
                     required
                   />
                 </div>
@@ -213,7 +325,7 @@ export default function ProfileSetupPage() {
                     type="email"
                     value={kindleEmail}
                     onChange={(e) => setKindleEmail(e.target.value)}
-                    className="bg-bookWhite text-secondary border border-secondary-light file:text-bookWhite placeholder:text-secondary/70"
+                    className="bg-white/60 text-secondary border border-secondary-light file:text-bookWhite placeholder:text-secondary/70"
                     placeholder="your_kindle@kindle.com"
                   />
                 </div>
@@ -226,7 +338,7 @@ export default function ProfileSetupPage() {
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="Tell us about yourself and your reading interests..."
-                  className="min-h-[100px] rounded-2xl font-serif text-sm/4 italic bg-bookWhite text-secondary border border-secondary-light placeholder:text-secondary/70"
+                  className="min-h-[100px] rounded-2xl font-serif text-sm/4 italic bg-white/60 text-secondary border border-secondary-light placeholder:text-secondary/70"
                 />
               </div>
 
@@ -251,7 +363,7 @@ export default function ProfileSetupPage() {
                 </div>
                 <div className="flex gap-2 items-center">
                   <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-                    <SelectTrigger className="flex-1 rounded-full">
+                    <SelectTrigger className="flex-1 rounded-full bg-white/60">
                       <SelectValue placeholder="Select a genre" />
                     </SelectTrigger>
                     <SelectContent>
@@ -277,7 +389,6 @@ export default function ProfileSetupPage() {
         </Card>
         )}
     </div>
-    </div>
-    
+    </div> 
   )
 }
