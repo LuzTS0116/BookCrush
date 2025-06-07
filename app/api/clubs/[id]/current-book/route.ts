@@ -171,7 +171,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient } from '@prisma/client', ActivityType, ActivityTargetEntityType ;
+import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@prisma/client' ;
 import {  ClubRole, ClubMembershipStatus, club_book_status  } from '@prisma/client';
 import { z } from 'zod';
 
