@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient } from '@prisma/client', ActivityType, ActivityTargetEntityType 
+import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@prisma/client' 
 import {  ClubRole, ClubMembershipStatus  } from '@prisma/client'; // Import enums
 
 const prisma = new PrismaClient()
