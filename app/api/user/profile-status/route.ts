@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin'; // Assuming this is your configured admin client
-import { PrismaClient } from '@prisma/client',Prisma 
+import { PrismaClient, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient()
 

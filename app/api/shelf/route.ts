@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient } from '@prisma/client', ActivityType, ActivityTargetEntityType ;
+import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@prisma/client';
 import { parseShelfType, parseStatusType } from '@/lib/enum'; // Import your enum parser
 import {  shelf_type, status_type  } from '@prisma/client';
 
