@@ -53,15 +53,45 @@ export async function GET(req: NextRequest) {
             description: true,
             owner_id: true,
             memberCount: true,
-            current_book: true,
-            //select meetings with status scheduled and date in the future
-            meetings: {
+            current_book: {
+              select: {
+                id: true,
+                title: true,
+                author: true,
+                cover_url: true,
+                pages: true,
+                reading_time: true,
+                genres: true,
+              }
+            },
+            meetings: { where: { meeting_date: { gt: new Date() } },
+              select: {
+                id: true,
+                meeting_date: true
+              }
+            },
+            // Add memberships for real member avatars
+            memberships: {
               where: {
-                status: 'SCHEDULED',
-                meeting_date: {
-                  gt: new Date(),
+                status: ClubMembershipStatus.ACTIVE,
+              },
+              select: {
+                user_id: true,
+                role: true,
+                joined_at: true,
+                user: {
+                  select: {
+                    id: true,
+                    display_name: true,
+                    nickname: true,
+                    avatar_url: true,
+                  },
                 },
               },
+              orderBy: [
+                { role: 'desc' }, // Owners and admins first
+                { joined_at: 'asc' }, // Then by join date
+              ],
             },
           },
         },
@@ -83,7 +113,15 @@ export async function GET(req: NextRequest) {
       admin: membership.club.owner_id === user.id,
       current_book: membership.club.current_book,
       meetings: membership.club.meetings,
-      
+      // Include members data for avatars
+      members: membership.club.memberships.map(member => ({
+        id: member.user.id,
+        display_name: member.user.display_name,
+        nickname: member.user.nickname,
+        avatar_url: member.user.avatar_url,
+        role: member.role,
+        joined_at: member.joined_at,
+      })),
     }));
 
     return NextResponse.json(clubsWithStatus, { status: 200 });

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { BookOpen, CalendarDays, Plus, Search, X, Settings, Users, BookMarked, Clock, Loader2, Check } from "lucide-react"
+import { BookOpen, CalendarDays, Plus, Search, X, Settings, Users, Calendar, BookMarked, Clock, Loader2, Check } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,7 @@ import { Club, ClubInvitation } from "@/lib/clubs";
 import Link from "next/link";
 import { useRouter } from 'next/navigation'; // Import useRouter
 import { formatDate } from "@/lib/utils"
+import { ClubMemberList } from "@/components/club-member-avatar";
 
 interface ClubsMainProps {
   initialMyClubs: Club[];
@@ -65,6 +66,37 @@ const calculateDaysUntilMeeting = (meetingDate: string | Date): string => {
   }
 };
 
+// Reusable component for displaying club members
+function ClubMembersSection({ members, memberCount }: { 
+  members?: Array<{ id: string; display_name: string; nickname?: string; avatar_url?: string; role: string; joined_at: string; }>;
+  memberCount: number;
+}) {
+  // No need for API call anymore since we have the data
+  if (!members || members.length === 0) {
+    // Fallback to showing member count only if no members data
+    return (
+      <div className="mt-0">
+        <p className="text-sm font-medium mb-1 text-secondary-light">Members</p>
+        <p className="text-xs text-secondary/60">{memberCount} member{memberCount !== 1 ? 's' : ''}</p>
+      </div>
+    );
+  }
+
+  // Extract member IDs for the ClubMemberList component
+  const memberIds = members.map(member => member.id);
+
+  return (
+    <div className="mt-2">
+      <p className="text-sm font-medium mb-1 text-secondary-light">Members</p>
+      <ClubMemberList 
+        memberIds={memberIds} 
+        maxDisplay={8} 
+        size="md" 
+      />
+    </div>
+  );
+}
+
 export default function ClubsMain({
   initialMyClubs,
   initialDiscoverClubs,
@@ -89,6 +121,7 @@ export default function ClubsMain({
   // Effect to update local state when props change (e.g., after router.refresh())
   useEffect(() => {
     setMyClubs(initialMyClubs);
+    
   }, [initialMyClubs]);
 //console.log(initialMyClubs)
   useEffect(() => {
@@ -97,7 +130,6 @@ export default function ClubsMain({
 
   useEffect(() => {
     setPendingInvitations(initialPendingInvitations);
-    console.log(initialPendingInvitations)
   }, [initialPendingInvitations]);
 
   // --- API Integration Functions ---
@@ -395,11 +427,11 @@ export default function ClubsMain({
                             </Select>
                             <p className="text-xs text-muted-foreground">This feature is not yet implemented.</p>
                         </div> */}
-                        <div className="grid gap-2 opacity-50 cursor-not-allowed">
+                        {/* <div className="grid gap-2 opacity-50 cursor-not-allowed">
                             <Label htmlFor="invite">Invite Members (Optional)</Label>
                             <Input id="invite" placeholder="Enter email addresses, separated by commas" disabled />
                             <p className="text-xs text-muted-foreground">This feature is not yet implemented.</p>
-                        </div>
+                        </div> */}
                     </div>
                     <DialogFooter>
                         {/* Using DialogClose to close the dialog on success */}
@@ -449,13 +481,13 @@ export default function ClubsMain({
                 </TabsList>
                 </div>
 
-                <TabsContent value="my-clubs" className="space-y-6">
+                <TabsContent value="my-clubs" className="space-y-3">
                 {/* Add Pending Invitations Section */}
                 {pendingInvitations.length > 0 && (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {pendingInvitations.map((invitation) => (
                       <Card key={invitation.id} className="border-none pb-3">
-                        <CardHeader className="px-3 py-3">
+                        <CardHeader className="px-3 pt-3 pb-2">
                           <div className="flex flex-col w-full">
                             <div className="flex w-full items-start gap-2">
                               {/* Left side: Title */}
@@ -474,7 +506,7 @@ export default function ClubsMain({
                             </div>
 
                             {/* Description */}
-                            <CardDescription className="font-serif font-medium text-sm/4 pt-2">
+                            <CardDescription className="font-serif font-medium text-sm/4 pt-1">
                               {invitation.club.description}
                             </CardDescription>
 
@@ -509,16 +541,37 @@ export default function ClubsMain({
                                 <p className="text-sm font-medium mb-1 text-secondary-light">Current Book</p>
                                 <div className="bg-secondary/5 p-3 w-auto rounded-lg flex gap-3">
                                   <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
+                                    <Link href={`/books/${invitation.club.current_book?.id}`}>
                                     <img
                                       src={invitation.club.current_book?.cover_url || "/placeholder.svg"}
                                       alt={`${invitation.club.current_book?.title || 'No book'} cover`}
                                       className="max-h-full"
                                     />
+                                    </Link>
                                   </div>
                                   <div>
-                                    <p className="font-medium text-sm/4">{invitation.club.current_book?.title || 'No current book'}</p>
+                                    <Link href={`/books/${invitation.club.current_book?.id}`}>
+                                      <p className="font-medium text-sm/4">{invitation.club.current_book?.title || 'No current book'}</p>
+                                    </Link>
                                     <p className="text-xs text-secondary font-serif font-medium">{invitation.club.current_book?.author}</p>
-                                    <p className="text-xs mt-2 font-serif underline text-secondary">view book details</p>
+                                    {/* Genre Tags */}
+                                    <div className="flex flex-wrap gap-1 mt-1.5">
+                                      {invitation.club.current_book?.genres?.slice(0, 1).map((genre: string) => (
+                                        <span
+                                          key={genre}
+                                          className="bg-primary/30 text-secondary/40 text-xs/3 font-medium px-2 py-0.5 rounded-full truncate inline-block max-w-[200px] overflow-hidden whitespace-nowrap"
+                                        >
+                                          {genre}
+                                        </span>
+                                      ))}
+                                    </div>
+                                    <div className="flex">
+                                        <p className="text-secondary text-xs/4">{invitation.club.current_book?.pages} pages • {invitation.club.current_book?.reading_time}</p>
+                                    </div>
+                                    <span className="flex flex-row items-center w-36 mt-1.5 h-5 px-2 bg-accent-variant/75 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
+                                      <Calendar className="h-3 w-3 mr-1"/>
+                                      {invitation.club.meetings?.[0] && calculateDaysUntilMeeting(invitation.club.meetings?.[0].meeting_date)}.
+                                    </span>
                                   </div>
                                 </div>
                               </div>
@@ -531,27 +584,11 @@ export default function ClubsMain({
                             )}
                           </div>
 
-                          <div className="mt-4">
-                            <p className="text-sm font-medium mb-1 text-secondary-light">Members</p>
-                            <div className="flex flex-wrap gap-2">
-                              {[...Array(Math.min(8, invitation.club.memberCount))].map((_, i) => (
-                                <Avatar key={i} className="h-8 w-8">
-                                  <AvatarImage src={`/placeholder.svg?height=32&width=32&text=${String.fromCharCode(65 + i)}`} alt="Member" />
-                                  <AvatarFallback
-                                    className={
-                                      i === 0 ? "bg-primary text-primary-foreground" : "bg-secondary text-bookWhite"
-                                    }
-                                  >
-                                    {String.fromCharCode(65 + i)}
-                                  </AvatarFallback>
-                                </Avatar>
-                              ))}
-                              {invitation.club.memberCount > 8 && (
-                                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs text-bookWhite">
-                                  +{invitation.club.memberCount - 8}
-                                </div>
-                              )}
-                            </div>
+                          <div className="mt-0">
+                            <ClubMembersSection 
+                              members={invitation.club.members} 
+                              memberCount={invitation.club.memberCount} 
+                            />
                           </div>
 
                           {/* Invitation Action Card */}
@@ -615,7 +652,7 @@ export default function ClubsMain({
                 ) : (
                   filteredClubs.map((club) => (
                       <Card key={club.id}>
-                      <CardHeader className="px-3 py-3">
+                      <CardHeader className="px-3 pt-3 pb-2">
                         <div className="flex flex-col w-full">
                             <div className="flex w-full items-start gap-2">
                                 {/* Left side: Title */}
@@ -648,7 +685,7 @@ export default function ClubsMain({
                             </div>
 
                             {/* Description */}
-                            <CardDescription className="font-serif font-medium text-sm/4 pt-2">
+                            <CardDescription className="font-serif font-medium text-sm/4 pt-1">
                             {club.description}
                             </CardDescription>
                         </div>
@@ -660,25 +697,44 @@ export default function ClubsMain({
                                 <p className="text-sm font-medium mb-1 text-secondary-light">Current Book</p>
                                 <div className="bg-secondary/5 p-3 w-auto rounded-lg flex gap-3">
                                     <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
+                                        <Link href={`/books/${club.current_book?.id}`}>
                                         <img
                                         src={club.current_book?.cover_url || "/placeholder.svg"} // Use optional chaining
                                         alt={`${club.current_book?.title || 'No book'} cover`}
                                         className="max-h-full"
                                         />
+                                        </Link>
                                     </div>
                                     <div>
+                                      <Link href={`/books/${club.current_book?.id}`}>
                                         <p className="font-medium text-sm/4">{club.current_book?.title || 'No current book'}</p>
-                                        <p className="text-xs text-secondary font-serif font-medium">{club.current_book?.author}</p>
-                                        {/* This `Meeting in 3 days` is static, would need dynamic data 
-                                        {Math.ceil((club.meetings[0].meeting_date - new Date()) / (1000 * 60 * 60 * 24)) > 0 ? `Meeting in ${Math.ceil((club.meetings[0].meeting_date - new Date()) / (1000 * 60 * 60 * 24))} days` : `Meeting in ${Math.ceil((club.meetings[0].meeting_date - new Date()) / (1000 * 60 * 60 * 24))} days`}
-                                        */}
-                                        {club.meetings && club.meetings.length > 0 && (
-                                        <div className="mt-2 flex items-center gap-1 text-xs font-serif font-medium text-secondary rounded-full py-0 px-2 bg-accent/60">
-                                            <Clock className="h-3 w-3" />
-                                            <span>{calculateDaysUntilMeeting(club.meetings[0].meeting_date)}</span>
-                                        </div>
-                                        )}
-                                        <p className="text-xs mt-2 font-serif underline text-secondary">view book details</p>
+                                      </Link>
+                                      <p className="text-xs text-secondary font-serif font-medium">{club.current_book?.author}</p>
+                                      {/* Genre Tags */}
+                                      <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {club.current_book?.genres?.slice(0, 1).map((genre: string) => (
+                                          <span
+                                            key={genre}
+                                            className="bg-primary/30 text-secondary/40 text-xs/3 font-medium px-2 py-0.5 rounded-full truncate inline-block max-w-[200px] overflow-hidden whitespace-nowrap"
+                                          >
+                                            {genre}
+                                          </span>
+                                        ))}
+                                      </div>
+                                      <div className="flex">
+                                          <p className="text-secondary text-xs/4">{club.current_book?.pages} pages • {club.current_book?.reading_time}</p>
+                                      </div>
+                                      {club.meetings && club.meetings.length > 0 ? (
+                                      <span className="flex flex-row items-center w-36 mt-1.5 h-5 px-2 bg-accent-variant/75 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
+                                        <Calendar className="h-3 w-3 mr-1"/>
+                                        {calculateDaysUntilMeeting(club.meetings[0].meeting_date)}.
+                                      </span>
+                                      ) : (
+                                        <span className="flex flex-row items-center w-40 mt-1.5 h-5 px-2 bg-accent-variant/75 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
+                                          <Calendar className="h-3 w-3 mr-1"/>
+                                          No meeting date set.
+                                        </span>
+                                      )}
                                     </div>
                                 </div>
                             </div>
@@ -721,34 +777,18 @@ export default function ClubsMain({
                           </div> */}
                           </div>
 
-                          <div className="mt-4">
-                            <p className="text-sm font-medium mb-1 text-secondary-light">Members</p>
-                            <div className="flex flex-wrap gap-2">
-                                {[...Array(Math.min(8, club.memberCount))].map((_, i) => (
-                                <Avatar key={i} className="h-8 w-8">
-                                    <AvatarImage src={`/placeholder.svg?height=32&width=32&text=${String.fromCharCode(65 + i)}`} alt="Member" />
-                                    <AvatarFallback
-                                    className={
-                                        i === 0 ? "bg-primary text-primary-foreground" : "bg-secondary text-bookWhite"
-                                    }
-                                    >
-                                    {String.fromCharCode(65 + i)}
-                                    </AvatarFallback>
-                                </Avatar>
-                                ))}
-                                {club.memberCount > 8 && (
-                                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs text-bookWhite">
-                                    +{club.memberCount - 8}
-                                </div>
-                                )}
-                            </div>
+                          <div className="mt-0">
+                            <ClubMembersSection 
+                              members={club.members} 
+                              memberCount={club.memberCount} 
+                            />
                           </div>
 
                           {/* --- Admin section for Pending Applications --- */}
                           {club.admin && club.pendingMemberships && club.pendingMemberships.length > 0 && (
                               <div className="mt-0">
                                   <Card className="">
-                                      <CardHeader className="pb-2 px-0 pt-3">
+                                      <CardHeader className="pb-1 px-0 pt-2">
                                           <CardTitle className="text-secondary-light text-sm font-medium">Pending Applications</CardTitle>
                                       </CardHeader>
                                       <CardContent className="space-y-2 px-0 py-0">
@@ -762,9 +802,9 @@ export default function ClubsMain({
                                                           </AvatarFallback>
                                                       </Avatar>
                                                       <div className="flex-1 min-w-0">
-                                                          <p className="text-sm font-medium break-words">{applicant.userName}</p>
+                                                          <p className="text-sm/4 font-medium break-words">{applicant.userName}</p>
                                                           {/* <p className="font-serif font-medium text-xs/4 text-secondary/60">Applied {new Date(applicant.appliedAt).toLocaleDateString()}</p> */}
-                                                      <p className="font-serif font-medium text-xs/4 text-secondary/60">Applied {formatDate(applicant.appliedAt)}</p>
+                                                      <p className="font-serif font-normal text-xs/3 text-secondary/60">Applied {formatDate(applicant.appliedAt)}</p>
                                                       </div>
                                                   </div>
                                                   <div className="flex items-center">
@@ -957,18 +997,28 @@ export default function ClubsMain({
                                         />
                                     </div>
                                     <div>
+                                      <Link href={`/books/${club.current_book?.id}`}>
                                         <p className="font-medium text-sm/4">{club.current_book?.title || 'No current book'}</p>
-                                        <p className="text-xs text-secondary font-serif font-medium">{club.current_book?.author}</p>
-                                        {/* This `Meeting in 3 days` is static, would need dynamic data 
-                                        {Math.ceil((club.meetings[0].meeting_date - new Date()) / (1000 * 60 * 60 * 24)) > 0 ? `Meeting in ${Math.ceil((club.meetings[0].meeting_date - new Date()) / (1000 * 60 * 60 * 24))} days` : `Meeting in ${Math.ceil((club.meetings[0].meeting_date - new Date()) / (1000 * 60 * 60 * 24))} days`}
-                                        */}
-                                        {club.meetings && club.meetings.length > 0 && (
-                                        <div className="mt-2 flex items-center gap-1 text-xs font-serif font-medium text-secondary rounded-full py-0 px-2 bg-accent/60">
-                                            <Clock className="h-3 w-3" />
-                                            <span>{calculateDaysUntilMeeting(club.meetings[0].meeting_date)}</span>
-                                        </div>
-                                        )}
-                                        <p className="text-xs mt-2 font-serif underline text-secondary">view book details</p>
+                                      </Link>
+                                      <p className="text-xs text-secondary font-serif font-medium">{club.current_book?.author}</p>
+                                      {/* Genre Tags */}
+                                      <div className="flex flex-wrap gap-1 mt-1.5">
+                                        {club.current_book?.genres?.slice(0, 1).map((genre: string) => (
+                                          <span
+                                            key={genre}
+                                            className="bg-primary/30 text-secondary/40 text-xs/3 font-medium px-2 py-0.5 rounded-full truncate inline-block max-w-[200px] overflow-hidden whitespace-nowrap"
+                                          >
+                                            {genre}
+                                          </span>
+                                        ))}
+                                      </div>
+                                      <div className="flex">
+                                          <p className="text-secondary text-xs/4">{club.current_book?.pages} pages • {club.current_book?.reading_time}</p>
+                                      </div>
+                                      <span className="flex flex-row items-center w-36 mt-1.5 h-5 px-2 bg-accent-variant/75 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
+                                        <Calendar className="h-3 w-3 mr-1"/>
+                                        {calculateDaysUntilMeeting(club.meetings[0].meeting_date)}.
+                                      </span>
                                     </div>
                                 </div>
                             </div>
@@ -977,30 +1027,14 @@ export default function ClubsMain({
                                 <p className="text-sm font-normal mb-1 bg-secondary/5 py-1 px-2 inline-block text-secondary/60 rounded-md italic">No book has been chosen</p>
                             </div>
                         )} 
-                        <div className="mt-2">
-                            <p className="text-sm font-medium mb-1 text-secondary-light">Members</p>
-                            <div className="flex flex-wrap gap-2">
-                                {[...Array(Math.min(8, club.memberCount))].map((_, i) => (
-                                <Avatar key={i} className="h-8 w-8">
-                                    <AvatarImage src={`/placeholder.svg?height=32&width=32&text=${String.fromCharCode(65 + i)}`} alt="Member" />
-                                    <AvatarFallback
-                                    className={
-                                        i === 0 ? "bg-primary text-primary-foreground" : "bg-secondary text-bookWhite"
-                                    }
-                                    >
-                                    {String.fromCharCode(65 + i)}
-                                    </AvatarFallback>
-                                </Avatar>
-                                ))}
-                                {club.memberCount > 8 && (
-                                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs text-bookWhite">
-                                    +{club.memberCount - 8}
-                                </div>
-                                )}
-                            </div>
+                        <div className="mt-0">
+                            <ClubMembersSection 
+                              members={club.members} 
+                              memberCount={club.memberCount} 
+                            />
                         </div>
                       </CardContent>
-                      <CardFooter className="flex justify-end pt-3 pb-3">
+                      <CardFooter className="flex justify-end pt-3 px-3 pb-3">
                           {/* --- Conditional Join Button in Discover Tab --- */}
                           {club.membershipStatus === 'PENDING' ? (
                               <Badge variant="secondary" className="px-4 py-2 text-primary font-serif">

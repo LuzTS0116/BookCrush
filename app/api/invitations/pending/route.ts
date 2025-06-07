@@ -49,12 +49,44 @@ export async function GET(req: NextRequest) {
             id: true,
             name: true,
             description: true,
+            meetings: { where: { meeting_date: { gt: new Date() } },
+              select: {
+                id: true,
+                meeting_date: true
+              }
+            },
             current_book: {
               select: {
+                id: true,
                 title: true,
                 author: true,
-                cover_url: true
+                cover_url: true,
+                pages: true,
+                reading_time: true,
+                genres: true,
               }
+            },
+            memberships: {
+              where: {
+                status: ClubMembershipStatus.ACTIVE,
+              },
+              select: {
+                user_id: true,
+                role: true,
+                joined_at: true,
+                user: {
+                  select: {
+                    id: true,
+                    display_name: true,
+                    nickname: true,
+                    avatar_url: true,
+                  },
+                },
+              },
+              orderBy: [
+                { role: 'desc' }, // Owners and admins first
+                { joined_at: 'asc' }, // Then by join date
+              ],
             },
             _count: {
               select: {
@@ -92,7 +124,17 @@ export async function GET(req: NextRequest) {
         name: invitation.club.name,
         description: invitation.club.description,
         current_book: invitation.club.current_book,
-        memberCount: invitation.club._count.memberships
+        memberCount: invitation.club._count.memberships,
+        meetings: invitation.club.meetings,
+        // Include members data for avatars
+        members: invitation.club.memberships.map((member: any) => ({
+          id: member.user.id,
+          display_name: member.user.display_name,
+          nickname: member.user.nickname,
+          avatar_url: member.user.avatar_url,
+          role: member.role,
+          joined_at: member.joined_at,
+        })),
       }
     }))
 

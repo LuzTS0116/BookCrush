@@ -238,6 +238,7 @@ export async function PUT(
    try {
     
     const {id} = await params; 
+    console.log(id)
     
     if (!id) {
       return NextResponse.json({ error: "Club ID is required" }, { status: 400 });

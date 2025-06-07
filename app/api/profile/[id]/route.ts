@@ -1,77 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 import { PrismaClient } from '@/lib/generated/prisma';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
-import { canViewProfile, getPublicProfileData } from '@/lib/friendship-utils'
-import { formatProfileWithAvatarUrlServer } from '@/lib/supabase-server-utils'
 
-export async function GET(request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
- ) {
- 
-  const {id} = await params; 
+const prisma = new PrismaClient();
 
-  const cookieStore = cookies()
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json(
-      { error: 'Not authenticated', details: 'No active user session.' },
-      { status: 401 }
-    )
-  }
-
-  const prisma = new PrismaClient()
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    // Check if the user can view this profile (own profile or friend's profile)
-    const hasAccess = await canViewProfile(prisma, user.id, id)
+    // 1. Authenticate the requesting user
+    const supabase = createRouteHandlerClient({ cookies });
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (!hasAccess) {
-      return NextResponse.json(
-        { error: 'Access denied', details: 'You can only view profiles of users who are your friends.' },
-        { status: 403 }
-      )
+    if (authError || !user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    // If user is viewing their own profile, return full data
-    if (user.id === id) {
-      const profile = await prisma.profile.findUnique({
-        where: { id: id }
-      })
+    // 2. Get the profile ID from params
+    const { id } = await params;
 
-      if (!profile) {
-        return NextResponse.json(
-          { error: 'Profile not found', details: 'User profile does not exist.' },
-          { status: 404 }
-        )
-      }
-
-      // Format the profile with proper avatar URL
-      const formattedProfile = await formatProfileWithAvatarUrlServer(profile)
-      return NextResponse.json(formattedProfile, { status: 200 });
+    if (!id) {
+      return NextResponse.json({ error: "Profile ID is required" }, { status: 400 });
     }
 
-    // If viewing a friend's profile, return public data only
-    const publicProfile = await getPublicProfileData(prisma, id)
+    // 3. Fetch the requested user's profile (only public information)
+    const profile = await prisma.profile.findUnique({
+      where: {
+        id: id,
+      },
+      select: {
+        id: true,
+        display_name: true,
+        nickname: true,
+        avatar_url: true,
+        // Don't include sensitive information like email or kindle_email
+        // Only include what should be publicly visible
+      },
+    });
 
-    if (!publicProfile) {
-      return NextResponse.json(
-        { error: 'Profile not found', details: 'User profile does not exist.' },
-        { status: 404 }
-      )
+    if (!profile) {
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    // Format the public profile with proper avatar URL
-    const formattedPublicProfile = await formatProfileWithAvatarUrlServer(publicProfile)
-    return NextResponse.json(formattedPublicProfile, { status: 200 });
+    return NextResponse.json(profile, { status: 200 });
+
   } catch (error: any) {
-    console.error('[API /profile/[id] GET] Error:', error);
+    console.error("Error fetching user profile:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch profile', details: error.message || 'An unexpected error occurred.' },
+      { error: error.message || "Failed to fetch profile" },
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect()
+    await prisma.$disconnect();
   }
 }

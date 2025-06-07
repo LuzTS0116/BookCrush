@@ -74,11 +74,19 @@ export async function GET(
               select: {
                 id: true,
                 display_name: true,
-                // avatar_url: true, // Add if you have this on your Profile model
+                avatar_url: true, // Add if you have this on your Profile model
               }
             } 
           },
         },
+        // where gt new date
+        meetings: {
+          where: {
+            meeting_date: {
+              gt: new Date()
+            }
+          }
+        }
         
       },
     });
@@ -98,6 +106,7 @@ export async function GET(
               select: {
                 id: true,
                 display_name: true,
+                avatar_url: true,
               },
             },
           },
@@ -189,6 +198,7 @@ export async function GET(
       current_book: club.current_book,
       book_history: club.book_history,
       discussions: discussions,
+      meetings: club.meetings,
       // --- END STATIC/MOCK DATA ---
     };
 

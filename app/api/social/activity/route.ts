@@ -28,7 +28,7 @@ async function enrichActivity(activity: ActivityLog & { user: Profile }): Promis
     if (activity.target_entity_id) { // book_id
       const book = await prisma.book.findUnique({
         where: { id: activity.target_entity_id },
-        select: { title: true, cover_url: true, author: true }
+        select: { title: true, cover_url: true, author: true, id: true }
       });
       enrichedActivity.book = book;
       // For CHANGED_BOOK_STATUS, target_entity_secondary_id is the new status (status_type enum)

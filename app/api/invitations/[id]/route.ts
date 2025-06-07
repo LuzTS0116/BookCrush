@@ -175,6 +175,8 @@ export async function GET(
             name: true,
             description: true,
             memberCount: true,
+            
+              
             current_book: {
               select: {
                 id: true,

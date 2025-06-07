@@ -38,6 +38,7 @@ import {
 import { BookDetails } from "@/types/book";
 import { AddBookDialog } from "./add-book-dialog"
 import { ViewBookDetailsDialog } from "./ViewBookDetailsDialog"
+import { toast } from "sonner"; // Changed from react-hot-toast to sonner
 
 // Define the available shelf types for the dropdown
 const SHELF_OPTIONS = [
@@ -46,13 +47,19 @@ const SHELF_OPTIONS = [
   { label: "Finished", value: "finished" },
 ];
 
+interface BookReactions {
+  HEART: number;
+  THUMBS_UP: number;
+  THUMBS_DOWN: number;
+  LIKE: number;
+}
+
 export default function BooksTableContents() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedGenre, setSelectedGenre] = useState("all") // This doesn't seem used in the current JSX
   const [viewMode, setViewMode] = useState<"card" | "table">("card")
-  // favorite
-  const [userFavorite, setUserFavorite] = useState<Record<string, boolean>>({});
-  
+  //reactions
+  const [reactions, setReactions] = useState<BookReactions>({ HEART: 0, THUMBS_UP: 0, THUMBS_DOWN: 0, LIKE: 0 })
   /* pagination */
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 6
@@ -102,11 +109,38 @@ export default function BooksTableContents() {
       setIsLoading(false);
     }
   };
+  console.log(books)
 
   // Fetch books on component mount
   useEffect(() => {
     fetchBooks();
   }, []);
+
+  // Fetch reactions on component mount
+    useEffect(() => {
+      const fetchReactions = async () => {
+        try {
+          
+          // Fetch reactions
+          const [reactionsResponse] = await Promise.all([
+            fetch(`/api/books/${id}/reactions`)
+          ])
+  
+          if (reactionsResponse.ok) {
+            const reactionsData = await reactionsResponse.json()
+            setReactions(reactionsData.reactions)
+          } else {
+            console.error('Failed to fetch reactions')
+          }
+  
+        } catch (error) {
+          console.error('Error fetching reactions:', error)
+        } finally {
+        }
+      }
+  
+      fetchReactions()
+    }, [])
 
   // Callback to update the books list after a new book is added via dialog
   const handleBookAdded = (newBook: BookDetails) => {
@@ -164,13 +198,65 @@ export default function BooksTableContents() {
     }
   };
 
-// Add book to favorites - heart
-const handleFavorite = (bookId: string) => {
-  setUserFavorite(prev => ({
-    ...prev,
-    [bookId]: !prev[bookId],
-  }));
-};
+  // Add book to favorites - heart
+  const handleFavorite = async (bookId: string) => {
+    if (!bookId) return;
+    
+    // Get the current book
+    const currentBook = books.find(book => book.id === bookId);
+    if (!currentBook) return;
+    
+    // Optimistically update UI
+    setBooks(prevBooks => 
+      prevBooks.map(book => 
+        book.id === bookId 
+          ? { ...book, is_favorite: !book.is_favorite }
+          : book
+      )
+    );
+    
+    try {
+      const response = await fetch('/api/books/favorite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ bookId }),
+      });
+      
+      if (!response.ok) {
+        // Revert UI change if API call fails
+        setBooks(prevBooks => 
+          prevBooks.map(book => 
+            book.id === bookId 
+              ? { ...book, is_favorite: currentBook.is_favorite }
+              : book
+          )
+        );
+        throw new Error('Failed to update favorite status');
+      }
+      
+      const data = await response.json();
+      console.log('Favorite status updated:', data);
+      
+      // If you want to show feedback
+      if (data.is_favorite) {
+        toast.success('Added to favorites!');
+      } else {
+        toast.success('Removed from favorites');
+      }
+      
+      // No need to refetch all books - our optimistic update should match the server state
+      // unless we added to a new shelf, in which case we'd want to refresh
+      // if (data.message === 'Book added to favorites') {
+      //   fetchBooks();
+      // }
+      
+    } catch (error) {
+      console.error('Error updating favorite status:', error);
+      toast.error('Failed to update favorite status');
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-6 pb-20">
@@ -288,7 +374,7 @@ const handleFavorite = (bookId: string) => {
                                       <Button
                                         variant="outline"
                                         size="sm"
-                                        className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent border-none"
+                                        className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none"
                                         disabled={currentShelfStatus?.isLoading} // Disable while action is loading
                                       >
                                         <Plus className="h-4 w-4 text-muted-foreground" />
@@ -327,19 +413,19 @@ const handleFavorite = (bookId: string) => {
                                           <Heart
                                               className="h-3 w-3 text-primary"
                                           />
-                                          <span className="font-serif font-medium text-xs text-secondary">22</span>
+                                          <span className="font-serif font-medium text-xs text-secondary">{book.reactions.counts.HEART}</span>
                                       </div>
                                       <div className="flex items-center gap-1">
                                           <ThumbsUp
                                               className="h-3 w-3 text-accent-variant"
                                           />
-                                          <span className="font-serif font-medium text-xs text-secondary">35</span>
+                                          <span className="font-serif font-medium text-xs text-secondary">{book.reactions.counts.THUMBS_UP}</span>
                                       </div>
                                       <div className="flex items-center gap-1">
                                           <ThumbsDown
                                               className="h-3 w-3 text-accent"
                                           />
-                                          <span className="font-serif font-medium text-xs text-secondary">2</span>
+                                          <span className="font-serif font-medium text-xs text-secondary">{book.reactions.counts.THUMBS_DOWN}</span>
                                       </div>
                                     </div>
                                   </div>
@@ -357,29 +443,27 @@ const handleFavorite = (bookId: string) => {
                                 ))}
                               </div>
 
+                              {/* Pages & Time */}
+                              <div className="flex-1">
+                                <p className="text-secondary/80 font-sans font-normal bg-accent/25 rounded-full px-2 text-sm inline-block">{book.pages} pages • {book.reading_time}</p>
+                              </div>
+
                               {/* Meta Info */}
-                              <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div className="flex flex-row justify-between items-end gap-2 text-sm">
                                 <div>
-                                  <p className="text-secondary">Pages</p>
-                                  <p className="inline-block font-medium bg-bookBlack/5 rounded-full px-2 mr-10">{book.pages}</p>
-                                </div>
-                                <div>
-                                  <p className="text-secondary">Reading Time</p>
-                                  <p className="inline-block font-medium bg-bookBlack/5 rounded-full px-2 mr-3">{book.reading_time}</p>
-                                </div>
-                                <div>
-                                  <p className="text-secondary">Added</p>
-                                  <p className="inline-block font-medium bg-bookBlack/5 rounded-full px-2 mr-3">{formatDate(book.created_at)}</p>
+                                  <p className="text-secondary/60 text-xs font-serif font-medium">
+                                    Added <span> {new Date(book.created_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}</span>
+                                  </p>
                                 </div>
                                 <div className="flex justify-end items-end">
                                     <button
-                                      onClick={() => handleFavorite(book.id)}
+                                      onClick={() => handleFavorite(book.id!)}
                                       className={`p-0`}
                                     >
                                       <Heart
                                         className="h-5 w-5"
                                         color="#C51104"
-                                        weight={userFavorite[book.id] ? "fill" : "regular"}
+                                        weight={book.is_favorite ? "fill" : "regular"}
                                       />
                                     </button>
                                 </div>
@@ -407,7 +491,7 @@ const handleFavorite = (bookId: string) => {
                           const currentShelfStatus = shelfActionsStatus[book.id];
                           return (
                             <TableRow key={book.id}>
-                              <TableCell className="font-medium p-2">{book.title}</TableCell>
+                              <TableCell className="font-medium p-2"><Link href={`/books/${book.id}`}>{book.title}</Link></TableCell>
                               <TableCell className="p-2">{book.author}</TableCell>
                               <TableCell className="p-2">{book.pages}</TableCell>
                               <TableCell className="p-2">

@@ -137,19 +137,23 @@ const { expired, expiryTime, timeUntilExpiry, isExpiringSoon } = useSupabaseToke
   
 const handleClickShare = async () => {
   if (!quoteImageRef.current) return;
-
+  
   setLoading(true);
+  setShowOverlay((prev) => !prev)
   try {
     const canvas = await html2canvas(quoteImageRef.current);
     const dataUrl = canvas.toDataURL("image/png");
     setDownloadedImageUrl(dataUrl);
     setOpen(true); // Only open the dialog after the image is ready
+     
   } catch (err) {
     console.error("Failed to generate image:", err);
     setDownloadedImageUrl(null);
     setOpen(true); // Open dialog anyway to show error
   } finally {
     setLoading(false);
+    setShowOverlay((prev) => !prev)
+    
   }
 };
 
@@ -158,7 +162,7 @@ const handleClickShare = async () => {
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row justify-between gap-2">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-bookWhite pb-0">Hello, {session?.user?.name ?? "mysterious reader"}!</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-bookWhite pb-0">Hello, {session?.user?.name?.split(" ")[0] ?? "mysterious reader"}!</h1>
             <p className="text-bookWhite/70 font-serif">Good to see you again! Let's get reading.</p>
           </div>
         </div>
@@ -173,12 +177,12 @@ const handleClickShare = async () => {
                   <CardTitle className="text-sm font-medium">Today's Recommendation</CardTitle>
                 </CardHeader>
                 <CardContent className="px-3 pb-3">
-                  <div>
+                  {/* <div>
                     <p>Token expired: {expired ? 'Yes' : 'No'}</p>
                     <p>Expires at: {expiryTime?.toLocaleString()}</p>
                     <p>Time until expiry: {timeUntilExpiry} seconds</p>
                     <p>Expiring soon: {isExpiringSoon ? 'Yes' : 'No'}</p>
-                  </div>
+                  </div> */}
                   <div className="text-xl font-bold">Book Name Here</div>
                   <p className="text-xs text-bookBlack">here goes genre tag</p>
                 </CardContent>
@@ -207,17 +211,22 @@ const handleClickShare = async () => {
                   <p className="text-xs mt-2 text-center text-bookBlack">{author}</p>
                 </div>
               </div>
+              
 
               {/* Overlay with centered Share button */}
               {showOverlay && (
                 <div className="absolute inset-0 bg-black/50 flex items-center rounded-br-3xl justify-center z-10">
-                  <Button onClick={handleClickShare} className="bg-white p-2 rounded-full shadow-md">
-                      {loading ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-black" />
-                      ) : (
-                        <Share2 className="w-6 h-6 text-black" />
-                      )}
-                    </Button>
+                  <Button onClick={handleClickShare} className="bg-white p-2 rounded-full shadow-md z-20">
+                    {loading ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-black" />
+                    ) : (
+                      <Share2 className="w-6 h-6 text-black" />
+                    )}
+                  </Button>
+               </div>
+              )}
+              </div>
+
                   <Dialog open={open} onOpenChange={setOpen}>
                       <DialogContent className="w-[85vw] rounded-2xl">
                         {!downloadedImageUrl ? (
@@ -258,9 +267,9 @@ const handleClickShare = async () => {
                         )}
                       </DialogContent>
                     </Dialog>
-                </div>
-              )}
-            </div>
+                
+              
+            
 
             {/* Hidden Stylized Card to Generate Image */}
             <div

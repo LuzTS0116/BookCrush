@@ -30,11 +30,24 @@ interface ClubInvitation {
     name: string;
     description: string;
     current_book?: {
+      id: string;
       title: string;
       author: string;
       cover_url: string;
+      pages: number;
+      genres: string[];
+      reading_time: string;
     };
     memberCount: number;
+    meetings?: Array<{ meeting_date: string | Date }>;
+    members?: Array<{
+      id: string;
+      display_name: string;
+      nickname?: string;
+      avatar_url?: string;
+      role: 'OWNER' | 'ADMIN' | 'MEMBER';
+      joined_at: string;
+    }>;
   };
 }
 
@@ -46,15 +59,27 @@ interface Club {
   admin?: boolean;
   ownerId: string;
   current_book?: {
+    id: string;
     title: string;
     author: string;
     cover_url: string;
+    pages: number;
+    genres: string[];
+    reading_time: string;
   };
   nextMeeting?: string;
   history?: { title: string; author: string; date: string; cover: string; }[];
   membershipStatus: 'ACTIVE' | 'PENDING' | 'REJECTED' | 'LEFT' | null;
   pendingMemberships?: ClubMembershipRequest[];
   meetings?: Array<{ meeting_date: string | Date }>;
+  members?: Array<{
+    id: string;
+    display_name: string;
+    nickname?: string;
+    avatar_url?: string;
+    role: 'OWNER' | 'ADMIN' | 'MEMBER';
+    joined_at: string;
+  }>;
 }
 
 // Get the base URL for API calls (works in both server and client)

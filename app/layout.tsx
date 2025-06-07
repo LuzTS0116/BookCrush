@@ -52,7 +52,7 @@ export default async function RootLayout({
           <SupabaseBridge>
         <ThemeProvider attribute="class" defaultTheme="light">
           <MainNav />
-          {children}
+          <div className="mb-15">{children}</div>
           <MobileNav />
         </ThemeProvider>
         </SupabaseBridge>

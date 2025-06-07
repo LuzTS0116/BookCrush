@@ -145,12 +145,74 @@ export async function GET(req: NextRequest) {
         created_at: 'desc',
       },
     });
-        
-    return NextResponse.json(books);
-  } catch (error: any) { // Explicitly type error as any
-    console.error("Error fetching books:", error);
+
+    // Get reaction counts for each book and include user's reaction
+    const booksWithReactionCounts = await Promise.all(books.map(async (book) => {
+      // Get reaction counts
+      const reactionCounts = await prisma.reaction.groupBy({
+        by: ['type'],
+        where: {
+          target_type: 'BOOK',
+          target_id: book.id
+        },
+        _count: {
+          id: true
+        }
+      });
+
+      // Get user's reaction to this book
+      const userReaction = await prisma.reaction.findFirst({
+        where: {
+          user_id: user.id,
+          target_type: 'BOOK',
+          target_id: book.id
+        },
+        select: {
+          type: true
+        }
+      });
+
+      // Get favorite status from user_books
+      const userBook = await prisma.userBook.findFirst({
+        where: {
+          user_id: user.id,
+          book_id: book.id
+        },
+        select: {
+          is_favorite: true
+        }
+      });
+
+      // Convert reaction counts to the format needed for the UI
+      const counts = {
+        HEART: 0,
+        LIKE: 0,
+        THUMBS_UP: 0,
+        THUMBS_DOWN: 0,
+        total: 0
+      };
+
+      reactionCounts.forEach(rc => {
+        counts[rc.type] = rc._count.id;
+        counts.total += rc._count.id;
+      });
+
+      return {
+        ...book,
+        reactions: {
+          counts,
+          userReaction: userReaction?.type || null
+        },
+        is_favorite: userBook?.is_favorite || false
+      };
+    }));
+
+    return NextResponse.json(booksWithReactionCounts);
+
+  } catch (err: any) {
+    console.error("Error fetching books:", err);
     return NextResponse.json(
-      { error: "Failed to fetch books" },
+      { error: err.message || "Failed to fetch books" },
       { status: 500 }
     );
   }

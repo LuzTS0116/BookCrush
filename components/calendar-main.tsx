@@ -6,7 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Calendar } from "@/components/ui/calendar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { BookOpen, CalendarDays, Clock, Plus, Users, Loader2 } from "lucide-react"
+import Image from "next/image"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import Link from "next/link"
+import { BookOpen, CalendarDays, Clock, Plus, Users, Loader2, MapPin } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -263,7 +266,7 @@ export default function CalendarMain() {
 
   return (
     <div className="min-h-screen">
-      <div className="container mx-auto py-6 pb-20 md:pb-6">
+      <div className="container mx-auto px-4 py-4 pb-20 md:pb-6">
         <div className="space-y-8">
           <div className="flex flex-col md:flex-row justify-between gap-4">
             <div>
@@ -274,165 +277,180 @@ export default function CalendarMain() {
               {userClubs.length > 0 ? (
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="bg-primary hover:bg-primary-light">
-                      <Plus className="mr-2 h-4 w-4" /> Schedule Meeting
+                    <Button className="bg-primary hover:bg-primary-light rounded-full">
+                      <Plus className="h-4 w-4" /> Schedule Meeting
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[500px]">
-                    <DialogHeader>
-                      <DialogTitle>Schedule a Book Club Meeting</DialogTitle>
+                  <DialogContent className="w-[85vw] rounded-2xl px-1">
+                    <Image 
+                      src="/images/background.png"
+                      alt="Create and Manage your Book Clubs | BookCrush"
+                      width={1622}
+                      height={2871}
+                      className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+                    />
+                    <DialogHeader className="text-bookWhite">
+                      <DialogTitle className="pt-5">Schedule a Book Club Meeting</DialogTitle>
                       <DialogDescription>Fill in the details to schedule a new book club meeting.</DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleCreateMeeting}>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                          <Label htmlFor="club">Club *</Label>
-                          <Select 
-                            value={formData.club_id} 
-                            onValueChange={(value) => setFormData(prev => ({ ...prev, club_id: value, book_id: '' }))}
-                          >
-                            <SelectTrigger id="club">
-                              <SelectValue placeholder="Select club" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {userClubs.map(club => (
-                                <SelectItem key={club.id} value={club.id}>{club.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div className="grid gap-2">
-                          <Label htmlFor="title">Meeting Title *</Label>
-                          <Input 
-                            id="title" 
-                            placeholder="Enter meeting title"
-                            value={formData.title}
-                            onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                            required
-                          />
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-4">
+
+                    <ScrollArea className="h-[60vh] pr-1 pl-2 px-5 w-auto">
+                      <form onSubmit={handleCreateMeeting}>
+                        <div className="grid gap-4 py-4">
                           <div className="grid gap-2">
-                            <Label htmlFor="date">Date *</Label>
-                            <Input 
-                              id="date" 
-                              type="date"
-                              value={formData.meeting_date}
-                              onChange={(e) => setFormData(prev => ({ ...prev, meeting_date: e.target.value }))}
-                              required
-                            />
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="time">Time *</Label>
-                            <Input 
-                              id="time" 
-                              type="time"
-                              value={formData.meeting_time}
-                              onChange={(e) => setFormData(prev => ({ ...prev, meeting_time: e.target.value }))}
-                              required
-                            />
-                          </div>
-                        </div>
-                        
-                        <div className="grid gap-2">
-                          <Label htmlFor="duration">Duration (minutes)</Label>
-                          <Select 
-                            value={formData.duration_minutes.toString()} 
-                            onValueChange={(value) => setFormData(prev => ({ ...prev, duration_minutes: parseInt(value) }))}
-                          >
-                            <SelectTrigger id="duration">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="60">1 hour</SelectItem>
-                              <SelectItem value="90">1.5 hours</SelectItem>
-                              <SelectItem value="120">2 hours</SelectItem>
-                              <SelectItem value="150">2.5 hours</SelectItem>
-                              <SelectItem value="180">3 hours</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div className="grid gap-2">
-                          <Label htmlFor="meeting_type">Meeting Type</Label>
-                          <Select 
-                            value={formData.meeting_type} 
-                            onValueChange={(value) => setFormData(prev => ({ ...prev, meeting_type: value }))}
-                          >
-                            <SelectTrigger id="meeting_type">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="DISCUSSION">Book Discussion</SelectItem>
-                              <SelectItem value="BOOK_SELECTION">Book Selection</SelectItem>
-                              <SelectItem value="AUTHOR_QA">Author Q&A</SelectItem>
-                              <SelectItem value="SOCIAL">Social Meeting</SelectItem>
-                              <SelectItem value="OTHER">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        {formData.club_id && userClubs.find(c => c.id === formData.club_id)?.current_book && (
-                          <div className="grid gap-2">
-                            <Label htmlFor="book">Book (Optional)</Label>
+                            <Label htmlFor="club">Club *</Label>
                             <Select 
-                              value={formData.book_id} 
-                              onValueChange={(value) => setFormData(prev => ({ ...prev, book_id: value }))}
+                              value={formData.club_id} 
+                              onValueChange={(value) => setFormData(prev => ({ ...prev, club_id: value, book_id: '' }))}
                             >
-                              <SelectTrigger id="book">
-                                <SelectValue placeholder="Select book (optional)" />
+                              <SelectTrigger id="club">
+                                <SelectValue placeholder="Select club" className="font-medium placeholder:font-normal"/>
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="none">No specific book</SelectItem>
-                                {(() => {
-                                  const selectedClub = userClubs.find(c => c.id === formData.club_id);
-                                  const currentBook = selectedClub?.current_book;
-                                  return currentBook ? (
-                                    <SelectItem key={currentBook.id} value={currentBook.id}>
-                                      {currentBook.title} {currentBook.author && `by ${currentBook.author}`}
-                                    </SelectItem>
-                                  ) : null;
-                                })()}
+                                {userClubs.map(club => (
+                                  <SelectItem key={club.id} value={club.id} className="font-medium placeholder:font-normal">{club.name}</SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </div>
-                        )}
-                        
-                        <div className="grid gap-2">
-                          <Label htmlFor="location">Location</Label>
-                          <Input 
-                            id="location" 
-                            placeholder="Virtual (Zoom) or physical address"
-                            value={formData.location}
-                            onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                          />
-                        </div>
-                        
-                        <div className="grid gap-2">
-                          <Label htmlFor="description">Description</Label>
-                          <Textarea 
-                            id="description" 
-                            placeholder="Enter meeting details, discussion points, etc."
-                            value={formData.description}
-                            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                          />
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <Button type="submit" className="bg-primary hover:bg-primary-light" disabled={creatingMeeting}>
-                          {creatingMeeting ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Creating...
-                            </>
-                          ) : (
-                            'Schedule Meeting'
+                          
+                          <div className="grid gap-2">
+                            <Label htmlFor="title">Meeting Title</Label>
+                            <Input 
+                              id="title" 
+                              placeholder="Enter meeting title"
+                              value={formData.title}
+                              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                              className="bg-bookWhite/90 text-secondary"
+                              required
+                            />
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                              <Label htmlFor="date">Date *</Label>
+                              <Input 
+                                id="date" 
+                                type="date"
+                                value={formData.meeting_date}
+                                onChange={(e) => setFormData(prev => ({ ...prev, meeting_date: e.target.value }))}
+                                className="bg-bookWhite text-secondary placeholder:text-secondary/50"
+                                required
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor="time">Time *</Label>
+                              <Input 
+                                id="time" 
+                                type="time"
+                                value={formData.meeting_time}
+                                onChange={(e) => setFormData(prev => ({ ...prev, meeting_time: e.target.value }))}
+                                className="bg-bookWhite text-secondary"
+                                required
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="grid gap-2">
+                            <Label htmlFor="duration">Duration (minutes)</Label>
+                            <Select 
+                              value={formData.duration_minutes.toString()} 
+                              onValueChange={(value) => setFormData(prev => ({ ...prev, duration_minutes: parseInt(value) }))}
+                            >
+                              <SelectTrigger id="duration">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="60">1 hour</SelectItem>
+                                <SelectItem value="90">1.5 hours</SelectItem>
+                                <SelectItem value="120">2 hours</SelectItem>
+                                <SelectItem value="150">2.5 hours</SelectItem>
+                                <SelectItem value="180">3 hours</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          <div className="grid gap-2">
+                            <Label htmlFor="meeting_type">Meeting Type</Label>
+                            <Select 
+                              value={formData.meeting_type} 
+                              onValueChange={(value) => setFormData(prev => ({ ...prev, meeting_type: value }))}
+                            >
+                              <SelectTrigger id="meeting_type">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="DISCUSSION">Book Discussion</SelectItem>
+                                <SelectItem value="BOOK_SELECTION">Book Selection</SelectItem>
+                                <SelectItem value="AUTHOR_QA">Author Q&A</SelectItem>
+                                <SelectItem value="SOCIAL">Social Meeting</SelectItem>
+                                <SelectItem value="OTHER">Other</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
+                          {formData.club_id && userClubs.find(c => c.id === formData.club_id)?.current_book && (
+                            <div className="grid gap-2">
+                              <Label htmlFor="book">Book</Label>
+                              <Select 
+                                value={formData.book_id} 
+                                onValueChange={(value) => setFormData(prev => ({ ...prev, book_id: value }))}
+                              >
+                                <SelectTrigger id="book">
+                                  <SelectValue placeholder="Select book (optional)" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">No specific book</SelectItem>
+                                  {(() => {
+                                    const selectedClub = userClubs.find(c => c.id === formData.club_id);
+                                    const currentBook = selectedClub?.current_book;
+                                    return currentBook ? (
+                                      <SelectItem key={currentBook.id} value={currentBook.id}>
+                                        {currentBook.title} {currentBook.author && `by ${currentBook.author}`}
+                                      </SelectItem>
+                                    ) : null;
+                                  })()}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           )}
-                        </Button>
-                      </DialogFooter>
-                    </form>
+                          
+                          <div className="grid gap-2">
+                            <Label htmlFor="location">Location</Label>
+                            <Input 
+                              id="location" 
+                              placeholder="Virtual (Zoom) or physical address"
+                              value={formData.location}
+                              onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                              className="bg-bookWhite text-secondary"
+                            />
+                          </div>
+                          
+                          <div className="grid gap-2">
+                            <Label htmlFor="description">Description</Label>
+                            <Textarea 
+                              id="description" 
+                              placeholder="Enter meeting details, discussion points, etc."
+                              value={formData.description}
+                              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                              className="bg-bookWhite text-secondary font-serif font-medium italic text-sm placeholder:text-secondary/40 placeholder:font-normal"
+                            />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button type="submit" className="bg-primary hover:bg-primary-light rounded-full" disabled={creatingMeeting}>
+                            {creatingMeeting ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Creating...
+                              </>
+                            ) : (
+                              'Schedule Meeting'
+                            )}
+                          </Button>
+                        </DialogFooter>
+                      </form>
+                    </ScrollArea>
                   </DialogContent>
                 </Dialog>
               ) : (
@@ -447,7 +465,7 @@ export default function CalendarMain() {
             <Card>
               <CardHeader>
                 <CardTitle>Calendar</CardTitle>
-                <CardDescription>Select a date to view meetings</CardDescription>
+                <CardDescription className="font-serif font-normal">Select a date to view meetings</CardDescription>
               </CardHeader>
               <CardContent>
                 <Calendar 
@@ -463,69 +481,87 @@ export default function CalendarMain() {
               <Card>
                 <CardHeader>
                   <CardTitle>Upcoming Meetings</CardTitle>
-                  <CardDescription>Your scheduled book club meetings</CardDescription>
+                  <CardDescription className="font-serif font-normal">Your upcoming book club meetings</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-2">
                   <div className="space-y-6">
                     {upcomingMeetings.length === 0 ? (
                       <p className="text-center text-muted-foreground py-8">No upcoming meetings scheduled.</p>
                     ) : (
                       upcomingMeetings.map((meeting) => (
-                        <div key={meeting.id} className="flex flex-col md:flex-row gap-4 p-4 rounded-lg border">
-                          <div className="md:w-1/4 flex flex-col justify-center items-center bg-primary/10 rounded-lg p-4">
-                            <CalendarDays className="h-8 w-8 text-primary mb-2" />
-                            <p className="font-bold text-center">{new Date(meeting.date).toLocaleDateString()}</p>
-                            <p className="text-sm text-muted-foreground text-center">
-                              {formatMeetingDateTime(meeting.date, meeting.duration_minutes)}
-                            </p>
+                        <div key={meeting.id} className="flex flex-col md:flex-row gap-0 p-4 rounded-lg bg-secondary-light/5">
+                          <div className="flex flex-row items-start justify-between">
+                            <div className="flex flex-col">
+                              <p className="font-serif font-medium leading-none text-sm">book club</p>
+                              <p className="text-lg leading-none text-secondary font-bold mb-2">{meeting.club.name}</p>
+                            </div>
+                            <Badge variant="secondary" className="w-fit ml-1">
+                              {meeting.meeting_type.replace('_', ' ')}
+                            </Badge>
                           </div>
+                          <div className="flex flex-row gap-2 items-center">
+                            <Link href={`/books/${meeting.book?.id}`}>
+                            <div className="w-24 h-36 bg-muted/30 rounded flex items-center justify-center overflow-hidden shrink-0">
+                              <img
+                                src={meeting.book?.cover_url || "/placeholder.svg"}
+                                alt={`${meeting.book?.title} cover`}
+                                className="object-cover h-full w-full" // Added w-full
+                              />
+                            </div>
+                            </Link>
+                            <div className="flex flex-col">
+                              <p className="font-semibold text-secondary">{meeting.book?.title}</p>
+                              <span className="flex items-center leading-none text-sm font-serif font-normal"><CalendarDays className="w-3 h-3 mr-1 text-accent-variant"/>{new Date(meeting.date).toLocaleDateString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}</span>
+                              <span className="flex items-center leading-none text-sm font-serif font-normal"><Clock className="w-3 h-3 mr-1 text-accent-variant"/>{formatMeetingDateTime(meeting.date, meeting.duration_minutes)}</span>
+                              {meeting.location && (
+                                <span className="flex items-center leading-none text-sm font-serif font-normal"><MapPin className="w-3 h-3 mr-1 text-accent-variant"/>{meeting.location}</span>
+                              )}
+                            </div>
+                          </div>
+                          
 
-                          <div className="md:w-3/4">
+                          <div className="md:w-3/4 mt-1">
                             <div className="flex flex-col md:flex-row justify-between mb-2">
-                              <h3 className="font-bold text-lg">{meeting.title}</h3>
-                              <div className="flex gap-2">
-                                <Badge variant="outline" className="w-fit">
-                                  {meeting.club.name}
-                                </Badge>
-                                <Badge variant="secondary" className="w-fit">
-                                  {meeting.meeting_type.replace('_', ' ')}
-                                </Badge>
-                              </div>
+                              <h3 className="font-semibold text-base">{meeting.title}</h3>
                             </div>
 
                             {meeting.description && (
-                              <p className="text-sm text-muted-foreground mb-3">{meeting.description}</p>
+                              <p className="text-sm text-muted-foreground font-serif font-normal mb-3">{meeting.description}</p>
                             )}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
-                              {meeting.book && (
+                              {/* {meeting.book && (
                                 <div className="flex items-center gap-2">
                                   <BookOpen className="h-4 w-4 text-muted-foreground" />
                                   <span className="text-sm">{meeting.book.title}</span>
                                 </div>
-                              )}
-                              <div className="flex items-center gap-2">
+                              )} */}
+                              {/* <div className="flex items-center gap-2">
                                 <Users className="h-4 w-4 text-muted-foreground" />
                                 <span className="text-sm">{meeting.attendees_count} attending</span>
-                              </div>
-                              {meeting.location && (
+                              </div> */}
+                              {/* {meeting.location && (
                                 <div className="flex items-center gap-2 md:col-span-2">
                                   <Clock className="h-4 w-4 text-muted-foreground" />
                                   <span className="text-sm">{meeting.location}</span>
                                 </div>
-                              )}
+                              )} */}
                             </div>
 
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-end justify-end">
                               <p className="text-xs text-muted-foreground">
                                 Created by {meeting.creator.display_name}
                               </p>
-                              <Badge 
+                              {/* <Badge 
                                 variant={meeting.user_attendance_status === 'ATTENDING' ? 'default' : 'outline'}
-                                className="text-xs"
+                                className="text-xs text-secondary"
                               >
                                 {meeting.user_attendance_status.replace('_', ' ')}
-                              </Badge>
+                              </Badge> */}
                             </div>
                           </div>
                         </div>
@@ -539,7 +575,7 @@ export default function CalendarMain() {
                 <Card>
                   <CardHeader>
                     <CardTitle>Past Meetings</CardTitle>
-                    <CardDescription>Review your previous book club discussions</CardDescription>
+                    <CardDescription className="font-serif font-normal">Review your previous book club discussions</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-6">

@@ -28,7 +28,7 @@ function mapPrismaDiscussionToFrontend(discussion: any) {
   // delete mapped.parent_discussion_id; // Keep if needed
   if (mapped.user) {
     delete mapped.user.display_name;
-    delete mapped.user.avatar_url;
+    //delete mapped.user.avatar_url;
   }
   return mapped;
 }

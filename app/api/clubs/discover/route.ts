@@ -43,6 +43,29 @@ export async function GET(req: NextRequest) {
         description: true,
         owner_id: true,
         memberCount: true,
+        // Add memberships for real member avatars
+        memberships: {
+          where: {
+            status: ClubMembershipStatus.ACTIVE,
+          },
+          select: {
+            user_id: true,
+            role: true,
+            joined_at: true,
+            user: {
+              select: {
+                id: true,
+                display_name: true,
+                nickname: true,
+                avatar_url: true,
+              },
+            },
+          },
+          orderBy: [
+            { role: 'desc' }, // Owners and admins first
+            { joined_at: 'asc' }, // Then by join date
+          ],
+        },
       },
       orderBy: { // Optional: add some ordering
         memberCount: 'desc'
@@ -57,7 +80,16 @@ export async function GET(req: NextRequest) {
         description: club.description,
         ownerId: club.owner_id,
         memberCount: club.memberCount,
-        membershipStatus: null, 
+        membershipStatus: null,
+        // Include members data for avatars
+        members: club.memberships.map(member => ({
+          id: member.user.id,
+          display_name: member.user.display_name,
+          nickname: member.user.nickname,
+          avatar_url: member.user.avatar_url,
+          role: member.role,
+          joined_at: member.joined_at,
+        })),
       }));
       return NextResponse.json(publicClubs, { status: 200 });
     }
@@ -94,6 +126,15 @@ export async function GET(req: NextRequest) {
             ownerId: club.owner_id,
             memberCount: club.memberCount,
             membershipStatus: userStatus || null,
+            // Include members data for avatars
+            members: club.memberships.map(member => ({
+              id: member.user.id,
+              display_name: member.user.display_name,
+              nickname: member.user.nickname,
+              avatar_url: member.user.avatar_url,
+              role: member.role,
+              joined_at: member.joined_at,
+            })),
         };
     });
 

@@ -93,7 +93,7 @@ export default function EditableProfileMain() {
         setBio(profileData.about || "")
         setKindleEmail(profileData.kindle_email || "")
         setFavoriteGenres(profileData.favorite_genres || [])
-        setAvatarUrl(profileData.avatar_url ?? null)
+        setAvatarUrl(profileData.avatar_url || null)
 
       } catch (err) {
         setError((err as Error).message)
@@ -207,7 +207,7 @@ export default function EditableProfileMain() {
           about: bio.trim(),
           kindle_email: kindleEmail.trim() || null,
           favorite_genres: favoriteGenres,
-          avatar_url: avatarUrl
+          avatar_url: getDisplayAvatarUrl(avatarUrl)
         })
       })
 

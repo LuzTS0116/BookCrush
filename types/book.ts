@@ -3,7 +3,7 @@ export interface BookDetails {
   // author: string;
   // genre: string;
   // pages: number;
-  // reading_speed: string;   // e.g. “4-5 hours”
+  // reading_speed: string;   // e.g. "4-5 hours"
   // cover: string; 
   // description: string;         // absolute or relative URL
 
@@ -12,7 +12,7 @@ export interface BookDetails {
   author: string;
   cover_url: string;
   description?: string;
-  reading_time?:string;
+  reading_time?: string;
   pages?: number | undefined;
   genres?: string[];
   published_date?: string;
@@ -20,6 +20,17 @@ export interface BookDetails {
   rating?: number;
   created_at?: string;
   file?: BookFile | null; // One-to-one relation
+  reactions: {
+    counts: {
+      HEART: number;
+      LIKE: number;
+      THUMBS_UP: number;
+      THUMBS_DOWN: number;
+      total: number;
+    };
+    userReaction: string | null;
+  };
+  is_favorite: boolean;
 }
 
 // Matches your Prisma BookFile model

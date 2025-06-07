@@ -3,4 +3,4 @@ npx prisma format
 npx prisma db push  
 
 
-npx prisma migrate dev --name "add_book_reviews"
+npx prisma migrate dev --name "add_book_media_type"

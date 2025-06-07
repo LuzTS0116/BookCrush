@@ -61,9 +61,10 @@ export function useProfile() {
   )
   
   // Get display-ready avatar URL with proper fallback chain
-  const avatarUrl = profile?.avatar_url 
-    ? profile.avatar_url
-      : "/placeholder.svg?height=32&width=32"
+  // Priority: 1. Google SSO image from session, 2. Profile avatar_url, 3. Placeholder
+  const avatarUrl = session?.user?.image || 
+                   profile?.avatar_url || 
+                   "/placeholder.svg?height=32&width=32"
   
   // Get display name with fallbacks
   const displayName = profile?.display_name || 
@@ -128,4 +129,55 @@ export function useProfileMutations() {
     updateProfile,
     refreshProfile
   }
+}
+
+/**
+ * Hook for getting another user's avatar by their ID
+ * Perfect for displaying club members, friends, etc.
+ */
+export function useUserAvatar(userId: string | null | undefined) {
+  const { data: userProfile, error, isLoading } = useSWR<Profile>(
+    userId ? `/api/profile/${userId}` : null,
+    profileFetcher,
+    {
+      // Cache for longer since other users' data changes less frequently
+      dedupingInterval: 10 * 60 * 1000, // 10 minutes
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      errorRetryInterval: 60 * 1000, // 1 minute
+    }
+  )
+
+  const avatarUrl = userProfile?.avatar_url || "/placeholder.svg?height=32&width=32"
+  
+  const displayName = userProfile?.display_name || userProfile?.nickname || "Reader"
+  
+  const initials = displayName
+    .split(' ')
+    .map((word: string) => word.charAt(0))
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+
+  return {
+    avatarUrl,
+    displayName,
+    initials,
+    isLoading,
+    error,
+    profile: userProfile
+  }
+}
+
+/**
+ * Hook for getting multiple users' avatars at once
+ * Perfect for club member lists
+ */
+export function useMultipleUserAvatars(userIds: string[]) {
+  const requests = userIds.map(id => ({
+    id,
+    ...useUserAvatar(id)
+  }))
+
+  return requests
 } 

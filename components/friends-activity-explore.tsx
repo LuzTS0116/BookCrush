@@ -11,6 +11,7 @@ import { FriendRequest, Friendship, ExplorableUser, UserProfileMinimal } from '@
 import { useSession } from 'next-auth/react';
 import { AddFriendButton } from '@/components/social/add-friend-button';
 import { ActivityType, ActivityTargetEntityType } from '@/lib/generated/prisma';
+import Link from 'next/link';
 
 // --- Activity Feed Types ---
 interface EnrichedActivity {
@@ -110,33 +111,33 @@ function ActivityItemCard({ activity }: { activity: EnrichedActivity }) {
 
     switch (activity.type) {
       case ActivityType.ADDED_BOOK_TO_SHELF:
-        return <><span className='font-medium'>{actor}</span> added <span className='font-medium'>{activity.details?.book_title || 'a book'}</span> to their shelf.</>;
+        return <><span className='font-medium'><Link href={`/profile/${activity.user?.id}`}>{actor}</Link></span> added <span className='font-medium'><Link href={`/books/${activity.target_entity_id}`}>{activity.details?.book_title || 'a book'}</Link></span> to their shelf.</>;
       case ActivityType.CHANGED_BOOK_STATUS:
-        return <><span className='font-medium'>{actor}</span> changed the status of <span className='font-medium'>{activity.details?.book_title || 'a book'}</span> to <span className='font-normal italic'>{activity.details?.status_type || 'a new status'}</span>.</>;
+        return <><span className='font-medium'><Link href={`/profile/${activity.user?.id}`}>{actor}</Link></span> changed the status of <span className='font-medium'><Link href={`/books/${activity.target_entity_id}`}>{activity.details?.book_title || 'a book'}</Link></span> to <span className='font-normal italic'>{activity.details?.status_type || 'a new status'}</span>.</>;
       case ActivityType.FINISHED_READING_BOOK:
-        return <><span className='font-medium'>{actor}</span> finished reading <span className='font-medium'>{activity.details?.book_title || 'a book'}</span>.</>;
+        return <><span className='font-medium'><Link href={`/profile/${activity.user?.id}`}>{actor}</Link></span> finished reading <span className='font-medium'><Link href={`/books/${activity.target_entity_id}`}>{activity.details?.book_title || 'a book'}</Link></span>.</>;
       case ActivityType.CREATED_CLUB:
-        return <div className='font-light'><span className='font-medium'>{actor}</span> created the <span className='font-medium'>{targetName || activity.details?.club_name || 'a new club'}</span> book club.</div>;
+        return <div className='font-light'><span className='font-medium'><Link href={`/profile/${activity.user?.id}`}>{actor}</Link></span> created the <span className='font-medium'><Link href={`/clubs/${activity.target_entity_id}`}>{targetName || activity.details?.club_name || 'a new club'}</Link></span> book club.</div>;
       case ActivityType.SENT_FRIEND_REQUEST:
-        return <div className='font-light'><span className='font-medium'>{actor}</span> sent a friend request to <span className='font-medium'>{relatedUser || activity.details?.receiver_name || 'someone'}</span>.</div>;
+        return <div className='font-light'><span className='font-medium'><Link href={`/profile/${activity.user?.id}`}>{actor}</Link></span> sent a friend request to <span className='font-medium'>{relatedUser || activity.details?.new_member_name || 'someone'}</span>.</div>;
       case ActivityType.ACCEPTED_FRIEND_REQUEST:
-        return <div className='font-light'><span className='font-medium'>{actor}</span> accepted your friend request. </div>;
+        return <div className='font-light'><span className='font-medium'><Link href={`/profile/${activity.user?.id}`}>{actor}</Link></span> accepted your friend request. </div>;
       case ActivityType.ADDED_BOOK_TO_LIBRARY:
-        return <div className='font-light'><span className='font-medium'>{actor}</span> added <span className='font-medium'>{activity.details?.book_title || 'a new book'}</span> to the library.</div>;
+        return <div className='font-light'><span className='font-medium'><Link href={`/profile/${activity.user?.id}`}>{actor}</Link></span> added <span className='font-medium'><Link href={`/books/${activity.target_entity_id}`}>{activity.details?.book_title || 'a new book'}</Link></span> to the library.</div>;
       case ActivityType.CLUB_SELECTED_BOOK:
-        return <div className='font-light'><span className='font-medium'>{targetName || activity.details?.club_name}</span> (which <span className='font-medium'>{actor}</span> is part of) book club selected <span className='font-medium'>{activity.details?.book_title || 'a new book'}</span> for its next meeting.</div>;
+        return <div className='font-light'><span className='font-medium'><Link href={`/clubs/${activity.details?.club_id}`}>{targetName || activity.details?.club_name}</Link></span> (which <span className='font-medium'><Link href={`/profile/${activity.user?.id}`}>{actor}</Link></span> is part of) book club selected <span className='font-medium'><Link href={`/books/${activity.details?.book_id}`}>{activity.details?.book_title || 'a new book'}</Link></span> for its next meeting.</div>;
       case ActivityType.JOINED_CLUB:
-        return <div className='font-light'><span className='font-medium'>{actor}</span> joined the <span className='font-medium'>{targetName || activity.details?.club_name}</span> book club.</div>;
+        return <div className='font-light'><span className='font-medium'><Link href={`/profile/${activity.user?.id}`}>{actor}</Link></span> joined the <span className='font-medium'><Link href={`/clubs/${activity.details?.club_id}`}>{targetName || activity.details?.club_name}</Link></span> book club.</div>;
       case ActivityType.CLUB_NEW_MEMBER:
-        return <div className='font-light'><span className='font-medium'>{relatedUser || activity.details?.new_member_name}</span> joined the <span className='font-medium'>{targetName || activity.details?.club_name}</span> (a club <span className='font-medium'>{actor}</span> is in) book club.</div>;
+        return <div className='font-light'><span className='font-medium'>{relatedUser || activity.details?.new_member_name}</span> joined the <span className='font-medium'><Link href={`/clubs/${activity.details?.club_id}`}>{targetName || activity.details?.club_name}</Link></span> (a club <span className='font-medium'><Link href={`/profile/${activity.user?.id}`}>{actor}</Link></span> is in) book club.</div>;
       default:
         console.warn("Unhandled activity type:", activity.type, activity);
-        return <div className='font-light'>An interesting activity involving <span className='font-medium'>{actor}</span> occurred.</div>;
+        return <div className='font-light'>An interesting activity involving <span className='font-medium'><Link href={`/profile/${activity.user?.id}`}>{actor}</Link></span> occurred.</div>;
     }
   };
 
   return (
-    <Card className="flex p-2 bg-bookWhite/5">
+    <Card className="flex p-2 bg-bookWhite/5 w-full">
       <div className="flex items-center justify-center w-10 h-10 rounded-full bg-bookWhite mr-4 shrink-0">
         {activity.actor_avatar_url ? (
           <img src={activity.actor_avatar_url} alt={activity.actor_name || 'User'} className="w-full h-full rounded-full object-cover" />
@@ -186,6 +187,8 @@ export default function FriendsActivityExplore() {
       setIsLoadingActivity(false);
     }
   };
+
+  console.log(activityFeed)
 
   const fetchData = async () => {
     if (sessionStatus !== 'authenticated' || !currentUserId) {
@@ -283,7 +286,7 @@ export default function FriendsActivityExplore() {
           ) : activityFeed.length === 0 ? (
             <p className="text-bookWhite/70 text-center py-10">No recent friend activity to show.</p>
           ) : (
-            <div className="flex flex-col items-start gap-2 bg-transparent mx-4 h-[51vh] overflow-y-auto no-scrollbar rounded-lg p-2">
+            <div className="flex flex-col items-start gap-2 bg-transparent mx-4 h-[51vh] w-auto overflow-y-auto no-scrollbar rounded-lg p-2">
               {activityFeed.map((activity, index) => (
                 <ActivityItemCard key={index} activity={activity} />
               ))}

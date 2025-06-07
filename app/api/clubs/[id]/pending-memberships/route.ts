@@ -90,7 +90,7 @@ export async function GET(
             id: true,
             email: true,
             display_name: true, // Cannot determine path from current info
-            // avatar_url: true,   // Cannot determine path from current info
+            avatar_url: true,   // Cannot determine path from current info
           },
         },
       },
@@ -100,8 +100,8 @@ export async function GET(
     const formattedPendingMemberships = pendingMemberships.map(membership => {
       // Safely access user and its properties, defaulting if parts are missing
       const userId = membership.user?.id;
-      const userName = membership.user?.email || 'N/A'; // Fallback to email or N/A
-      const userAvatar = null; // Cannot determine path from current info
+      const userName = membership.user?.display_name || 'N/A'; // Fallback to email or N/A
+      const userAvatar = membership.user?.avatar_url || null; // Cannot determine path from current info
       const userInitials = (userName?.substring(0, 2) || '??').toUpperCase();
 
       if (!userId) {

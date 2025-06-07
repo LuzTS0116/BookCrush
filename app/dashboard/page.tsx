@@ -2,13 +2,14 @@ import type React from "react"
 import Image from "next/image";
 import DashboardPage from "@/components/dashboard-page";
 import DashboardReading from "@/components/dashboard-reading";
-import { ClubActivityCard } from "@/components/club-activity-card"
+import { ActivityCard } from "@/components/activity-card"
 import { SupportSection } from "@/components/buy-me-a-coffee";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 import { cookies } from 'next/headers';
 import DashboardFeedback from "@/components/dashboard-feedback";
+import { DashboardFooter } from "@/components/dashboard-footer";
 
 export default async function DashboardLayout() {
   
@@ -41,12 +42,12 @@ export default async function DashboardLayout() {
         height={2871}
         className="absolute inset-0 w-auto h-full lg:w-full lg:h-auto object-cover z-[-1]"
       />
-      
       <DashboardPage quote={quote} author={author}/>
       <DashboardReading />
+      <ActivityCard />
       <DashboardFeedback />
-      <ClubActivityCard />
-      {/* <SupportSection /> */}
+      <SupportSection />
+      <DashboardFooter />
     </div>
   )
 }

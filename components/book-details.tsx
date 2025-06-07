@@ -28,6 +28,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useParams } from "next/navigation";
+import BookFileUpload from "@/components/book-file-upload";
+
 // Define types for our data
 interface BookReview {
   id: string;
@@ -76,6 +78,60 @@ const SHELF_OPTIONS = [
   { label: "Finished", value: "finished" },
 ];
 
+// Add a separate KindleEmailDialog component
+function KindleEmailDialog({ 
+  open, 
+  onOpenChange, 
+  selectedFileId, 
+  onSend 
+}: { 
+  open: boolean; 
+  onOpenChange: (open: boolean) => void; 
+  selectedFileId: string | null; 
+  onSend: (fileId: string, email: string) => void; 
+}) {
+  const [email, setEmail] = useState('');
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Enter Kindle Email Address</DialogTitle>
+          <DialogDescription>
+            We need your Kindle email address to deliver the book. You can find this in your Kindle settings.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="kindle-email">Kindle Email</Label>
+            <Input
+              id="kindle-email"
+              type="email"
+              placeholder="your-kindle@kindle.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button 
+            onClick={() => {
+              if (selectedFileId) {
+                onSend(selectedFileId, email);
+                onOpenChange(false);
+              }
+            }}
+            disabled={!email.includes('@')}
+          >
+            Send to Kindle
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function BookDetailsView({ params }: { params: { id: string } }) {
   const [reviewText, setReviewText] = useState("")
   const [userRating, setUserRating] = useState<"HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null>(null)
@@ -100,7 +156,46 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
 
   const router = useRouter();
   const {id} = useParams();
+
+  // Add state for storing book files
+  const [bookFiles, setBookFiles] = useState<any[]>([]);
+  const [isLoadingFiles, setIsLoadingFiles] = useState(false);
+
+  // Add new state variables for Kindle delivery
+  const [isSendingToKindle, setIsSendingToKindle] = useState<Record<string, boolean>>({});
+  const [kindleEmailDialogOpen, setKindleEmailDialogOpen] = useState(false);
+  const [customKindleEmail, setCustomKindleEmail] = useState('');
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+
+  // Add a function to fetch book files
+  const fetchBookFiles = async () => {
+    try {
+      setIsLoadingFiles(true);
+      const response = await fetch(`/api/books/files?bookId=${id}`);
+      
+      if (response.ok) {
+        const files = await response.json();
+        console.log(files)
+        setBookFiles(files);
+      } else {
+        console.error('Failed to fetch book files');
+      }
+    } catch (error) {
+      console.error('Error fetching book files:', error);
+    } finally {
+      setIsLoadingFiles(false);
+    }
+  };
+
+  // Add useEffect to fetch files on component mount
+  useEffect(() => {
+    if (id) {
+      fetchBookFiles();
+    }
+  }, [id]);
+
   // Fetch book data
+  
   useEffect(() => {
     const fetchBook = async () => {
       try {
@@ -370,6 +465,68 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
     }));
   };
 
+  // Update the hasFileOfLanguage function to check the language field
+  const hasFileOfLanguage = (files: any[], language: string): boolean => {
+    return files.some(file => 
+      file.language?.toLowerCase() === language.toLowerCase() || 
+      // Fallback to check name/storage_key in case language field isn't set
+      file.original_name?.toLowerCase().includes(language.toLowerCase()) ||
+      file.storage_key?.toLowerCase().includes(language.toLowerCase())
+    );
+  };
+
+  // Add function to handle sending to Kindle
+  const handleSendToKindle = async (fileId: string, customEmail?: string) => {
+    try {
+      setIsSendingToKindle(prev => ({ ...prev, [fileId]: true }));
+      
+      const response = await fetch('/api/books/files/kindle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          fileId,
+          customEmail
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send to Kindle');
+      }
+      
+      const result = await response.json();
+      toast.success(result.message || 'Book sent to Kindle!');
+      
+    } catch (error: any) {
+      console.error('Error sending to Kindle:', error);
+      
+      if (error.message.includes('No Kindle email found')) {
+        // If user doesn't have a Kindle email set up, open dialog to provide one
+        setSelectedFileId(fileId);
+        setKindleEmailDialogOpen(true);
+      } else {
+        toast.error(error.message || 'Failed to send to Kindle');
+      }
+    } finally {
+      setIsSendingToKindle(prev => ({ ...prev, [fileId]: false }));
+    }
+  };
+
+  // Function to find file ID by language
+  const getFileIdByLanguage = (files: any[], language: string): string | null => {
+    const file = files.find(file => 
+      file.language?.toLowerCase() === language.toLowerCase() || 
+      file.original_name?.toLowerCase().includes(language.toLowerCase()) || 
+      file.storage_key?.toLowerCase().includes(language.toLowerCase())
+    );
+    return file?.id || null;
+  };
+
+  // Updated handleSendToKindle function to work with the dialog component
+  const handleSendToKindleWithEmail = (fileId: string, email: string) => {
+    handleSendToKindle(fileId, email);
+  };
+
   return (
     <div className="space-y-3 px-2 mb-16">
       {/* Header Section */}
@@ -586,59 +743,56 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
             <div className="flex flex-col px-3 py-1">
               <div className="rounded-xl bg-primary/25 px-3 py-3 w-full mb-2">
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="flex flex-col">
-                        <span className="text-xs leading-none text-secondary-light/60 text-center font-semibold mb-2">English E-Pub</span>
-                        <Button variant="outline" className="rounded-full bg-accent-variant/80 hover:bg-accent-variant text-bookWhite border-none px-2 h-8 text-xs">
-                            <Send className="mr-0 h-2 w-2" /> Send to Kindle
-                        </Button>
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-xs leading-none text-secondary-light/60 text-center font-semibold mb-2">Spanish E-Pub</span>
-                        <Dialog>
-                          <DialogTrigger asChild className="text-secondary-light">
-                              <Button className="text-secondary-light text-xs py-2 px-2 text-semibold rounded-full bg-secondary/10 hover:bg-secondary/20">
-                                not available (upload)
-                              </Button>
-                          </DialogTrigger>
-                          <DialogContent className="w-[85vw] rounded-2xl">
-                              <Image 
-                                src="/images/background.png"
-                                alt="Create and Manage your Book Clubs | BookCrush"
-                                width={1622}
-                                height={2871}
-                                className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
-                              />
-                              <DialogHeader className="pt-6 pb-4">
-                                <DialogTitle>Upload E-Pub File</DialogTitle>
-                                <DialogDescription>
-                                    Got the EPUB? Drop it here so others can enjoy it too! Make reading easier ✨
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="grid gap-2">
-                              <Label htmlFor="english" className="font-light">english version</Label>
-                              <Input
-                                id="english"
-                                type="file"
-                                lang="en"
-                                accept=".epub"
-                                onChange={e => setEnglishFile(e.target.files?.[0] || null)}
-                              />
-                              </div>
-                              <div className="grid gap-2">
-                                <Label htmlFor="spanish" className="font-light mt-3">spanish version</Label>
-                                <Input
-                                  id="spanish"
-                                  type="file"
-                                  lang="en"
-                                  accept=".epub"
-                                  onChange={e => setSpanishFile(e.target.files?.[0] || null)}
-                                />
-                              </div>
-                              <DialogFooter>
-                              </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                    </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs leading-none text-secondary-light/60 text-center font-semibold mb-2">English E-Pub</span>
+                    {hasFileOfLanguage(bookFiles, 'english') ? (
+                      <Button 
+                        variant="outline" 
+                        className="rounded-full bg-accent-variant/80 hover:bg-accent-variant text-bookWhite border-none px-2 h-8 text-xs"
+                        onClick={() => handleSendToKindle(getFileIdByLanguage(bookFiles, 'english') || '', customKindleEmail)}
+                        disabled={isSendingToKindle[getFileIdByLanguage(bookFiles, 'english') || '']}
+                      >
+                        {isSendingToKindle[getFileIdByLanguage(bookFiles, 'english') || ''] ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="mr-2 h-4 w-4" />
+                        )}
+                        {isSendingToKindle[getFileIdByLanguage(bookFiles, 'english') || ''] ? 'Sending...' : 'Send to Kindle'}
+                      </Button>
+                    ) : (
+                      <BookFileUpload
+                        bookId={id as string}
+                        bookTitle={book.title}
+                        language="english"
+                        onFileUploaded={fetchBookFiles}
+                      />
+                    )}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs leading-none text-secondary-light/60 text-center font-semibold mb-2">Spanish E-Pub</span>
+                    {hasFileOfLanguage(bookFiles, 'spanish') ? (
+                      <Button 
+                        variant="outline" 
+                        className="rounded-full bg-accent-variant/80 hover:bg-accent-variant text-bookWhite border-none px-2 h-8 text-xs"
+                        onClick={() => handleSendToKindle(getFileIdByLanguage(bookFiles, 'spanish') || '', customKindleEmail)}
+                        disabled={isSendingToKindle[getFileIdByLanguage(bookFiles, 'spanish') || '']}
+                      >
+                        {isSendingToKindle[getFileIdByLanguage(bookFiles, 'spanish') || ''] ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="mr-2 h-4 w-4" />
+                        )}
+                        {isSendingToKindle[getFileIdByLanguage(bookFiles, 'spanish') || ''] ? 'Sending...' : 'Send to Kindle'}
+                      </Button>
+                    ) : (
+                      <BookFileUpload
+                        bookId={id as string}
+                        bookTitle={book.title}
+                        language="spanish"
+                        onFileUploaded={fetchBookFiles}
+                      />
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -794,6 +948,51 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
               </div>
             </CardContent>
           </Card> */}
+
+          <div className="flex flex-col gap-4 mt-6">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold">E-book Files</h3>
+              <BookFileUpload 
+                bookId={id as string} 
+                bookTitle={book.title} 
+                onFileUploaded={fetchBookFiles} 
+              />
+            </div>
+            
+            {isLoadingFiles ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                <span>Loading files...</span>
+              </div>
+            ) : bookFiles.length === 0 ? (
+              <p className="text-muted-foreground text-sm py-4">
+                No e-book files available yet. Upload one to read the book.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {bookFiles.map((file) => (
+                  <div key={file.id} className="flex items-center justify-between p-3 bg-secondary-light/50 rounded-lg">
+                    <div className="flex items-center">
+                      <BookOpen className="h-5 w-5 mr-3 text-primary" />
+                      <div>
+                        <p className="font-medium">{file.original_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(file.size_bytes / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                    </div>
+                    <a
+                      href={`/api/books/files/download?fileId=${file.id}`}
+                      download={file.original_name}
+                      className="px-3 py-1 text-sm bg-primary text-white rounded-full hover:bg-primary/90"
+                    >
+                      Download
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="">
             <Tabs defaultValue="reviews" className="w-full">
@@ -1052,7 +1251,15 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
             </CardContent>
           </Card> */}
         {/* </div> */}
-      
+        <KindleEmailDialog
+      open={kindleEmailDialogOpen}
+      onOpenChange={setKindleEmailDialogOpen}
+      selectedFileId={selectedFileId}
+      onSend={handleSendToKindleWithEmail}
+    />
     </div>
+
+    
+    
   )
 }

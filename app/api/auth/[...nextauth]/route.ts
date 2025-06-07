@@ -112,6 +112,9 @@ import NextAuth, { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import Credentials from 'next-auth/providers/credentials';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { PrismaClient } from '@/lib/generated/prisma';
+
+const prisma = new PrismaClient();
 
 const {
   GOOGLE_CLIENT_ID,
@@ -226,17 +229,32 @@ export const authOptions: NextAuthOptions = {
             access_token: data.session.access_token,
             refresh_token: data.session.refresh_token,
           };
-          // You might also want to store initial name/email/picture from NextAuth's 'user' object
-          // which is available at the start of the jwt callback, if you want them on the token.
-          // e.g., token.name = user.name || data.user.email;
+
+          // Save Google profile image and name to database
+          try {
+            await prisma.profile.upsert({
+              where: { id: data.user!.id },
+              update: {
+                // Only update if current avatar_url is empty/null (don't override custom uploads)
+                avatar_url: user?.image || undefined,
+                // Update display_name if not already set
+                display_name: user?.name || data.user!.email?.split('@')[0] || 'Reader',
+                email: user?.email || data.user!.email || undefined,
+              },
+              create: {
+                id: data.user!.id,
+                display_name: user?.name || data.user!.email?.split('@')[0] || 'Reader',
+                email: user?.email || data.user!.email || undefined,
+                avatar_url: user?.image || undefined,
+              },
+            });
+          } catch (dbError) {
+            console.error('Failed to save Google profile data to database:', dbError);
+            // Don't fail authentication if database update fails
+          }
         } else {
               console.error('Supabase signInWithIdToken failed for Google:', error?.message || 'No session returned');
-              // Decide how to handle this: e.g., throw new Error('Supabase authentication failed');
-              // or just proceed without Supabase tokens if it's not critical for the session to exist in Supabase
-              // (though usually it is).
-    }
-
-
+        }
       }
       
       // Refresh token logic (optional but recommended)

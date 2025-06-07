@@ -4,6 +4,7 @@ import { use,useState, useEffect, useCallback } from "react" // Added useEffect,
 import { useParams } from "next/navigation"
 import Image from "next/image";
 import { Button } from "@/components/ui/button"
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -29,6 +30,7 @@ import { toast } from "sonner"; // Assuming sonner for toasts
 import { BookSelectionDialog } from '@/components/BookSelectionDialog'
 import { useRouter } from "next/navigation"
 import { formatRelativeDate } from "@/lib/utils";
+import { useAvatarUrl } from "@/hooks/use-profile"
 
 
 // --- Define Interfaces (copied from previous thought, ensure consistency) ---
@@ -165,6 +167,10 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   //wrap params with React.use() 
   const {id} = useParams();
   const router = useRouter();
+
+  const {
+    avatarUrl
+  } = useAvatarUrl()
   
   // Function to fetch full club details from the API
   const fetchClubDetails = useCallback(async () => {
@@ -176,6 +182,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
       }
       const data: ClubData = await response.json(); // Cast to ClubData interface
       setClub(data);
+      
     } catch (err: any) {
       toast.error(`Error fetching club details: ${err.message}`);
       console.error("Error fetching club details:", err);
@@ -184,7 +191,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
       setLoadingClub(false);
     }
   }, [id]);
-
+  console.log(club)
   // Initial data load on component mount
   useEffect(() => {
     fetchClubDetails();
@@ -266,7 +273,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   const handleSetCurrentBook = async (bookId: string) => {
     setLoadingBookAction(true);
     try {
-      const response = await fetch(`/api/clubs/${params.id}/current-book`, {
+      const response = await fetch(`/api/clubs/${id}/current-book`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -293,7 +300,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   const handleDeleteCurrentBook = async () => {
     setLoadingBookAction(true);
     try {
-      const response = await fetch(`/api/clubs/${params.id}/current-book`, {
+      const response = await fetch(`/api/clubs/${id}/current-book`, {
         method: 'DELETE',
       });
 
@@ -309,6 +316,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
       console.error("Error deleting current book:", err);
     } finally {
       setLoadingBookAction(false);
+      setBookDialogOpen(false);
     }
   };
 
@@ -316,7 +324,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   const handleUpdateBookStatus = async (clubBookId: string, status: 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED') => {
     setLoadingBookAction(true);
     try {
-      const response = await fetch(`/api/clubs/${params.id}/books`, {
+      const response = await fetch(`/api/clubs/${id}/books`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -630,14 +638,86 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               <CardFooter className="flex justify-end flex-wrap gap-2 pb-3 px-3">
                 {club.current_book ? (
                   <div>
-                    <Button
-                      variant="outline"
-                      onClick={handleDeleteCurrentBook}
-                      disabled={loadingBookAction}
-                      className="bg-secondary-light hover:bg-secondary text-bookWhite rounded-full"
-                    >
-                      Book Not Completed
-                    </Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            disabled={loadingBookAction}
+                            className="bg-secondary-light hover:bg-secondary text-bookWhite rounded-full"
+                          >
+                            Book Not Completed
+                          </Button>
+                      </DialogTrigger>
+                      <DialogContent className="w-[85vw] rounded-2xl">
+                          <Image 
+                            src="/images/background.png"
+                            alt="Create and Manage your Book Clubs | BookCrush"
+                            width={1622}
+                            height={2871}
+                            className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+                          />
+                          <DialogHeader>
+                          <DialogTitle>Book Not Completed</DialogTitle>
+                          <DialogDescription>
+                              Let us know why this one didn’t work out.
+                          </DialogDescription>
+                          </DialogHeader>
+                          <div className="grid gap-4 py-4">
+                          <div className="flex gap-3 items-center p-3 bg-muted/30 rounded-lg">
+                              <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
+                              <img
+                                  src={club.current_book?.cover_url || "/placeholder.svg"} // Optional chaining
+                                  alt={`${club.current_book?.title || 'No book'} cover`}
+                                  className="max-h-full"
+                              />
+                              </div>
+                              <div>
+                              <p className="font-medium text-sm">{club.current_book?.title}</p>
+                              <p className="text-xs text-muted-foreground">{club.current_book?.author}</p>
+                              </div>
+                          </div>
+                          <div className="grid gap-2">
+                              <Label htmlFor="rating">Reason for not completing</Label>
+                              <Select>
+                              <SelectTrigger id="rating" className="font-medium">
+                                  <SelectValue placeholder="Select rating" className="font-medium"/>
+                              </SelectTrigger>
+                              <SelectContent className="font-medium">
+                                <SelectItem value="1">📖 Lost interest in the story</SelectItem>
+                                <SelectItem value="2">🕒 Didn’t have enough time</SelectItem>
+                                <SelectItem value="3">🤯 Too confusing or hard to follow</SelectItem>
+                                <SelectItem value="4">😔 Not in the right mood for this book</SelectItem>
+                                <SelectItem value="5">🔁 Planning to finish later</SelectItem>
+                                <SelectItem value="6">😐 Didn’t connect with the characters or style</SelectItem>
+                                <SelectItem value="7">❌ Offensive or uncomfortable content</SelectItem>
+                                <SelectItem value="8">💤 Too slow-paced or boring</SelectItem>
+                                <SelectItem value="9">📚 Overwhelmed by other reads</SelectItem>
+                                <SelectItem value="10">✍️ Other (will explain below)</SelectItem>
+                              </SelectContent>
+                              </Select>
+                          </div>
+                          <div className="grid gap-2">
+                              <Label htmlFor="discussion-notes">Notes or Thoughts</Label>
+                              <Textarea
+                              id="discussion-notes"
+                              placeholder="Summarize the reasons for this book to be not completed"
+                              className="bg-bookWhite font-serif font-medium text-secondary placeholder:text-secondary/50 placeholder:font-serif placeholder:italic placeholder:text-sm"
+                              />
+                          </div>
+                          </div>
+                          <DialogFooter>
+                            <Button
+                              variant="outline"
+                              type="submit"
+                              onClick={handleDeleteCurrentBook}
+                              className="bg-secondary-light hover:bg-secondary text-bookWhite rounded-full"
+                            >
+                              Book Not Completed
+                            </Button>
+                          </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+
                     <Dialog>
                       <DialogTrigger asChild>
                           <Button variant="outline" className="ml-2 text-secondary rounded-full bg-primary hover:bg-primary-dark hover:text-secondary border-none">
@@ -765,7 +845,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                           <div key={discussion.id || i} className="flex gap-4 bg-secondary-light/10 p-2 rounded-md">
                             <Avatar className="h-10 w-10">
                               <AvatarImage
-                                src= "/placeholder.svg"
+                                src= {discussion.user?.avatar_url}
                                 alt={discussion.user?.display_name || 'User'}
                               />
                               <AvatarFallback className="bg-primary text-primary-foreground">
@@ -806,7 +886,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                       <div className="flex gap-4">
                         <Avatar className="h-10 w-10">
                           {/* Replace with actual current user avatar logic if available */}
-                          <AvatarImage src={"placeholder.svg?height=40&width=40"} alt="Your avatar" />
+                          <AvatarImage src={avatarUrl || "placeholder.svg?height=40&width=40"} alt="Your avatar" />
                           <AvatarFallback className="bg-primary text-primary-foreground">ME</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 space-y-2">
@@ -873,28 +953,32 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                         club.book_history.map((entry) => (
                           <div key={entry.id} className="flex flex-row gap-2 p-2 bg-secondary-light/10 rounded-lg">
                             <div className="w-24 h-36 bg-muted/30 rounded-md flex items-center justify-center overflow-hidden mx-auto md:mx-0">
+                              <Link href={`/books/${entry.book.id}`}>
                               <img
                                 src={entry.book.cover_url || "/placeholder-book.png"}
                                 alt={`${entry.book.title} cover`}
                                 className="max-h-full object-cover"
                               />
+                              </Link>
                             </div>
                             <div className="flex-1">
                               <div className="flex flex-row items-start justify-between">
                                 <div className="flex-1 min-w-0">
-                                  <h3 className="text-base font-semibold leading-none break-words">{entry.book.title}</h3>
+                                  <Link href={`/books/${entry.book.id}`}>
+                                    <h3 className="text-base font-semibold leading-none break-words">{entry.book.title}</h3>
+                                  </Link>
                                   <p className="text-sm text-secondary font-serif">{entry.book.author}</p>
                                 </div>
                                 <div>
                                   <Badge 
                                     variant={
-                                      entry.status === 'COMPLETED' ? 'default' :
-                                      entry.status === 'IN_PROGRESS' ? 'secondary' :
-                                      'destructive'
+                                      entry.status === 'COMPLETED' ? 'secondary' :
+                                      entry.status === 'ABANDONED' ? 'secondary' :
+                                      'secondary'
                                     }
                                     className="inline-block w-auto mt-0"
                                   >
-                                    {entry.status.toLowerCase().replace('_', ' ')}
+                                    {entry.status === 'ABANDONED' ? 'not completed' : 'completed'}
                                   </Badge>
                                 </div>
                               </div>  
@@ -907,7 +991,6 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                               <p className="text-xs mt-1">Meeting Discussion Notes</p>
                               <p className="text-xs font-serif font-normal">If it's after the meeting and you want to emphasize that it was a result of discussion, 
                                 Club Rating or Final Rating are clean and intuitive</p>
-                              <p className="text-sm mt-2 font-normal font-serif line-clamp-4">{entry.book.description}</p>
 
                               {/* {club.currentUserIsAdmin && entry.status === 'IN_PROGRESS' && (
                                 <div className="mt-4 flex gap-2">
@@ -967,7 +1050,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                     <Avatar className="h-8 w-8">
                       {/* For real members, you'd iterate over an array of `club.members`
                           each with their own avatar/name properties, fetched from the backend. */}
-                      <AvatarImage src={`/placeholder.svg?height=32&width=32&text=${String.fromCharCode(65 + i)}`} alt="Member" />
+                      <AvatarImage src={club.memberships[i].user.avatar_url} alt={club.memberships[i].user.display_name} />
                       <AvatarFallback
                         className={
                           i === 0 ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
@@ -1015,7 +1098,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                         height={2871}
                         className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
                       />
-                      <DialogHeader>
+                      <DialogHeader className="pt-8">
                         <DialogTitle>Invite Members</DialogTitle>
                         <DialogDescription>
                             Great stories are meant to be shared. Got someone in mind? Send them an invite!
@@ -1034,7 +1117,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                           />
                         </div>
 
-                        {/* Optional Message */}
+                        {/* Optional Message
                         <div className="space-y-2">
                           <Label htmlFor="invite-message">Personal Message (Optional)</Label>
                           <Textarea
@@ -1045,7 +1128,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                             className="bg-bookWhite/80 font-serif font-medium text-secondary placeholder:font-serif placeholder:italic placeholder:text-sm"
                             rows={3}
                           />
-                        </div>
+                        </div> */}
 
                         {/* add hidden id field */}
                         
@@ -1197,7 +1280,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
                           <AvatarImage 
-                            src={invitation.invitee?.email ? "/placeholder.svg" : "/placeholder.svg"} 
+                            src={invitation.invitee?.avatar_url} 
                             alt={invitation.invitee?.display_name || invitation.email} 
                           />
                           <AvatarFallback className="bg-orange-500 text-white">
@@ -1237,41 +1320,57 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
           <Card className="mt-3">
             <CardHeader className="px-3 pt-3 pb-1 flex-1">
-              <CardTitle className="break-words text-xl/6">Upcoming Meeting: {club.current_book?.title}</CardTitle>
+              <CardTitle className="break-words text-xl/6">Upcoming Meeting{club.current_book && (<span>: {club.current_book?.title}</span>)}</CardTitle>
             </CardHeader>
-            <CardContent className="p-3">
-              <div className="space-y-4">
-                <div className="ml-3 space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <CalendarDays className="text-secondary-light h-4 w-4" />
-                    <span>{club.current_book?.reading_time}</span>
+            <CardContent className="px-3 pt-3 pb-5">
+              {club.meetings[0] ? (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-secondary-light">
+                    <CalendarDays className="text-accent-variant h-5 w-5" />
+                    <span>
+                      {new Date(club.meetings[0].meeting_date).toLocaleDateString('en-US', {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                    <Clock className="text-secondary-light h-4 w-4" />
-                    <span>{club.current_book?.reading_time}</span>
+                  <div className="flex items-center gap-2 text-sm text-secondary-light">
+                    <Clock className="text-accent-variant h-5 w-5" />
+                    <span>
+                      {new Date(club.meetings[0].meeting_date).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true,
+                      }).replace('AM', 'a.m.').replace('PM', 'p.m.')}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                    <MapPin className="text-secondary-light h-4 w-4" />
-                    <span>{club.current_book?.reading_time}</span>
+                  <div className="flex items-center gap-2 text-sm text-secondary-light">
+                    <MapPin className="text-accent-variant h-5 w-5" />
+                    <span>{club.meetings[0].location}</span>
                   </div>
                 </div>
-                <div className="flex justify-end">
+                {/* <div className="flex justify-end">
                   <Button variant="outline" size="sm" className="mt-3 rounded-full text-secondary-light h-8 border-none bg-primary">
                     View Details
                   </Button>
+                </div> */}
+              </div>
+              ) : (
+              <div>
+                <div className="flex flex-col items-center justify-center">
+                  <CalendarDays className="text-secondary-light/20 h-16 w-16 mb-3" />
+                  <p className="text-secondary-light/30 text-center">No upcoming meeting</p>
+                  <p className="text-secondary-light/30 text-center w-[80vw] leading-4">Go to calendar to set a new meeting date, time and place.</p>
+                </div>
+                <div className="flex justify-end">
+                  <Button variant="outline" size="sm" className="mt-5 rounded-full text-secondary-light h-8 border-none bg-accent">
+                    Go to Calendar
+                  </Button>
                 </div>
               </div>
-
-              <div className="flex flex-col items-center justify-center">
-                <CalendarDays className="text-secondary-light/20 h-16 w-16 mb-3" />
-                <p className="text-secondary-light/30 text-center">No upcoming meeting</p>
-                <p className="text-secondary-light/30 text-center w-[80vw] leading-4">Go to calendar to set a new meeting date, time and place.</p>
-              </div>
-              <div className="flex justify-end">
-                <Button variant="outline" size="sm" className="mt-5 rounded-full text-secondary-light h-8 border-none bg-accent">
-                  Go to Calendar
-                </Button>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>
