@@ -171,8 +171,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@/lib/generated/prisma';
-import { ClubRole, ClubMembershipStatus, club_book_status } from '@/lib/generated/prisma';
+import { PrismaClient } from '@prisma/client', ActivityType, ActivityTargetEntityType ;
+import {  ClubRole, ClubMembershipStatus, club_book_status  } from '@prisma/client';
 import { z } from 'zod';
 
 const prisma = new PrismaClient();

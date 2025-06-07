@@ -10,7 +10,7 @@ import { getFriendsAndRequests, getExploreUsers } from '@/lib/api-helpers';
 import { FriendRequest, Friendship, ExplorableUser, UserProfileMinimal } from '@/types/social';
 import { useSession } from 'next-auth/react';
 import { AddFriendButton } from '@/components/social/add-friend-button';
-import { ActivityType, ActivityTargetEntityType } from '@/lib/generated/prisma';
+import {  ActivityType, ActivityTargetEntityType  } from '@prisma/client';
 import Link from 'next/link';
 
 // --- Activity Feed Types ---

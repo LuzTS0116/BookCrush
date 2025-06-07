@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 // import { cookies } from 'next/headers'; // No longer directly using cookies here
 // import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'; // Using standard client
 import { createClient } from '@supabase/supabase-js'; // Standard Supabase client
-import { PrismaClient } from '@/lib/generated/prisma';
-import { ClubMembershipStatus, ClubRole } from '@/lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
+import {  ClubMembershipStatus, ClubRole  } from '@prisma/client';
 
 const prisma = new PrismaClient();
 

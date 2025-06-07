@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient } from '@/lib/generated/prisma'; // Adjust path if necessary
+import { PrismaClient } from '@prisma/client'; // Adjust path if necessary
 
 const prisma = new PrismaClient();
 

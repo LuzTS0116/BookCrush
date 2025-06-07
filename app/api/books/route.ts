@@ -29,7 +29,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@/lib/generated/prisma';
+import { PrismaClient } from '@prisma/client', ActivityType, ActivityTargetEntityType ;
 const prisma = new PrismaClient();
 
 export async function POST(req: NextRequest) {

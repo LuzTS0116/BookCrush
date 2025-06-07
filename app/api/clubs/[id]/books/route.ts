@@ -3,8 +3,8 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { useParams } from 'next/navigation'
-import { PrismaClient } from '@/lib/generated/prisma';
-import { ClubRole } from '@/lib/generated/prisma';
+import { PrismaClient } from '@prisma/client';
+import {  ClubRole  } from '@prisma/client';
 
 const prisma = new PrismaClient();
 // Schema for adding a book to club history

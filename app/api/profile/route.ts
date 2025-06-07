@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, Prisma } from '@/lib/generated/prisma';
+import { PrismaClient } from '@prisma/client', Prisma ;
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { formatProfileWithAvatarUrlServer } from '@/lib/supabase-server-utils'

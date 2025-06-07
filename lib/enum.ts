@@ -1,5 +1,5 @@
 // lib/enums.ts (or add to an existing utils file)
-import { shelf_type, status_type } from '@/lib/generated/prisma';
+import {  shelf_type, status_type  } from '@prisma/client';
 
 export function parseShelfType(shelf: string): shelf_type {
   switch (shelf.toLowerCase()) {

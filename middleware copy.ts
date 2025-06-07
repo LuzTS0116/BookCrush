@@ -1,7 +1,7 @@
 import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-// import { PrismaClient } from '@/lib/generated/prisma' // Prisma still commented out
+// import { PrismaClient } from '@prisma/client' // Prisma still commented out
 
 // const prisma = new PrismaClient() // Prisma still commented out
 

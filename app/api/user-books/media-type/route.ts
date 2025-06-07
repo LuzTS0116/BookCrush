@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { PrismaClient, book_media_type } from '@/lib/generated/prisma';
+import { PrismaClient } from '@prisma/client', book_media_type ;
 
 const prisma = new PrismaClient();
 
