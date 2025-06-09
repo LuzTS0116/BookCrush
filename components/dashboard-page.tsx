@@ -2,14 +2,10 @@
 
 import React, { useRef, useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { BookOpen, Calendar, BookMarked, ChevronRight, Plus, Loader2, Upload, Share2 } from "lucide-react"
-import { Progress } from "@/components/ui/progress"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Loader2, Share2 } from "lucide-react"
+import Image from "next/image"
 import html2canvas from 'html2canvas';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {Dialog,
   DialogContent,
   DialogDescription,
@@ -203,7 +199,7 @@ const handleClickShare = async () => {
               onClick={() => setShowOverlay((prev) => !prev)}
               className="relative group h-full col-span-2"
             >
-              <div ref={quoteImageRef} className="h-full flex flex-col justify-between bg-[url('/images/quote-img.png')] bg-cover rounded-br-3xl">
+              <div ref={quoteImageRef} className="h-full flex flex-col justify-between bg-[url('/images/quote-img1.png')] bg-cover rounded-br-3xl">
                 <div className="flex-1 flex flex-col justify-center pt-4 px-3">
                   <blockquote className="text-[13px]/4 text-center font-semibold text-bookBlack">
                     {quote}
@@ -228,17 +224,25 @@ const handleClickShare = async () => {
               </div>
 
                   <Dialog open={open} onOpenChange={setOpen}>
-                      <DialogContent className="w-[85vw] rounded-2xl">
+                      <DialogContent className="w-[85vw] rounded-2xl px-0 py-1">
+                        <Image 
+                          src="/images/background.png"
+                          alt="Create and Manage your Book Clubs | BookCrush"
+                          width={1622}
+                          height={2871}
+                          className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+                        />
                         {!downloadedImageUrl ? (
                           <p className="text-sm text-red-500">Failed to generate image. Try again.</p>
                         ) : (
                           <>
-                            <DialogHeader>
+                            <DialogHeader className="px-6 pt-4">
                               <DialogTitle className="mt-7 text-center">Ready to share!</DialogTitle>
+                              <DialogDescription>You can now share this image on Instagram Stories, WhatsApp, or wherever you’d like.</DialogDescription>
                             </DialogHeader>
 
-                            <div className="grid gap-4 py-4">
-                              <div className="h-[350px] w-auto overflow-hidden mx-auto rounded-lg shadow-md">
+                            <div className="grid gap-2 py-0">
+                              <div className="h-[45vh] w-auto overflow-hidden mx-auto rounded-lg shadow-md">
                                 <img
                                   src={downloadedImageUrl}
                                   alt="Quote preview"
@@ -246,15 +250,11 @@ const handleClickShare = async () => {
                                 />
                               </div>
 
-                              <p className="text-sm text-gray-600 text-center">
-                                You can now share this image on Instagram Stories, WhatsApp, or wherever you’d like.
-                              </p>
-
-                              <div className="flex justify-center mt-2">
+                              <div className="flex justify-end mt-4 mr-4">
                                 <a
                                   href={downloadedImageUrl}
                                   download="quote.png"
-                                  className="bg-bookBlack text-white px-4 py-2 rounded-full text-sm hover:bg-bookBlack/90 transition"
+                                  className="bg-primary-dark text-secondary px-4 py-2 rounded-full text-sm hover:bg-bookBlack/90 transition"
                                 >
                                   Download image
                                 </a>
@@ -277,12 +277,9 @@ const handleClickShare = async () => {
               className="absolute -top-[9999px] left-0"
               aria-hidden="true"
             >
-              <div className="w-[360px] h-[640px] p-8 bg-[url('/images/quote-img.png')] flex flex-col justify-center items-center rounded-2xl shadow-xl">
-                <p className="text-3xl font-normal text-center text-secondary-light">"{quote}"</p>
-                <p className="text-base mt-4 italic text-center text-secondary-light">— {author}</p>
-                <div className="relative">
-                  <img src="/images/secondary-logo.svg" alt="App logo" className="absolute bottom-5 mt-8 h-4 opacity-50" />
-                </div>
+              <div className="w-[1080px] h-[1920px] pl-[138px] pr-[160px] bg-[url('/images/quote-img.png')] flex flex-col justify-center rounded-2xl shadow-xl">
+                <p className="text-[55px] font-normal leading-[63px] text-secondary-light">"{quote}"</p>
+                <p className="text-[45px] mt-4 font-serif font-medium text-secondary-light">— {author}</p>
               </div>
             </div>
           </div>

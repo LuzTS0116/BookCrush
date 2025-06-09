@@ -231,27 +231,27 @@ export const authOptions: NextAuthOptions = {
           };
 
           // Save Google profile image and name to database
-          try {
-            await prisma.profile.upsert({
-              where: { id: data.user!.id },
-              update: {
-                // Only update if current avatar_url is empty/null (don't override custom uploads)
-                avatar_url: user?.image || undefined,
-                // Update display_name if not already set
-                display_name: user?.name || data.user!.email?.split('@')[0] || 'Reader',
-                email: user?.email || data.user!.email || undefined,
-              },
-              create: {
-                id: data.user!.id,
-                display_name: user?.name || data.user!.email?.split('@')[0] || 'Reader',
-                email: user?.email || data.user!.email || undefined,
-                avatar_url: user?.image || undefined,
-              },
-            });
-          } catch (dbError) {
-            console.error('Failed to save Google profile data to database:', dbError);
-            // Don't fail authentication if database update fails
-          }
+          // try {
+          //   await prisma.profile.upsert({
+          //     where: { id: data.user!.id },
+          //     update: {
+          //       // Only update if current avatar_url is empty/null (don't override custom uploads)
+          //       avatar_url: user?.image || undefined,
+          //       // Update display_name if not already set
+          //       display_name: user?.name || data.user!.email?.split('@')[0] || 'Reader',
+          //       email: user?.email || data.user!.email || undefined,
+          //     },
+          //     create: {
+          //       id: data.user!.id,
+          //       display_name: user?.name || data.user!.email?.split('@')[0] || 'Reader',
+          //       email: user?.email || data.user!.email || undefined,
+          //       avatar_url: user?.image || undefined,
+          //     },
+          //   });
+          // } catch (dbError) {
+          //   console.error('Failed to save Google profile data to database:', dbError);
+          //   // Don't fail authentication if database update fails
+          // }
         } else {
               console.error('Supabase signInWithIdToken failed for Google:', error?.message || 'No session returned');
         }

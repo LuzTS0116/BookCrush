@@ -38,10 +38,10 @@ export function MainNav() {
 
   const pathname = usePathname()
 
-  console.log(avatarUrl)
   
   // Check if the current path matches /clubs/[id], /profile/[id], or /books/[id]
-  const shouldHideNav = /^\/(clubs|profile|books)\/[^/]+$/.test(pathname);
+  const shouldHideNav = /^\/(clubs|profile|books)\/[^/]+$/.test(pathname) ||
+  ["/profile", "/profile-setup", "/login", "/signup", "/home"].includes(pathname);
 
   // if (status === "loading") {
   //   return <p>Loading session…</p>;

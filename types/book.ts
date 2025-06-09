@@ -49,9 +49,11 @@ export interface BookFile {
 export interface UserBook {
   user_id: string;
   book_id: string;
-  shelf: 'favorite' | 'currently_reading' | 'queue'; // Matches shelf_type enum
-  status: 'in_progress' | 'almost_done' | 'finished'; // Matches status_type enum
+  shelf: 'favorite' | 'currently_reading' | 'queue' | 'history'; // Updated to match Prisma shelf_type enum
+  status: 'in_progress' | 'almost_done' | 'finished' | 'unfinished'; // Matches status_type enum
+  media_type: 'audio_book' | 'e_reader' | 'physical_book';
   position: number | null;
+  is_favorite: boolean; // Added to match Prisma schema
   added_at: string; // DateTime will be string in JSON
   book: BookDetails; // Nested book object
 }

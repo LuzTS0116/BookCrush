@@ -17,6 +17,7 @@ const statuses: StatusDisplay[] = [
   { label: "⏳ In Progress", value: "in_progress", color: "bg-accent-variant text-bookWhite" },
   { label: "💫 Almost Done", value: "almost_done", color: "bg-accent-variant text-bookWhite" },
   { label: "🔥 Finished", value: "finished", color: "bg-accent-variant text-bookWhite" },
+  { label: "😑 Unfinished", value: "unfinished", color: "bg-accent-variant text-bookWhite" },
 ];
 
 const TABS: TabDisplay[] = [
@@ -50,8 +51,6 @@ export default function DashboardReading() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [books, setBooks] = useState<BookDetails[]>([]);
 
   // Function to fetch books from the API
   const fetchBooks = async (shelf: UserBook['shelf']) => {
@@ -122,10 +121,10 @@ export default function DashboardReading() {
 
       // If needed, you could re-fetch data or confirm the update here
       // For now, optimistic update is usually sufficient.
-      if (newStatus== "finished" ){
+      if (newStatus== "finished" || newStatus== "unfinished"){
             setCurrentlyReadingBooks(prevBooks =>
           prevBooks.filter(userBook => 
-          userBook.status != "finished" 
+          userBook.status != "finished" && userBook.status != "unfinished" 
           
         )
       );
@@ -184,6 +183,46 @@ export default function DashboardReading() {
     }
   };
 
+  // Function to move book from queue to currently reading
+  const handleStartReading = async (bookId: string) => {
+    try {
+      // Optimistically remove from queue
+      setQueueBooks(prevBooks => 
+        prevBooks.filter(userBook => userBook.book_id !== bookId)
+      );
+
+      // Call API to move book to currently_reading shelf
+      const response = await fetch('/api/shelf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          bookId, 
+          shelf: 'currently_reading', 
+          status: 'in_progress' 
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to start reading book');
+      }
+
+      // Show success message
+      toast.success('Started reading! Book moved to Currently Reading.');
+
+      // Refresh currently reading books to show the newly moved book
+      if (activeTab === "currently_reading") {
+        fetchBooks("currently_reading");
+      }
+
+    } catch (err: any) {
+      console.error("Error starting book:", err);
+      toast.error(`Failed to start reading: ${err.message}`);
+      // Rollback UI update if API fails
+      fetchBooks("queue"); // Re-fetch queue to restore the book
+    }
+  };
+
   // Determine which books to display based on the active tab
   const booksToDisplay = useMemo(() => {
     if (activeTab === "currently_reading") {
@@ -205,16 +244,20 @@ export default function DashboardReading() {
   const handleFavorite = async (bookId: string) => {
     if (!bookId) return;
     
-    // Get the current book
-    const currentBook = books.find(book => book.id === bookId);
-    if (!currentBook) return;
+    // Optimistically update UI for both lists
+    setCurrentlyReadingBooks(prevBooks => 
+      prevBooks.map(userBook => 
+        userBook.book_id === bookId 
+          ? { ...userBook, is_favorite: !userBook.is_favorite }
+          : userBook
+      )
+    );
     
-    // Optimistically update UI
-    setBooks(prevBooks => 
-      prevBooks.map(book => 
-        book.id === bookId 
-          ? { ...book, is_favorite: !book.is_favorite }
-          : book
+    setQueueBooks(prevBooks => 
+      prevBooks.map(userBook => 
+        userBook.book_id === bookId 
+          ? { ...userBook, is_favorite: !userBook.is_favorite }
+          : userBook
       )
     );
     
@@ -228,32 +271,35 @@ export default function DashboardReading() {
       });
       
       if (!response.ok) {
-        // Revert UI change if API call fails
-        setBooks(prevBooks => 
-          prevBooks.map(book => 
-            book.id === bookId 
-              ? { ...book, is_favorite: currentBook.is_favorite }
-              : book
+        // Revert UI changes if API call fails
+        setCurrentlyReadingBooks(prevBooks => 
+          prevBooks.map(userBook => 
+            userBook.book_id === bookId 
+              ? { ...userBook, is_favorite: !userBook.is_favorite }
+              : userBook
           )
         );
+        
+        setQueueBooks(prevBooks => 
+          prevBooks.map(userBook => 
+            userBook.book_id === bookId 
+              ? { ...userBook, is_favorite: !userBook.is_favorite }
+              : userBook
+          )
+        );
+        
         throw new Error('Failed to update favorite status');
       }
       
       const data = await response.json();
       console.log('Favorite status updated:', data);
       
-      // If you want to show feedback
+      // Show feedback
       if (data.is_favorite) {
         toast.success('Added to favorites!');
       } else {
         toast.success('Removed from favorites');
       }
-      
-      // No need to refetch all books - our optimistic update should match the server state
-      // unless we added to a new shelf, in which case we'd want to refresh
-      // if (data.message === 'Book added to favorites') {
-      //   fetchBooks();
-      // }
       
     } catch (error) {
       console.error('Error updating favorite status:', error);
@@ -431,7 +477,7 @@ export default function DashboardReading() {
                           </div>
                         </div>
                         <button
-                          onClick={() => handleFavorite(userBook.id!)}
+                          onClick={() => handleFavorite(userBook.book_id!)}
                           className={`p-0 absolute bottom-2 right-3`}
                         >
                           <Heart
@@ -463,7 +509,7 @@ export default function DashboardReading() {
                     const currentStatusDisplay = getStatusDisplay(userBook.status);
                     const currentMediaTypeDisplay = getMediaTypeDisplay(userBook.media_type);
                     return (
-                      <Card key={userBook.book_id} className="overflow-hidden bg-bookWhite py-3">
+                      <Card key={userBook.book_id} className="relative overflow-hidden bg-bookWhite py-3">
                         <div className="flex flex-row gap-2 px-4">
                           {/* Book Image */}
                           <div className="w-[100px] flex-shrink-0">
@@ -545,7 +591,12 @@ export default function DashboardReading() {
                               </div>
                               {/* Move to currently reading */}
                               <div className="flex items-end justify-start mt-1">
-                                <Button variant="outline" size="sm" className="rounded-full text-accent-variant h-6 border-accent-variant bg-accent-variant/5 text-xs font-serif">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="rounded-full text-accent-variant h-6 border-accent-variant bg-accent-variant/5 text-xs font-serif"
+                                  onClick={() => handleStartReading(userBook.book_id)}
+                                >
                                   Start Reading
                                   <Sparkles className="h-3 w-3"/>
                                 </Button>
@@ -555,6 +606,16 @@ export default function DashboardReading() {
                             </CardFooter>
                           </div>
                         </div>
+                        <button
+                          onClick={() => handleFavorite(userBook.book_id!)}
+                          className={`p-0 absolute bottom-2 right-3`}
+                        >
+                          <Heart
+                            className="h-5 w-5"
+                            color="#C51104"
+                            weight={userBook.is_favorite ? "fill" : "regular"}
+                          />
+                        </button>
                       </Card>
                     );
                   })}

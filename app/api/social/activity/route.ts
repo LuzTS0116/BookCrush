@@ -14,7 +14,7 @@ async function enrichActivity(activity: ActivityLog & { user: Profile }): Promis
     user: {
       id: activity.user.id,
       display_name: activity.user.display_name,
-      // avatar_url: (activity.user as any).avatar_url || null, // If you have avatar_url
+      avatar_url: (activity.user as any).avatar_url || null, // If you have avatar_url
     },
     details: activity.details, // Raw details JSON
     // Add more specific structured data based on activity_type

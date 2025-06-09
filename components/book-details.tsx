@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useState, useEffect } from "react"
 import Image from "next/image"
@@ -556,7 +556,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
               <div className="flex flex-col">
                 <div className="flex flex-row justify-between items-start">
                   <div className="flex-1 min-w-0">
-                    <h1 className="text-lg/5 break-words font-bold text-secondary-light">{book.title}</h1>
+                    <h1 className="text-base/5 break-words font-bold text-secondary-light">{book.title}</h1>
                   </div>
                   <div className="flex items-start">
                     <button
@@ -600,7 +600,8 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                   </div>
                 </div>
                 <p className="text-sm text-secondary font-serif">by {book.author}</p>
-                <div className="flex flex-row gap-3 mt-1">
+                <span className="text-xs/3 text-secondary/50 font-serif">published: {book.published}</span>
+                <div className="flex flex-row gap-3 mt-2">
                   <div className="flex justify-center gap-2">
                       <div className="flex gap-1">
                           <Heart className="h-3 w-3 text-primary fill-primary" />
@@ -625,32 +626,17 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                     </Badge>
                   ))}
                 </div> 
+                <div className="flex-1">
+                  <span className="font-medium font-serif text-xs/3 text-secondary-light bg-secondary/5 rounded-full px-2 py-0.5">{book.pages} pages • {book.reading_time}</span>
+                </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 space-y-1 mb-2 font-serif">
-                  <div className="flex flex-col">
-                    <span className="text-xs/3 text-secondary-light font-semibold">Published</span>
-                    <div className="flex-1">
-                      <span className="font-medium text-xs/3 text-secondary-light bg-secondary/5 rounded-full px-2 py-0.5">{book.published}</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col ml-2">
-                    <span className="text-xs/3 text-secondary-light font-semibold">Reading Time</span>
-                    <div className="flex-1">
-                      <span className="font-medium text-xs/3 text-secondary-light bg-secondary/5 rounded-full px-2 py-0.5">{book.reading_time}</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col ml-2">
-                    <span className="text-xs/3 text-secondary-light font-semibold">Pages</span>
-                    <div className="flex-1">
-                      <span className="font-medium text-xs/3 text-secondary-light bg-secondary/5 rounded-full px-2 py-0.5">{book.pages}</span>
-                    </div>
-                  </div>
+                <div className="mt-2">
                   {/* Quick Reaction Section */}
-                  <div className="flex flex-col items-center gap-2 rounded-l-full bg-secondary/5 px-1 mt-3 mb-2">
+                  <div className="flex flex-col items-start gap-2">
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleQuickReaction("HEART")}
-                        className={`p-2 rounded-full transition-colors ${
+                        className={`p-1 rounded-full transition-colors ${
                           userReaction === "HEART" 
                             ? "bg-primary/30 ring-2 ring-primary/50" 
                             : "hover:bg-primary/20"
@@ -664,7 +650,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                       </button>
                       <button
                         onClick={() => handleQuickReaction("THUMBS_UP")}
-                        className={`p-2 rounded-full transition-colors ${
+                        className={`p-1 rounded-full transition-colors ${
                           userReaction === "THUMBS_UP" 
                             ? "bg-accent-variant/30 ring-2 ring-accent-variant/50" 
                             : "hover:bg-accent-variant/20"
@@ -678,7 +664,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                       </button>
                       <button
                         onClick={() => handleQuickReaction("THUMBS_DOWN")}
-                        className={`p-2 rounded-full transition-colors ${
+                        className={`p-1 rounded-full transition-colors ${
                           userReaction === "THUMBS_DOWN" 
                             ? "bg-accent/30 ring-2 ring-accent/50" 
                             : "hover:bg-accent/20"
@@ -801,7 +787,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
           <CardContent className="px-3 pb-3">
             <Separator className="my-3" />
             <div>
-              <h2 className="text-lg text-secondary-light font-bold mb-0">Overview</h2>
+              <h2 className="text-base text-secondary-light font-bold mb-0">Overview</h2>
               <div className="text-sm space-y-2 whitespace-pre-line font-serif leading-4">{book.description}</div>
             </div>
           </CardContent>
@@ -949,7 +935,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
             </CardContent>
           </Card> */}
 
-          <div className="flex flex-col gap-4 mt-6">
+          {/* <div className="flex flex-col gap-4 mt-6">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold">E-book Files</h3>
               <BookFileUpload 
@@ -992,7 +978,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                 ))}
               </div>
             )}
-          </div>
+          </div> */}
 
           <div className="">
             <Tabs defaultValue="reviews" className="w-full">
@@ -1027,7 +1013,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                       <div className="space-y-3">
                         {reviews.length > 0 ? (
                           reviews.map((review) => (
-                            <div key={review.id} className="p-2 border rounded-lg">
+                            <div key={review.id} className="p-2 bg-secondary/5 rounded-lg">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                   <Avatar className="h-10 w-10">
@@ -1041,7 +1027,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                                 </div>
                                 {getRatingIcon(review.rating)}
                               </div>
-                              <p className="text-sm">{review.text}</p>
+                              <p className="text-sm ml-12">{review.text}</p>
                             </div>
                           ))
                         ) : (
@@ -1169,8 +1155,9 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                   </CardHeader>
                   <CardContent className="space-y-6 px-0 pt-3 pb-2">
                     <div className="space-y-3">
-                      {reviews.slice(0, 3).map((review) => (
-                        <div key={review.id} className="p-2 border rounded-lg flex justify-between items-center">
+                    {book.clubs && book.clubs.length > 0 ? (
+                      reviews.slice(0, 3).map((review) => (
+                        <div key={review.id} className="p-2 bg-secondary/5 rounded-lg flex justify-between items-center">
                           <div className="flex items-center gap-2">
                               <Avatar className="h-10 w-10">
                                 <AvatarImage src={review.user.avatar || "/placeholder.svg"} alt={review.user.name} />
@@ -1183,7 +1170,16 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                           </div>
                           <Button variant="outline" className="rounded-full bg-primary border-none">Profile</Button>
                         </div>
-                      ))}
+                      ))
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <BookOpen className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                          <p>No friends are currently reading this book.</p>
+                          <Button variant="outline" className="mt-3 rounded-full">
+                            Browse Clubs
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

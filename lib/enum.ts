@@ -22,6 +22,8 @@ export function parseStatusType(status: string): status_type {
       return status_type.almost_done;
     case 'finished':
       return status_type.finished;
+    case 'unfinished':
+      return status_type.unfinished;
     default:
       throw new Error(`Invalid status type provided: ${status}`);
   }

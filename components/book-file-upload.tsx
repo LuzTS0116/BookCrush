@@ -129,23 +129,15 @@ export default function BookFileUpload({ bookId, bookTitle, language, onFileUplo
     setSpanishFile(null)
   }
 
-  // Custom button text based on whether a language is specified
-  const getButtonText = () => {
-    if (language === "english") return "Upload English E-book"
-    if (language === "spanish") return "Upload Spanish E-book"
-    return "Upload E-book"
-  }
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button 
           variant={language ? "outline" : "outline"} 
           size="sm" 
-          className={`flex gap-2 ${language ? "rounded-full text-xs py-1 px-2 h-8 text-secondary-light bg-secondary/10 hover:bg-secondary/20" : ""}`}
+          className={`flex gap-2 ${language ? "rounded-full border-none text-xs py-1 px-2 h-8 text-secondary-light/40 bg-secondary/10 hover:bg-secondary/20" : ""}`}
         >
-          <Upload className="h-4 w-4" />
-          {getButtonText()}
+          not available (upload file)
         </Button>
       </DialogTrigger>
 

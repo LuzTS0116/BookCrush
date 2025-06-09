@@ -386,15 +386,15 @@ export default function BooksTableContents() {
                                         className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
                                         sideOffset={5}
                                       >
-                                        {SHELF_OPTIONS.map((shelf) => (
-                                          <DropdownMenu.Item
-                                            key={shelf.value}
-                                            onSelect={() => handleAddToShelf(book.id, shelf.value)}
-                                            className="px-3 py-2 text-xs text-center bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
-                                          >
-                                            {shelf.label}
-                                          </DropdownMenu.Item>
-                                        ))}
+                                      {SHELF_OPTIONS.map((shelf) => (
+                                        <DropdownMenu.Item
+                                          key={shelf.value}
+                                          onSelect={() => handleAddToShelf(book.id, shelf.value)}
+                                          className="px-3 py-2 text-xs text-center bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
+                                        >
+                                          {shelf.label}
+                                        </DropdownMenu.Item>
+                                      ))}
                                       </DropdownMenu.Content>
                                     </DropdownMenu.Portal>
                                   </DropdownMenu.Root>

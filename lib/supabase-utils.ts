@@ -51,7 +51,7 @@ export function isBlobUrl(url: string | null | undefined): boolean {
 
 /**
  * Get the appropriate image URL for display (handles both blob URLs and storage paths)
- * @param avatarPath - Storage path or blob URL
+ * @param avatarPath - Storage path, blob URL, or full URL
  * @param fallbackUrl - Fallback URL if no avatar
  * @returns Display URL
  */
@@ -63,6 +63,11 @@ export function getDisplayAvatarUrl(
   
   // If it's a blob URL (preview), return as is
   if (isBlobUrl(avatarPath)) {
+    return avatarPath
+  }
+  
+  // If it's already a full URL (starts with http:// or https://), return as is
+  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
     return avatarPath
   }
   
@@ -79,6 +84,13 @@ export function getDisplayAvatarUrl(
 export function formatProfileWithAvatarUrl<T extends { avatar_url?: string | null }>(profile: T): T {
   if (!profile.avatar_url) return profile
   
+  // Check if avatar_url is already a full URL (starts with http:// or https://)
+  if (profile.avatar_url.startsWith('http://') || profile.avatar_url.startsWith('https://')) {
+    // It's already a full URL, return as is
+    return profile
+  }
+  
+  // It's a relative path, convert to public URL
   return {
     ...profile,
     avatar_url: getAvatarPublicUrl(profile.avatar_url) || profile.avatar_url

@@ -4,8 +4,7 @@ export interface UserProfileMinimal {
   id: string; // The user ID from Supabase Auth
   email: string;
   display_name: string | null;
-    
-  
+  avatar_url?: string | null; // Added for activity feeds and profile display
 }
 
 export interface FriendRequest {

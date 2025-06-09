@@ -94,13 +94,13 @@ export async function POST(req: NextRequest) {
         status: statusType,
         position: position ?? null, 
         added_at: new Date(), 
-        shelf: statusType === status_type.finished ? shelf_type.history : shelfType, // Temporarily removed due to schema constraint
+        shelf: statusType === status_type.finished || statusType === status_type.unfinished ? shelf_type.history : shelfType, // Temporarily removed due to schema constraint
         //shelf: shelfType, // Keeps the book on its current shelf even if finished
       },
       create: {
         user_id: user.id,
         book_id: bookId,
-        shelf: statusType === status_type.finished ? shelf_type.history : shelfType, // Temporarily removed
+        shelf: statusType === status_type.finished || statusType === status_type.unfinished ? shelf_type.history : shelfType, // Temporarily removed
         status: statusType,
         position: position ?? null,
       },

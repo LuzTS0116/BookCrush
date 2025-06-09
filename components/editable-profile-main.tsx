@@ -142,7 +142,7 @@ export default function EditableProfileMain() {
       // Create preview URL for immediate display
       const previewUrl = URL.createObjectURL(file)
       setAvatarPreview(previewUrl)
-
+      console.log("previewUrl", previewUrl)
       // Get presigned URL
       const presignResponse = await fetch('/api/profile/presign', {
         method: 'POST',
@@ -177,7 +177,8 @@ export default function EditableProfileMain() {
       }
 
       // Store the path for form submission
-      setAvatarUrl(path)
+      setAvatarUrl(getDisplayAvatarUrl(path))
+      
 
     } catch (err) {
       setError((err as Error).message)
@@ -193,7 +194,7 @@ export default function EditableProfileMain() {
 
     setIsSaving(true)
     setError(null)
-
+    
     try {
       const response = await fetch('/api/profile', {
         method: 'POST',
@@ -207,9 +208,10 @@ export default function EditableProfileMain() {
           about: bio.trim(),
           kindle_email: kindleEmail.trim() || null,
           favorite_genres: favoriteGenres,
-          avatar_url: getDisplayAvatarUrl(avatarUrl)
+          avatar_url: avatarUrl
         })
       })
+      
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -292,6 +294,7 @@ export default function EditableProfileMain() {
 
   const currentAvatar = avatarPreview || avatarUrl
   const displayGenres = isEditing ? favoriteGenres : (profile?.favorite_genres || [])
+  console.log("currentAvatar", currentAvatar)
 
   return (
     <div className="container mx-auto px-2 py-2">

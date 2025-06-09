@@ -35,7 +35,7 @@ model Profile {
   friendshipsAsUser2 Friendship[]   @relation("FriendshipAsUser2")
 
   // Optional: if Book.added_by was meant to be a user, add this relation
-  // addedBooks Book[] @relation("BookCreator")
+  addedBooks Book[] @relation("BookCreator")
   relatedActivities ActivityLog[] @relation("RelatedUserActivities") // For activities where this user is secondary
   activities        ActivityLog[] // Activities performed by this user
   
@@ -69,7 +69,7 @@ model Book {
   created_at     DateTime @default(now()) @db.Timestamptz(6)
 
   // Optional: Relation for added_by if it points to a Profile
-  // creator Profile? @relation("BookCreator", fields: [added_by], references: [id])
+  creator Profile? @relation("BookCreator", fields: [added_by], references: [id])
 
   file             BookFile[]       @relation("BookToBookFile")
   UserBook         UserBook[]
@@ -274,6 +274,7 @@ enum status_type {
   in_progress
   almost_done
   finished
+  unfinished
 
   @@schema("public")
 }

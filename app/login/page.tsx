@@ -137,7 +137,7 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-bookWhite">Email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-bookWhite" />
+                  <Mail className="absolute left-3 top-2 h-4 w-4 text-bookWhite focus:text-secondary" />
                   <Input
                     id="email"
                     type="email"
@@ -157,7 +157,7 @@ export default function LoginPage() {
                   </Link>
                 </div>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-bookWhite" />
+                  <Lock className="absolute left-3 top-2 h-4 w-4 text-bookWhite" />
                   <Input
                     id="password"
                     type="password"

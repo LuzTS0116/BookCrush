@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import React, { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar } from "@/components/ui/calendar"
@@ -25,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { useSession } from "next-auth/react"
+import { CustomTimePicker } from "@/components/CustomTimePicker"
 
 interface ClubMeeting {
   id: string;
@@ -234,6 +235,16 @@ export default function CalendarMain() {
     }
   };
 
+  const meetingDates = React.useMemo(
+    () => meetings.map((m) => new Date(m.date)),
+    [meetings]
+  )
+
+  const meetingsForSelectedDate = meetings.filter((m) => {
+    const meetingDate = new Date(m.date);
+    return date?.toDateString() === meetingDate.toDateString();
+  });
+
   // Helper function to format date and time
   const formatMeetingDateTime = (dateString: string, duration?: number) => {
     const date = new Date(dateString);
@@ -253,6 +264,25 @@ export default function CalendarMain() {
   const upcomingMeetings = meetings.filter(meeting => new Date(meeting.date) >= now);
   const pastMeetings = meetings.filter(meeting => new Date(meeting.date) < now);
 
+  // Days until meeting
+  const getMeetingCountdown = (meetingDate: string | Date): { show: boolean; message: string } => {
+    try {
+      const meetingTime = new Date(meetingDate).getTime();
+      const currentTime = new Date().getTime();
+      const daysUntil = Math.ceil((meetingTime - currentTime) / (1000 * 60 * 60 * 24));
+
+      if (daysUntil === 0) {
+        return { show: true, message: "Meeting today" };
+      } else if (daysUntil > 0 && daysUntil <= 5) {
+        return { show: true, message: `Meeting in ${daysUntil} day${daysUntil > 1 ? "s" : ""}` };
+      } else {
+        return { show: false, message: "" };
+      }
+    } catch {
+      return { show: false, message: "" };
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -270,8 +300,8 @@ export default function CalendarMain() {
         <div className="space-y-8">
           <div className="flex flex-col md:flex-row justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Calendar</h1>
-              <p className="text-muted-foreground">Schedule and manage your book club meetings.</p>
+              <h1 className="text-3xl font-bold tracking-tight text-bookWhite">Calendar</h1>
+              <p className="text-bookWhite font-serif text-base/5">Track what’s next on your reading journey. Schedule and manage your book club meetings. <span className="text-xs italic text-bookWhite/40">* Only book club admins can schedule meetings.</span></p>
             </div>
             <div className="flex items-center gap-2">
               {userClubs.length > 0 ? (
@@ -326,8 +356,8 @@ export default function CalendarMain() {
                             />
                           </div>
                           
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
+                          <div className="grid grid-cols-2 gap-12">
+                            <div className="grid gap-1">
                               <Label htmlFor="date">Date *</Label>
                               <Input 
                                 id="date" 
@@ -338,7 +368,7 @@ export default function CalendarMain() {
                                 required
                               />
                             </div>
-                            <div className="grid gap-2">
+                            <div className="grid gap-1">
                               <Label htmlFor="time">Time *</Label>
                               <Input 
                                 id="time" 
@@ -348,6 +378,13 @@ export default function CalendarMain() {
                                 className="bg-bookWhite text-secondary"
                                 required
                               />
+                              {/* <Label htmlFor="time">Time *</Label>
+                              <CustomTimePicker
+                                value={formData.meeting_time}
+                                onChange={(val) =>
+                                  setFormData((prev) => ({ ...prev, meeting_time: val }))
+                                }
+                              /> */}
                             </div>
                           </div>
                           
@@ -397,7 +434,7 @@ export default function CalendarMain() {
                                 onValueChange={(value) => setFormData(prev => ({ ...prev, book_id: value }))}
                               >
                                 <SelectTrigger id="book">
-                                  <SelectValue placeholder="Select book (optional)" />
+                                  <SelectValue placeholder="Select book" />
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="none">No specific book</SelectItem>
@@ -462,24 +499,50 @@ export default function CalendarMain() {
           </div>
 
           <div className="grid gap-6 md:grid-cols-[300px_1fr]">
-            <Card>
-              <CardHeader>
-                <CardTitle>Calendar</CardTitle>
-                <CardDescription className="font-serif font-normal">Select a date to view meetings</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <Card className="bg-secondary-light/35 rounded-xl">
+              <CardContent className="p-0 py-3">
                 <Calendar 
-                  mode="single" 
-                  selected={date} 
-                  onSelect={setDate} 
-                  className="rounded-md border" 
+                  mode="single"
+                  selected={date}
+                  onSelect={setDate}
+                  modifiers={{ meetingDay: meetingDates }}
+                  modifiersClassNames={{
+                    meetingDay: "relative after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:rounded-full after:bg-accent-variant",
+                  }}
                 />
+                {/* Meeting Info or Fallback */}
+                <div className="px-8 pt-0 pb-2">
+                  {date && (
+                    <>
+                      {meetingsForSelectedDate.length > 0 ? (
+                        meetingsForSelectedDate.map((meeting) => (
+                          <div
+                            key={meeting.id}
+                            className="text-sm"
+                          >
+                            <p className="text-muted-foreground italic">
+                              {meeting.club.name} • {" "}
+                              {new Date(meeting.date).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </p>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-muted-foreground text-sm italic">
+                          No meetings on this day
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
             <div className="space-y-6">
               <Card>
-                <CardHeader>
+                <CardHeader className="pb-3">
                   <CardTitle>Upcoming Meetings</CardTitle>
                   <CardDescription className="font-serif font-normal">Your upcoming book club meetings</CardDescription>
                 </CardHeader>
@@ -492,9 +555,13 @@ export default function CalendarMain() {
                         <div key={meeting.id} className="flex flex-col md:flex-row gap-0 p-4 rounded-lg bg-secondary-light/5">
                           <div className="flex flex-row items-start justify-between">
                             <div className="flex flex-col">
-                              <p className="font-serif font-medium leading-none text-sm">book club</p>
-                              <p className="text-lg leading-none text-secondary font-bold mb-2">{meeting.club.name}</p>
-                            </div>
+                              {meeting.club.name && (
+                              <>  
+                                <p className="font-serif font-medium leading-none text-sm">book club</p>
+                                <p className="text-lg leading-none text-secondary font-bold mb-2">{meeting.club.name}</p>
+                              </>
+                              )}
+                              </div>
                             <Badge variant="secondary" className="w-fit ml-1">
                               {meeting.meeting_type.replace('_', ' ')}
                             </Badge>
@@ -510,30 +577,31 @@ export default function CalendarMain() {
                             </div>
                             </Link>
                             <div className="flex flex-col">
+                              {/* I WANT THE MEETING SPAN 5 OR LESS HERE */}
                               <p className="font-semibold text-secondary">{meeting.book?.title}</p>
-                              <span className="flex items-center leading-none text-sm font-serif font-normal"><CalendarDays className="w-3 h-3 mr-1 text-accent-variant"/>{new Date(meeting.date).toLocaleDateString('en-US', {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}</span>
-                              <span className="flex items-center leading-none text-sm font-serif font-normal"><Clock className="w-3 h-3 mr-1 text-accent-variant"/>{formatMeetingDateTime(meeting.date, meeting.duration_minutes)}</span>
+                              <span className="flex items-center leading-4 text-sm font-serif font-normal"><CalendarDays className="w-3 h-3 mr-1 text-accent-variant"/>{new Date(meeting.date).toLocaleDateString('en-US', {
+                                month: 'long',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })}</span>
+                              <span className="flex items-center leading-4 text-sm font-serif font-normal"><Clock className="w-3 h-3 mr-1 text-accent-variant"/>{formatMeetingDateTime(meeting.date, meeting.duration_minutes)}</span>
                               {meeting.location && (
-                                <span className="flex items-center leading-none text-sm font-serif font-normal"><MapPin className="w-3 h-3 mr-1 text-accent-variant"/>{meeting.location}</span>
+                                <span className="flex items-center leading-4 text-sm font-serif font-normal"><MapPin className="w-3 h-3 mr-1 text-accent-variant"/>{meeting.location}</span>
                               )}
                             </div>
                           </div>
-                          
 
-                          <div className="md:w-3/4 mt-1">
-                            <div className="flex flex-col md:flex-row justify-between mb-2">
-                              <h3 className="font-semibold text-base">{meeting.title}</h3>
+                          <div className="md:w-3/4 mt-2">
+
+                            <div className="flex flex-col md:flex-row justify-between">
+                              <h3 className="font-semibold text-base leading-none">{meeting.title}</h3>
                             </div>
 
                             {meeting.description && (
-                              <p className="text-sm text-muted-foreground font-serif font-normal mb-3">{meeting.description}</p>
+                              <p className="text-sm text-secondary/50 font-serif font-medium leading-4 mb-3">{meeting.description}</p>
                             )}
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-1">
                               {/* {meeting.book && (
                                 <div className="flex items-center gap-2">
                                   <BookOpen className="h-4 w-4 text-muted-foreground" />

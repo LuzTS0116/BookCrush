@@ -42,6 +42,13 @@ export async function getAvatarPublicUrlServer(avatarPath: string | null | undef
 export async function formatProfileWithAvatarUrlServer<T extends { avatar_url?: string | null }>(profile: T): Promise<T> {
   if (!profile.avatar_url) return profile
   
+  // Check if avatar_url is already a full URL (starts with http:// or https://)
+  if (profile.avatar_url.startsWith('http://') || profile.avatar_url.startsWith('https://')) {
+    // It's already a full URL, return as is
+    return profile
+  }
+  
+  // It's a relative path, convert to public URL
   const publicUrl = await getAvatarPublicUrlServer(profile.avatar_url)
   
   return {

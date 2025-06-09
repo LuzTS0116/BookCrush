@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { PrismaClient } from '@prisma/client';
+import { getPublicProfileData } from '@/lib/friendship-utils';
+import { canViewProfile } from '@/lib/friendship-utils';
 
 const prisma = new PrismaClient();
 
@@ -25,6 +27,12 @@ export async function GET(
       return NextResponse.json({ error: "Profile ID is required" }, { status: 400 });
     }
 
+    // 3. Check if the requesting user can view the profile
+    const canView = await canViewProfile(prisma, user.id, id);
+    if (!canView) {
+      return NextResponse.json({ error: "You do not have permission to view this profile" }, { status: 403 });
+    }
+
     // 3. Fetch the requested user's profile (only public information)
     const profile = await prisma.profile.findUnique({
       where: {
@@ -35,6 +43,27 @@ export async function GET(
         display_name: true,
         nickname: true,
         avatar_url: true,
+        about: true,
+        favorite_genres: true,
+        userBooks: {
+          include: {
+            book: true // Include the full book details
+          }
+        },
+        addedBooks: true,
+        
+        //how many memberships
+        _count: {
+          select: {
+            memberships: {
+              where: { status: 'ACTIVE' }
+            },
+            friendshipsAsUser1: true,
+            friendshipsAsUser2: true,
+          }
+        }
+        
+       
         // Don't include sensitive information like email or kindle_email
         // Only include what should be publicly visible
       },

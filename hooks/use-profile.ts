@@ -62,10 +62,10 @@ export function useProfile() {
   
   // Get display-ready avatar URL with proper fallback chain
   // Priority: 1. Google SSO image from session, 2. Profile avatar_url, 3. Placeholder
-  const avatarUrl = session?.user?.image || 
-                   profile?.avatar_url || 
+  const avatarUrl = profile?.avatar_url || 
+                    session?.user?.image || 
                    "/placeholder.svg?height=32&width=32"
-  
+ 
   // Get display name with fallbacks
   const displayName = profile?.display_name || 
                      session?.user?.name || 
