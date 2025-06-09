@@ -32,7 +32,6 @@ const quicksand = Quicksand ({
 export const metadata: Metadata = {
   title: "BookCrush | Your Book Club App",
   description: "Connect with friends, share books, and organize book club meetings",
-    generator: 'v0.dev'
 }
 
 export default async function RootLayout({

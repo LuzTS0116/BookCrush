@@ -181,7 +181,7 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
             </span>{' '}
             accepted{' '}
             <span className='font-medium'>
-                {activity.details?.new_member_id === session?.user?.id ? 'you' : activity.details?.new_member_name}
+                {activity.details?.new_member_id === (session?.user as any)?.id ? 'you' : activity.details?.new_member_name}
             </span>{' '}
             into{' '}
             <span className='font-medium'>

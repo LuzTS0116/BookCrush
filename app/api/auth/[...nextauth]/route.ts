@@ -201,98 +201,104 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   secret: NEXTAUTH_SECRET,
-  session: { strategy: 'jwt'
-   },
+  session: { strategy: 'jwt' },
   pages: {
     signIn: '/login', // Custom sign-in page
     error: '/auth/error', // Error page
   },
   callbacks: {
     async jwt({ token, user, account }) {
+      console.log('[Auth JWT Callback] Starting with:', {
+        hasUser: !!user,
+        hasAccount: !!account,
+        accountProvider: account?.provider,
+        tokenId: token.id,
+        hasSupaInToken: !!token.supa
+      });
+
       // Handle credential authentication (including client-side tokens)
       if (user?.supa) {
+        console.log('[Auth JWT Callback] Setting supa tokens from user');
         token.id = user.id;
         token.supa = user.supa;
       }
       
       // Handle Google authentication
       if (account?.provider === 'google' && account.id_token) {
+        console.log('[Auth JWT Callback] Processing Google authentication');
+        
         const { data, error } = await supabaseAdmin.auth
           .signInWithIdToken({
             provider: 'google',
             token: account.id_token,
           });
           
-        if (!error && data.session) {
-          token.id = data.user!.id;
+        if (!error && data.session && data.user) {
+          console.log('[Auth JWT Callback] Google auth successful, setting tokens');
+          token.id = data.user.id;
           token.supa = {
             access_token: data.session.access_token,
             refresh_token: data.session.refresh_token,
           };
-
-          // Save Google profile image and name to database
-          // try {
-          //   await prisma.profile.upsert({
-          //     where: { id: data.user!.id },
-          //     update: {
-          //       // Only update if current avatar_url is empty/null (don't override custom uploads)
-          //       avatar_url: user?.image || undefined,
-          //       // Update display_name if not already set
-          //       display_name: user?.name || data.user!.email?.split('@')[0] || 'Reader',
-          //       email: user?.email || data.user!.email || undefined,
-          //     },
-          //     create: {
-          //       id: data.user!.id,
-          //       display_name: user?.name || data.user!.email?.split('@')[0] || 'Reader',
-          //       email: user?.email || data.user!.email || undefined,
-          //       avatar_url: user?.image || undefined,
-          //     },
-          //   });
-          // } catch (dbError) {
-          //   console.error('Failed to save Google profile data to database:', dbError);
-          //   // Don't fail authentication if database update fails
-          // }
         } else {
-              console.error('Supabase signInWithIdToken failed for Google:', error?.message || 'No session returned');
+          console.error('[Auth JWT Callback] Supabase signInWithIdToken failed for Google:', error?.message || 'No session returned');
         }
       }
       
       // Refresh token logic (optional but recommended)
-      if (token.supa) {
-        // Check if the token is expired or about to expire
-        const { exp } = JSON.parse(atob(token.supa.access_token.split('.')[1]));
-        const expTimeInSeconds = exp;
-        const currentTimeInSeconds = Math.floor(Date.now() / 1000);
-        
-        // If token is expired or about to expire (within 30 minutes)
-        if (expTimeInSeconds - currentTimeInSeconds < 1800) {
-          try {
-            // Refresh the token
+      if (token.supa?.access_token) {
+        try {
+          // Check if the token is expired or about to expire
+          const { exp } = JSON.parse(atob(token.supa.access_token.split('.')[1]));
+          const expTimeInSeconds = exp;
+          const currentTimeInSeconds = Math.floor(Date.now() / 1000);
+          
+          // If token is expired or about to expire (within 30 minutes)
+          if (expTimeInSeconds - currentTimeInSeconds < 1800) {
+            console.log('[Auth JWT Callback] Token expiring soon, refreshing...');
+            
             const { data, error } = await supabaseAdmin.auth.refreshSession({
               refresh_token: token.supa.refresh_token,
             });
             
             if (error) throw error;
             
-            token.supa = {
-              access_token: data.session.access_token,
-              refresh_token: data.session.refresh_token,
-            };
-          } catch (error) {
-            console.error('Failed to refresh token:', error);
-            // Token refresh failed, clear the token
-            delete token.supa;
+            if (data.session) {
+              console.log('[Auth JWT Callback] Token refreshed successfully');
+              token.supa = {
+                access_token: data.session.access_token,
+                refresh_token: data.session.refresh_token,
+              };
+            }
           }
+        } catch (error) {
+          console.error('[Auth JWT Callback] Failed to refresh token:', error);
+          // Token refresh failed, clear the token
+          delete token.supa;
         }
       }
+
+      console.log('[Auth JWT Callback] Final token state:', {
+        id: token.id,
+        hasSupaToken: !!token.supa?.access_token,
+        supaTokenLength: token.supa?.access_token?.length || 0
+      });
 
       return token;
     },
     
     async session({ session, token }) {
-      session.user.id = token.id as string;
-      session.supabaseAccessToken = token.supa?.access_token as string | undefined;
-      session.supabaseRefreshToken = token.supa?.refresh_token as string | undefined;
+      console.log('[Auth Session Callback] Creating session with token:', {
+        tokenId: token.id,
+        hasSupaToken: !!token.supa?.access_token
+      });
+
+      if (session.user) {
+        session.user.id = token.id as string;
+      }
+      session.supabaseAccessToken = token.supa?.access_token;
+      session.supabaseRefreshToken = token.supa?.refresh_token;
+      
       return session;
     }
   },
