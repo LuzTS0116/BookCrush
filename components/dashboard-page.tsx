@@ -238,7 +238,7 @@ const handleClickShare = async () => {
                           <>
                             <DialogHeader className="px-6 pt-4">
                               <DialogTitle className="mt-7 text-center">Ready to share!</DialogTitle>
-                              <DialogDescription>You can now share this image on Instagram Stories, WhatsApp, or wherever you’d like.</DialogDescription>
+                              <DialogDescription>You can now share this quote on Instagram Stories, WhatsApp, or wherever you’d like.</DialogDescription>
                             </DialogHeader>
 
                             <div className="grid gap-2 py-0">

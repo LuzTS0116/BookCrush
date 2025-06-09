@@ -12,7 +12,20 @@ const globalPublicRoutes = [
   { path: '/_next', exact: false },
   { path: '/images', exact: false },
   { path: '/favicon.ico', exact: true },
-  { path: '/api/profile', exact: true }
+  { path: '/api/profile', exact: true },
+  // API routes that handle their own Bearer token authentication
+  { path: '/api/clubs', exact: false }, // All clubs API routes
+  { path: '/api/invitations', exact: false }, // All invitations API routes
+  { path: '/api/meetings', exact: false }, // All meetings API routes
+  { path: '/api/books', exact: false }, // All books API routes
+  { path: '/api/social', exact: false }, // All social API routes
+  { path: '/api/friends', exact: false }, // All friends API routes
+  { path: '/api/shelf', exact: false }, // All shelf API routes
+  { path: '/api/reactions', exact: false }, // All reactions API routes
+  { path: '/api/quotes', exact: false }, // All quotes API routes
+  { path: '/api/discussions', exact: false }, // All discussions API routes
+  { path: '/api/user-books', exact: false }, // All user-books API routes
+  { path: '/api/files', exact: false }, // All files API routes
 ];
 
 export async function middleware(request: NextRequest) {

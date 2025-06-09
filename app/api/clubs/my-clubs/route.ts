@@ -20,22 +20,44 @@ if (!supabaseUrl || !supabaseAnonKey) {
 const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 export async function GET(req: NextRequest) {
+  console.log('[API my-clubs] Request received:', {
+    method: req.method,
+    url: req.url,
+    headers: {
+      authorization: req.headers.get('Authorization')?.substring(0, 30) + '...',
+      contentType: req.headers.get('Content-Type'),
+      userAgent: req.headers.get('User-Agent')?.substring(0, 50) + '...',
+    }
+  });
+
   if (!supabase) {
+    console.error('[API my-clubs] Supabase client not initialized');
     return NextResponse.json({ error: "Supabase client not initialized. Check server configuration." }, { status: 500 });
   }
   try {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API my-clubs] Missing or invalid Authorization header:', authHeader?.substring(0, 20));
       return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
     }
     const token = authHeader.split(' ')[1];
+    console.log('[API my-clubs] Token extracted:', { tokenLength: token?.length || 0, tokenPrefix: token?.substring(0, 20) + '...' });
 
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    console.log('[API my-clubs] Supabase auth result:', {
+      hasUser: !!user,
+      userId: user?.id,
+      userEmail: user?.email,
+      error: userError?.message
+    });
 
     if (userError || !user) {
       console.error("Auth error or no user:", userError);
       return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
     }
+
+    console.log('[API my-clubs] User authenticated successfully, fetching clubs...');
 
     // Fetch all memberships for the current user that are ACTIVE
     const userMemberships = await prisma.clubMembership.findMany({
@@ -98,6 +120,8 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    console.log('[API my-clubs] Database query completed:', { membershipCount: userMemberships.length });
+
     //get the a single meeting with status scheduled from userMemberships.club.meetings
     // const nextMeeting = userMemberships.map(membership => membership.club.meetings.find(meeting => meeting.status === 'SCHEDULED'));
 
@@ -124,10 +148,11 @@ export async function GET(req: NextRequest) {
       })),
     }));
 
+    console.log('[API my-clubs] Returning response:', { clubCount: clubsWithStatus.length });
     return NextResponse.json(clubsWithStatus, { status: 200 });
 
   } catch (error: any) {
-    console.error("Error fetching user's clubs:", error);
+    console.error("[API my-clubs] Error fetching user's clubs:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch user's clubs" }, { status: 500 });
   }
 }

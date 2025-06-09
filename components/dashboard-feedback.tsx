@@ -6,9 +6,9 @@ import { Textarea } from "./ui/textarea";
 export default function DashboardFeedback() {
     return (
         <div className="px-4 pb-6 pt-0 rounded-b-3xl bg-secondary-light space-y-2 shadow-sm">
-            <div className="rounded-t-lg rounded-b-3xl pt-6 pb-4 px-4 bg-accent">
-                <h2 className="text-bookBlack text-xl font-bold leading-none">Feedback</h2>
-                <p className="font-serif font-medium text-secondary leading-none text-sm">
+            <div className="rounded-t-lg rounded-b-3xl p-4 bg-accent">
+                <h2 className="text-bookBlack text-xl font-bold leading-none mt-1">Feedback</h2>
+                <p className="font-serif font-medium text-secondary leading-none text-sm mt-1">
                     Let us know what you think about your app experience. Whether it's something you love,
                     something we can improve, or a feature you’d like to see — we’re all ears!
                 </p>

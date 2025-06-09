@@ -9,8 +9,8 @@ import ClubsMain from "@/components/clubs-main";
 import ClubsTitle from "@/components/clubs-title";
 import { getMyClubs, getDiscoverClubs, getPendingInvitations, Club, ClubInvitation } from '@/lib/clubs';
 import { Loader2 } from "lucide-react";
-import { cookies } from 'next/headers'; // Import cookies
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'; // Import Supabase helper
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 // import { toast } from "sonner"; // toast is client-side, cannot be used directly in Server Components
 
 // Simple loading component - can be used with Suspense in the future,
@@ -37,12 +37,15 @@ export default async function ClubsPage() {
   let accessToken: string | undefined = undefined;
 
   try {
-    const cookieStore = cookies();
-    const supabase = createServerComponentClient({ 
-      cookies: () => cookieStore 
+    // Use NextAuth session instead of Supabase session
+    const session = await getServerSession(authOptions);
+    accessToken = session?.supabaseAccessToken;
+
+    console.log('[ClubsPage] Session check:', {
+      hasSession: !!session,
+      hasAccessToken: !!accessToken,
+      userId: session?.user?.id
     });
-    const { data: { session } } = await supabase.auth.getSession();
-    accessToken = session?.access_token;
 
     if (!accessToken) {
       console.warn("ClubsPage: User not authenticated or access token unavailable for fetching clubs data.");
@@ -79,7 +82,7 @@ export default async function ClubsPage() {
       console.warn("Pending invitations could not be loaded, continuing without them.");
     }
 
-  } catch (err: unknown) { // Catch errors from cookie/session retrieval or other synchronous code
+  } catch (err: unknown) { // Catch errors from session retrieval or other synchronous code
     console.error("Error loading clubs data on server (ClubsPage initial setup):", err);
     const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred while fetching club data.';
     error = { message: errorMessage };

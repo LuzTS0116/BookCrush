@@ -117,6 +117,13 @@ const getCookieBasedRequestOptions = () => {
 export async function getMyClubs(accessToken: string | undefined): Promise<Club[]> {
   const baseUrl = getBaseUrl();
 
+  console.log('[getMyClubs] Starting with:', {
+    hasAccessToken: !!accessToken,
+    tokenLength: accessToken?.length || 0,
+    baseUrl,
+    tokenPrefix: accessToken?.substring(0, 20) + '...' || 'none'
+  });
+
   if (!accessToken) {
     console.warn("getMyClubs: No access token provided.");
     // Or throw new Error("User not authenticated or access token is unavailable.");
@@ -132,15 +139,24 @@ export async function getMyClubs(accessToken: string | undefined): Promise<Club[
   };
   
   try {
+    console.log('[getMyClubs] Making request to:', `${baseUrl}/api/clubs/my-clubs`);
     const response = await fetch(`${baseUrl}/api/clubs/my-clubs`, tokenRequestOptions);
     
+    console.log('[getMyClubs] Response received:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      url: response.url
+    });
+
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'No error text available');
-      console.error(`Failed to fetch your clubs. Status: ${response.status}. URL: ${baseUrl}/api/clubs/my-clubs. Details: ${errorText}`);
+      console.error(`[getMyClubs] Failed to fetch your clubs. Status: ${response.status}. URL: ${baseUrl}/api/clubs/my-clubs. Response body:`, errorText);
       throw new Error(`Failed to fetch your clubs. Status: ${response.status}.`);
     }
     
     const data: Club[] = await response.json();
+    console.log('[getMyClubs] Successfully received data:', { clubCount: data.length });
 
     // For each club where the user is an admin, fetch pending memberships
     // This part also needs to use tokenRequestOptions if the pending-memberships API is secured similarly
