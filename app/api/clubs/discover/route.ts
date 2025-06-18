@@ -143,5 +143,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error("Error fetching discoverable clubs:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch discoverable clubs" }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }

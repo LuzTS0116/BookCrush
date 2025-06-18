@@ -123,5 +123,7 @@ export async function POST(req: NextRequest) {
       { error: err.message || "Failed to toggle favorite status" },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 } 

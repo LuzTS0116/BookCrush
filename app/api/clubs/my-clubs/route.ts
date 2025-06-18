@@ -154,5 +154,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error("[API my-clubs] Error fetching user's clubs:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch user's clubs" }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }

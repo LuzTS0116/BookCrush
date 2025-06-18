@@ -163,6 +163,22 @@ export async function POST(
         }
       })
 
+      // Create activity log for book review
+      await tx.activityLog.create({
+        data: {
+          user_id: userId,
+          activity_type: 'REVIEWED_BOOK',
+          target_entity_type: 'BOOK',
+          target_entity_id: bookId,
+          details: {
+            book_title: book.title,
+            book_cover_url: book.cover_url,
+            rating: rating,
+            review_content: content.substring(0, 100) + (content.length > 100 ? '...' : '') // Store first 100 chars
+          }
+        }
+      })
+
       return review
     })
 

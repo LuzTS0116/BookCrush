@@ -125,5 +125,7 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error("Error approving club membership:", error);
     return NextResponse.json({ error: error.message || "Failed to approve membership" }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }

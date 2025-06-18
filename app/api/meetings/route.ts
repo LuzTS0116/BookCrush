@@ -1,28 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing for meetings API.");
+}
+
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+
 export async function GET(request: NextRequest) {
+  console.log('[API meetings] Request received');
+
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+  }
+
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Bearer token authentication (consistent with other APIs)
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API meetings] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
     }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error('[API meetings] Auth error:', userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
+    }
+
+    console.log('[API meetings] User authenticated:', user.id);
 
     const url = new URL(request.url);
     const startDate = url.searchParams.get('start');
     const endDate = url.searchParams.get('end');
+    const nextOnly = url.searchParams.get('next') === 'true'; // New parameter for dashboard
+    const limit = url.searchParams.get('limit');
 
     // Get all clubs where user is an active member
     const userClubs = await prisma.clubMembership.findMany({
       where: {
-        user_id: session.user.id,
+        user_id: user.id,
         status: 'ACTIVE'
       },
       select: { club_id: true }
@@ -36,7 +62,14 @@ export async function GET(request: NextRequest) {
 
     // Build where clause for date filtering
     let dateFilter = {};
-    if (startDate && endDate) {
+    if (nextOnly) {
+      // For dashboard: only future meetings
+      dateFilter = {
+        meeting_date: {
+          gte: new Date()
+        }
+      };
+    } else if (startDate && endDate) {
       dateFilter = {
         meeting_date: {
           gte: new Date(startDate),
@@ -45,7 +78,7 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // Get all meetings for user's clubs
+    // Get meetings for user's clubs
     const meetings = await prisma.clubMeeting.findMany({
       where: {
         club_id: { in: clubIds },
@@ -74,7 +107,7 @@ export async function GET(request: NextRequest) {
         },
         attendees: {
           where: {
-            user_id: session.user.id
+            user_id: user.id
           },
           select: {
             status: true
@@ -90,8 +123,11 @@ export async function GET(request: NextRequest) {
           }
         }
       },
-      orderBy: { meeting_date: 'asc' }
+      orderBy: { meeting_date: 'asc' },
+      take: limit ? parseInt(limit) : nextOnly ? 1 : undefined // Limit results for dashboard
     });
+
+    console.log('[API meetings] Found meetings:', meetings.length);
 
     // Transform data for frontend
     const transformedMeetings = meetings.map(meeting => ({
@@ -108,13 +144,15 @@ export async function GET(request: NextRequest) {
       creator: meeting.creator,
       attendees_count: meeting._count.attendees,
       user_attendance_status: meeting.attendees[0]?.status || 'NOT_RESPONDED',
-      is_creator: meeting.created_by === session.user.id
+      is_creator: meeting.created_by === user.id
     }));
 
     return NextResponse.json({ meetings: transformedMeetings });
 
   } catch (error) {
-    console.error('Error fetching meetings:', error);
+    console.error('[API meetings] Error fetching meetings:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 } 

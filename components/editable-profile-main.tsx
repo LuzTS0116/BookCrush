@@ -8,32 +8,84 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { BookMarked, ArrowLeft, Mail, Send, Pencil, Save, X, Users, CircleCheckBig, CircleAlert, Loader2 } from "lucide-react"
+import { BookMarked, ArrowLeft, Mail, Send, Pencil, Save, X, Users, CircleCheckBig, CircleAlert, Loader2, Star, Smartphone, BookOpen, Headphones, ChevronDown, Sparkles, EllipsisVertical } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Heart, Books, Bookmark, CheckCircle } from "@phosphor-icons/react"
 import { getDisplayAvatarUrl } from "@/lib/supabase-utils"
+import { BookDetails, BookFile, UserBook, StatusDisplay, TabDisplay } from "@/types/book"
+import Link from "next/link"
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
+import { toast } from "sonner"
+import { useSession } from 'next-auth/react'
+
+// Helper constants and functions from profile-details.tsx
+const statuses: StatusDisplay[] = [
+  { label: "⏳ In Progress", value: "in_progress", color: "bg-accent-variant text-bookWhite" },
+  { label: "💫 Almost Done", value: "almost_done", color: "bg-accent-variant text-bookWhite" },
+  { label: "🔥 Finished", value: "finished", color: "bg-accent-variant text-bookWhite" },
+  { label: "😑 Unfinished", value: "unfinished", color: "bg-accent-variant text-bookWhite" },
+];
+
+const readingOptions = [
+  { label: "AudioBook", icon: Headphones, value: "audio_book" },
+  { label: "E-Reader", icon: Smartphone, value: "e_reader" },
+  { label: "Physical Book", icon: BookOpen, value: "physical_book" },
+];
+
+// Helper to get status display info
+const getStatusDisplay = (statusCode: UserBook['status']): StatusDisplay => {
+  return statuses.find(s => s.value === statusCode) || statuses[0]; // Default to "In Progress" if not found
+};
+
+// Helper function to get media type display info
+const getMediaTypeDisplay = (mediaType: UserBook['media_type']) => {
+  return readingOptions.find(option => option.value === mediaType) || readingOptions[1]; // Default to E-Reader
+};
+
+// Define the available shelf types for the dropdown
+const SHELF_OPTIONS = [
+  { label: "Move to Reading Queue", value: "queue" },
+];
 
 interface Profile {
   id: string
   email?: string
-  display_name: string
-  nickname?: string
-  about?: string
-  avatar_url?: string
-  kindle_email?: string
-  favorite_genres: string[]
+  display_name: string | null;
+  nickname?: string | null;
+  about?: string | null;
+  avatar_url?: string | null;
+  kindle_email?: string | null;
+  favorite_genres: string[] | null;
   created_at: string
   updated_at: string
+  userBooks?: UserBook[]
+  addedBooks: any[]
+  _count: {
+    friendshipsAsUser1: number,
+    friendshipsAsUser2: number,
+    memberships: number;
+  };
 }
 
 export default function EditableProfileMain() {
+  const { data: session, status } = useSession()
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+
+  // State to manage per-book loading/feedback for adding to shelf
+  const [shelfActionsStatus, setShelfActionsStatus] = useState<Record<string, { isLoading: boolean, message: string | null }>>({})
+
+  // Book state variables
+  const [currentlyReadingBooks, setCurrentlyReadingBooks] = useState<UserBook[]>([])
+  const [queueBooks, setQueueBooks] = useState<UserBook[]>([])
+  const [historyBooks, setHistoryBooks] = useState<UserBook[]>([])
+  const [favoriteBooks, setFavoriteBooks] = useState<UserBook[]>([])
+  const [addedBooks, setAddedBooks] = useState<BookDetails[]>([])
 
   // Form states
   const [displayName, setDisplayName] = useState("")
@@ -44,10 +96,11 @@ export default function EditableProfileMain() {
   const [favoriteGenres, setFavoriteGenres] = useState<string[]>([])
 
   // Avatar states
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null) // Storage key for new uploads
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
 
   const genres = [
     "Biography",
@@ -83,9 +136,8 @@ export default function EditableProfileMain() {
           throw new Error('Failed to fetch profile')
         }
 
-        const profileData = await response.json()
+        const profileData: Profile = await response.json()
         setProfile(profileData)
-        
         
         // Set form values
         setDisplayName(profileData.display_name || "")
@@ -93,7 +145,23 @@ export default function EditableProfileMain() {
         setBio(profileData.about || "")
         setKindleEmail(profileData.kindle_email || "")
         setFavoriteGenres(profileData.favorite_genres || [])
-        setAvatarUrl(profileData.avatar_url || null)
+
+        // Categorize books based on shelf
+        if (profileData.userBooks) {
+          const currentlyReading = profileData.userBooks.filter((book: UserBook) => book.shelf === 'currently_reading')
+          const queue = profileData.userBooks.filter((book: UserBook) => book.shelf === 'queue')
+          const history = profileData.userBooks.filter((book: UserBook) => book.shelf === 'history')
+          const favorites = profileData.userBooks.filter((book: UserBook) => book.is_favorite === true)
+          
+          setCurrentlyReadingBooks(currentlyReading)
+          setQueueBooks(queue)
+          setHistoryBooks(history)
+          setFavoriteBooks(favorites)
+        }
+
+        if (profileData.addedBooks) {          
+          setAddedBooks(profileData.addedBooks)
+        }
 
       } catch (err) {
         setError((err as Error).message)
@@ -177,8 +245,10 @@ export default function EditableProfileMain() {
       }
 
       // Store the path for form submission
-      setAvatarUrl(getDisplayAvatarUrl(path))
+      setAvatarUrl(path)
       
+      // Show success feedback
+      toast.success('Avatar uploaded! Don\'t forget to save your changes.')
 
     } catch (err) {
       setError((err as Error).message)
@@ -220,13 +290,21 @@ export default function EditableProfileMain() {
 
       const updatedProfile = await response.json()
       setProfile(updatedProfile)
+      setAvatarUrl(null) // Reset since the avatar is now saved in the profile
       setIsEditing(false)
       
-      // Clean up preview URL
-      if (avatarPreview && avatarPreview.startsWith('blob:')) {
-        URL.revokeObjectURL(avatarPreview)
-        setAvatarPreview(null)
-      }
+      // Show success message
+      toast.success('Profile updated successfully!')
+      
+      // Keep the preview URL for a bit longer to show immediate feedback
+      // The server response should already include the properly formatted avatar_url
+      // but we'll clean up the preview after ensuring the new URL is loaded
+      setTimeout(() => {
+        if (avatarPreview && avatarPreview.startsWith('blob:')) {
+          URL.revokeObjectURL(avatarPreview)
+          setAvatarPreview(null)
+        }
+      }, 2000) // Give more time for the new avatar to load
 
     } catch (err) {
       setError((err as Error).message)
@@ -245,7 +323,7 @@ export default function EditableProfileMain() {
     setBio(profile.about || "")
     setKindleEmail(profile.kindle_email || "")
     setFavoriteGenres(profile.favorite_genres || [])
-    setAvatarUrl(profile.avatar_url ?? null)
+    setAvatarUrl(null) // Reset to null - only for new uploads
     
     // Clean up preview
     if (avatarPreview && avatarPreview.startsWith('blob:')) {
@@ -265,6 +343,235 @@ export default function EditableProfileMain() {
       }
     }
   }, [avatarPreview])
+
+  // Function to handle status updates via API
+  const handleStatusChange = async (
+    bookId: string, 
+    currentShelf: UserBook['shelf'], 
+    newStatus: UserBook['status']
+  ) => {
+    try {
+      // Optimistic UI update: immediately update the state
+      if (currentShelf === "currently_reading") {
+        setCurrentlyReadingBooks(prevBooks =>
+          prevBooks.map(userBook => 
+            userBook.book_id === bookId 
+              ? { ...userBook, status: newStatus } 
+              : userBook
+          )
+        );
+      }
+
+      // Call your API to update the book's status
+      const response = await fetch('/api/shelf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookId, shelf: currentShelf, status: newStatus })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update book status');
+      }
+
+      // If finished or unfinished, remove from currently reading
+      if (newStatus === "finished" || newStatus === "unfinished") {
+        setCurrentlyReadingBooks(prevBooks =>
+          prevBooks.filter(userBook => 
+            userBook.book_id !== bookId
+          )
+        );
+        toast.success(`Book marked as ${newStatus === "finished" ? "finished" : "unfinished"}!`);
+      } else {
+        toast.success('Status updated!');
+      }
+
+    } catch (err: any) {
+      console.error("Error updating status:", err);
+      toast.error(`Failed to update status: ${err.message}`);
+      // Rollback UI update if API fails
+      if (currentShelf === "currently_reading") {
+        setCurrentlyReadingBooks(prevBooks =>
+          prevBooks.map(userBook => 
+            userBook.book_id === bookId 
+              ? { ...userBook, status: userBook.status } 
+              : userBook
+          )
+        );
+      }
+    }
+  };
+
+  // Function to handle media type updates via API
+  const handleMediaTypeChange = async (
+    bookId: string, 
+    currentShelf: UserBook['shelf'], 
+    newMediaType: string
+  ) => {
+    try {
+      // Optimistic UI update: immediately update the state
+      if (currentShelf === "currently_reading") {
+        setCurrentlyReadingBooks(prevBooks =>
+          prevBooks.map(userBook => 
+            userBook.book_id === bookId 
+              ? { ...userBook, media_type: newMediaType as UserBook['media_type'] } 
+              : userBook
+          )
+        );
+      }
+
+      // Call the API to update the media type
+      const response = await fetch('/api/user-books/media-type', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          bookId, 
+          shelf: currentShelf, 
+          mediaType: newMediaType 
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update media type');
+      }
+
+      toast.success('Media type updated!');
+
+    } catch (err: any) {
+      console.error("Error updating media type:", err);
+      toast.error(`Failed to update media type: ${err.message}`);
+      // Rollback UI update if API fails - refetch or revert
+    }
+  };
+
+  // Function to move book from queue to currently reading
+  const handleStartReading = async (bookId: string) => {
+    try {
+      // Optimistically remove from queue
+      setQueueBooks(prevBooks => 
+        prevBooks.filter(userBook => userBook.book_id !== bookId)
+      );
+
+      // Call API to move book to currently_reading shelf
+      const response = await fetch('/api/shelf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          bookId, 
+          shelf: 'currently_reading', 
+          status: 'in_progress' 
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to start reading book');
+      }
+
+      // Show success message
+      toast.success('Started reading! Book moved to Currently Reading.');
+
+      // Refresh currently reading books to show the newly moved book
+      const updatedResponse = await fetch('/api/shelf?shelf=currently_reading');
+      if (updatedResponse.ok) {
+        const updatedBooks = await updatedResponse.json();
+        setCurrentlyReadingBooks(updatedBooks);
+      }
+
+    } catch (err: any) {
+      console.error("Error starting book:", err);
+      toast.error(`Failed to start reading: ${err.message}`);
+      // Rollback UI update if API fails
+      const rollbackResponse = await fetch('/api/shelf?shelf=queue');
+      if (rollbackResponse.ok) {
+        const rollbackBooks = await rollbackResponse.json();
+        setQueueBooks(rollbackBooks);
+      }
+    }
+  };
+
+  // Function to add/move a book to a shelf
+  const handleAddToShelf = async (bookId: string, shelf: string) => {
+    if (!session?.supabaseAccessToken) {
+      toast.error('Authentication required');
+      return;
+    }
+
+    setShelfActionsStatus(prev => ({
+      ...prev,
+      [bookId]: { isLoading: true, message: null }
+    }));
+
+    try {
+      // Get the current book to determine source shelf
+      const currentBook = [...currentlyReadingBooks, ...queueBooks].find(book => book.book_id === bookId);
+      const sourceShelf = currentBook?.shelf;
+
+      // Optimistic UI updates - only handle moving from currently reading to queue
+      if (sourceShelf === "currently_reading" && shelf === "queue") {
+        // Moving from currently reading to queue
+        setCurrentlyReadingBooks(prevBooks => 
+          prevBooks.filter(userBook => userBook.book_id !== bookId)
+        );
+        toast.success('Book moved to Reading Queue!');
+      }
+
+      // API call to update the shelf
+      const response = await fetch('/api/shelf', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
+        body: JSON.stringify({ bookId, shelf, status: 'in_progress' })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to move book to shelf');
+      }
+
+      const result = await response.json();
+      console.log('Book moved to shelf:', result);
+
+      // Clear loading status
+      setShelfActionsStatus(prev => ({
+        ...prev,
+        [bookId]: { isLoading: false, message: null }
+      }));
+
+      // Refresh the target shelf to show the newly moved book
+      if (shelf === "queue") {
+        const updatedResponse = await fetch('/api/shelf?shelf=queue');
+        if (updatedResponse.ok) {
+          const updatedBooks = await updatedResponse.json();
+          setQueueBooks(updatedBooks);
+        }
+      }
+
+    } catch (err: any) {
+      console.error("Error moving book to shelf:", err);
+      toast.error(`Failed to move book: ${err.message}`);
+      
+      // Rollback optimistic updates on error
+      const rollbackResponse = await fetch('/api/shelf?shelf=currently_reading');
+      if (rollbackResponse.ok) {
+        const rollbackBooks = await rollbackResponse.json();
+        setCurrentlyReadingBooks(rollbackBooks);
+      }
+      
+      setShelfActionsStatus(prev => ({
+        ...prev,
+        [bookId]: { isLoading: false, message: `Error: ${err.message}` }
+      }));
+
+      // Clear error message after a few seconds
+      setTimeout(() => {
+        setShelfActionsStatus(prev => ({ ...prev, [bookId]: { isLoading: false, message: null } }));
+      }, 3000);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -291,10 +598,15 @@ export default function EditableProfileMain() {
       </div>
     )
   }
-
-  const currentAvatar = avatarPreview || avatarUrl
+  const friendships_as_user1 = profile?._count?.friendshipsAsUser1 || 0;
+  const friendships_as_user2 = profile?._count?.friendshipsAsUser2 || 0;
+  // Priority: 1) Preview blob URL (immediate feedback), 2) Profile's formatted public URL
+  // Note: avatarUrl contains storage key, not display URL, so we don't use it for display
+  const currentAvatar = avatarPreview || profile?.avatar_url
   const displayGenres = isEditing ? favoriteGenres : (profile?.favorite_genres || [])
+  const currentFriends = friendships_as_user1 + friendships_as_user2;
   console.log("currentAvatar", currentAvatar)
+  console.log(profile?.addedBooks)
 
   return (
     <div className="container mx-auto px-2 py-2">
@@ -306,10 +618,10 @@ export default function EditableProfileMain() {
       
       <div className="flex flex-col bg-transparent md:flex-row gap-2">
         <div className="md:w-1/3 bg-transparent">
-          <Card className="px-0 bg-bookWhite/90 rounded-b-3xl overflow-hidden">
+          <Card className="px-0 bg-bookWhite/90 rounded-b-3xl rounded-t-none overflow-hidden">
             <CardHeader className="relative p-0">
               {/* Banner */}
-              <div className="relative h-32 w-full bg-gradient-to-r from-primary rounded-b-2xl to-accent">
+              <div className="relative h-32 w-full rounded-b-2xl">
                 <img
                   src="/images/background.png"
                   alt="Banner"
@@ -341,7 +653,7 @@ export default function EditableProfileMain() {
                   <div className="relative">
                     <Avatar className="h-24 w-24 border-4 border-bookWhite rounded-full bg-bookWhite">
                       <AvatarImage 
-                        src={currentAvatar} 
+                        src={currentAvatar || undefined} 
                         alt="@user" 
                       />
                       <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
@@ -390,31 +702,22 @@ export default function EditableProfileMain() {
                             {profile.nickname}
                           </p>
                         )}
+                        <p className="text-xs text-secondary/50 font-normal">
+                          <span>{currentFriends} friend{currentFriends !== 1 ? 's' : ''}</span>
+                        </p>
                       </>
                     )}
-                    <div className="leading-none">
-                      <p className="inline-block text-xs font-serif text-secondary/50 font-medium rounded-full bg-secondary/5 px-2 py-0">
-                        25 friends
-                      </p>
-                    </div>
                   </div>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="space-y-3">
-                {/* <div className="flex flex-row gap-2 text-center mt-1">
-                  <div className="text-secondary font-serif">
-                    <p className="text-sm/3 font-semibold"><span className="text-sm pr-2">|</span>24<span className="text-xs"> Read</span></p>
-                  </div>
-                  <div className="text-secondary-light font-serif">
-                    <p className="text-sm/3 font-semibold"><span className="text-sm pr-2">|</span>3<span className="text-xs"> Currently</span></p>
-                  </div>
-                  <div className="text-secondary-light font-serif">
-                    <p className="text-sm/3 font-semibold"><span className="text-sm pr-2">|</span>12<span className="text-xs"> TBR</span><span className="text-sm pl-2">|</span></p>
-                  </div>
-                </div> */}
-                {/* Bio Section */}
+              <div className="space-y-1">
+                <p className="text-sm leading-none text-secondary/70 font-normal mt-1">
+                  <span>{profile?._count?.memberships || 0} book club{(profile?._count?.memberships || 0) !== 1 ? 's' : ''} </span>
+                  <span>• {profile?.addedBooks?.length || 0} contributions</span>
+                </p>
+
                 <div>
                   {isEditing ? (
                     <Textarea
@@ -444,7 +747,7 @@ export default function EditableProfileMain() {
 
                 {/* Genres Section */}
                 <div>
-                  <div className="flex flex-wrap gap-2 mb-2">
+                  <div className="flex flex-wrap gap-2 mt-3 mb-2">
                     {displayGenres.map((genre) => (
                       <Badge key={genre} variant="secondary" className="px-3 py-1 font-serif bg-accent/20 text-secondary-light/70">
                         {genre}
@@ -526,93 +829,310 @@ export default function EditableProfileMain() {
         {/* Right side - Books tabs */}
         <div className="md:w-2/3">
           <Tabs defaultValue="currently-reading" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 rounded-full h-auto p-1 bg-secondary-light text-primary">
-              <TabsTrigger value="currently-reading" className="rounded-full data-[state=active]:text-secondary data-[state=active]:bg-bookWhite">
+            <TabsList className="grid w-full grid-cols-5 rounded-full h-auto p-1 bg-bookWhite/10 text-primary">
+              <TabsTrigger value="currently-reading" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
                 <Books size={32} />
               </TabsTrigger>
-              <TabsTrigger value="reading-queue" className="rounded-full data-[state=active]:text-secondary data-[state=active]:bg-bookWhite">
+              <TabsTrigger value="reading-queue" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
                 <Bookmark size={32} />
               </TabsTrigger>
-              <TabsTrigger value="history" className="rounded-full data-[state=active]:text-secondary data-[state=active]:bg-bookWhite">
+              <TabsTrigger value="history" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
                 <CheckCircle size={32} />
               </TabsTrigger>
-              <TabsTrigger value="favorites" className="rounded-full data-[state=active]:text-secondary data-[state=active]:bg-bookWhite">
+              <TabsTrigger value="favorites" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
                 <Heart size={32} />
+              </TabsTrigger>
+              <TabsTrigger value="contributions" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
+                <Star size={32} />
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="currently-reading">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Currently Reading</CardTitle>
-                  <CardDescription>Books you're currently reading</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 md:grid-cols-3">
-                    {["The Midnight Library", "Klara and the Sun", "Project Hail Mary"].map((book, i) => (
-                      <div key={i} className="bg-bookWhite rounded-lg overflow-hidden border border-border">
-                        <div
-                          className={`h-32 flex items-center justify-center ${
-                            i === 0 ? "bg-secondary/20" : i === 1 ? "bg-primary/20" : "bg-accent/20"
-                          }`}
-                        >
-                          <img
-                            src="/placeholder.svg?height=120&width=80"
-                            alt={book}
-                            className="h-24 w-auto shadow-md"
-                          />
+              {currentlyReadingBooks.length === 0 ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Currently Reading</CardTitle>
+                    <CardDescription>Books you're currently reading</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground text-center py-8">No books currently reading</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {currentlyReadingBooks.map((userBook) => {
+                    const currentStatusDisplay = getStatusDisplay(userBook.status);
+                    const bookId = userBook.book_id || '';
+                    const currentShelfStatus = shelfActionsStatus[bookId];
+                    const currentMediaTypeDisplay = getMediaTypeDisplay(userBook.media_type);
+                    return (
+                      <Card key={userBook.book_id} className="relative overflow-hidden bg-bookWhite py-3">
+                        <div className="flex flex-row gap-3 px-4">
+                          {/* Book Image */}
+                          <div className="w-[100px] flex-shrink-0">
+                            <Link href={`/books/${userBook.book_id}`}>
+                              <img
+                                src={userBook.book.cover_url || "/placeholder.svg"}
+                                alt={userBook.book.title || "Book cover"}
+                                className="h-auto w-full shadow-md rounded object-cover"
+                              />
+                            </Link>
+                          </div>
+                          {/* Content */}
+                          <div className="flex flex-col flex-1">
+                            <CardHeader className="pb-2 px-0 pt-0">
+                              <div className="flex flex-row justify-between items-start">
+                                <Link href={`/books/${userBook.book_id}`}>
+                                  <CardTitle className="leading-5">{userBook.book.title}</CardTitle>
+                                </Link>
+                                <div>
+                                  {/* Shelf Management Dropdown */}
+                                  {bookId && (
+                                  <div className="flex items-start relative">
+                                    <DropdownMenu.Root>
+                                      <DropdownMenu.Trigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none hover:bg-transparent"
+                                          disabled={currentShelfStatus?.isLoading}
+                                        >
+                                          {currentShelfStatus?.isLoading ? (
+                                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                          ) : (
+                                            <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
+                                          )}
+                                        </Button>
+                                      </DropdownMenu.Trigger>
+
+                                      <DropdownMenu.Portal>
+                                        <DropdownMenu.Content
+                                          className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                                          sideOffset={5}
+                                        >
+                                        {SHELF_OPTIONS.filter(shelf => shelf.value !== userBook.shelf).map((shelf) => (
+                                          <DropdownMenu.Item
+                                            key={shelf.value}
+                                            onSelect={() => handleAddToShelf(bookId, shelf.value)}
+                                            className="px-3 py-2 text-xs text-center bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
+                                            disabled={currentShelfStatus?.isLoading}
+                                          >
+                                            {shelf.label}
+                                          </DropdownMenu.Item>
+                                        ))}
+                                        </DropdownMenu.Content>
+                                      </DropdownMenu.Portal>
+                                    </DropdownMenu.Root>
+                                    {/* Display action status message */}
+                                    {currentShelfStatus?.message && (
+                                      <p className="absolute top-full mb-1 right-0 text-nowrap text-xs mt-1 bg-primary/85 py-1 px-2 text-center flex-1 rounded-xl z-50" style={{ color: currentShelfStatus.message.startsWith('Error') ? 'red' : 'secondary' }}>
+                                        {currentShelfStatus.message}
+                                      </p>
+                                    )}
+                                  </div>
+                                  )}
+                                </div>
+                              </div>
+                              <CardDescription className="text-xs">{userBook.book.author}</CardDescription>
+                            </CardHeader>
+
+                            <CardContent className="pb-0 pt-4 px-0">
+                              <div className="flex flex-wrap gap-1 mb-2 items-center">
+                                {/* Added On */}
+                                {userBook.added_at && (
+                                  <span className="px-2 py-0.5 text-xs font-regular bg-primary-dark/50 text-secondary rounded-full">
+                                    Started: {new Date(userBook.added_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  </span>
+                                )}
+
+                                <div className="flex flex-wrap items-center bg-secondary/10 text-secondary rounded-full px-2 py-0.5">
+                                  <currentMediaTypeDisplay.icon className="w-4 h-4" />
+                                  <DropdownMenu.Root>
+                                    <DropdownMenu.Trigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs flex items-center rounded-full h-5 px-1 ml-1 gap-1 bg-transparent border-none shadow-sm hover:bg-muted"
+                                      >
+                                        <ChevronDown className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenu.Trigger>
+
+                                    <DropdownMenu.Portal>
+                                      <DropdownMenu.Content
+                                        className="min-w-[145px] rounded-xl bg-secondary-light shadow-xl p-1 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                                        sideOffset={5}
+                                      >
+                                        {readingOptions.map((option) => (
+                                          <DropdownMenu.Item
+                                            key={option.label}
+                                            onSelect={() => handleMediaTypeChange(userBook.book_id, userBook.shelf, option.value)}
+                                            className="px-3 py-2 text-sm rounded-md cursor-pointer hover:bg-primary hover:text-secondary flex items-center gap-2"
+                                          >
+                                            <option.icon className="w-4 h-4" />
+                                            {option.label}
+                                          </DropdownMenu.Item>
+                                        ))}
+                                      </DropdownMenu.Content>
+                                    </DropdownMenu.Portal>
+                                  </DropdownMenu.Root>
+                                </div>
+
+                                <div className="flex justify-start items-end">
+                                  <div className="">
+                                    <span className={`px-2 py-0.5 text-xs font-regular rounded-full ${currentStatusDisplay.color}`}>
+                                      {currentStatusDisplay.label}
+                                    </span>
+                                  </div>  
+                                  <DropdownMenu.Root>
+                                    <DropdownMenu.Trigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs flex items-center rounded-full h-5 px-1 ml-1.5 gap-1 bg-bookWhite shadow-sm hover:bg-muted"
+                                      >
+                                        Book Status <ChevronDown className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenu.Trigger>
+
+                                    <DropdownMenu.Portal>
+                                      <DropdownMenu.Content
+                                        className="min-w-[160px] rounded-2xl bg-secondary-light shadow-xl p-1 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                                        sideOffset={5}
+                                      >
+                                        {statuses.map((s) => (
+                                          <DropdownMenu.Item
+                                            key={s.value}
+                                            onSelect={() => handleStatusChange(userBook.book_id, userBook.shelf, s.value)}
+                                            className="px-3 py-2 text-sm rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
+                                          >
+                                            {s.label}
+                                          </DropdownMenu.Item>
+                                        ))}
+                                      </DropdownMenu.Content>
+                                    </DropdownMenu.Portal>
+                                  </DropdownMenu.Root>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </div>
                         </div>
-                        <div className="p-3">
-                          <h4 className="font-medium text-sm">{book}</h4>
-                          <p className="text-xs text-muted-foreground">
-                            {["Matt Haig", "Kazuo Ishiguro", "Andy Weir"][i]}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="reading-queue">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Reading Queue</CardTitle>
-                  <CardDescription>Books in your to-be-read list</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <p className="text-muted-foreground col-span-full text-center py-8">No books in queue yet</p>
-                  </div>
-                </CardContent>
-              </Card>
+              {queueBooks.length === 0 ? (
+                <Card>
+                  <CardContent>
+                    <p className="text-muted-foreground text-center py-8">No books in queue yet</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {queueBooks.map((userBook) => (
+                    <Card key={userBook.book_id} className="relative overflow-hidden bg-bookWhite py-3">
+                      <div className="flex flex-row gap-3 px-4">
+                        {/* Book Image */}
+                        <div className="w-[100px] flex-shrink-0">
+                          <Link href={`/books/${userBook.book_id}`}>
+                            <img
+                              src={userBook.book.cover_url || "/placeholder.svg"}
+                              alt={userBook.book.title || "Book cover"}
+                              className="h-auto w-full shadow-md rounded object-cover"
+                            />
+                          </Link>
+                        </div>
+                        {/* Content */}
+                        <div className="flex flex-col flex-1">
+                          <CardHeader className="pb-2 px-0 pt-0">
+                            <Link href={`/books/${userBook.book_id}`}>
+                              <CardTitle className="text-sm">{userBook.book.title}</CardTitle>
+                            </Link>
+                            <CardDescription className="text-xs">{userBook.book.author}</CardDescription>
+                          </CardHeader>
+                          <CardContent className="pb-0 pt-1 px-0">
+                            <div className="flex flex-wrap gap-1.5 mb-1 items-center">
+                              {/* Added On */}
+                              {userBook.added_at && (
+                                <span className="px-2 py-0.5 text-xs font-regular bg-primary-dark/50 text-secondary rounded-full">
+                                  Added to Queue: {new Date(userBook.added_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
+                              )}
+
+                              {/* Genre Tags */}
+                              <div className="flex flex-wrap gap-1">
+                                {userBook.book.genres?.slice(0, 3).map((genre: string) => (
+                                  <span
+                                    key={genre}
+                                    className="bg-accent/30 text-secondary/40 text-xs/3 font-medium px-2 py-1 rounded-full"
+                                  >
+                                    {genre}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            {/* Pages & Time */}
+                            <div className="flex-1">
+                              <p className="text-secondary/80 font-sans font-normal text-sm inline-block">{userBook.book.pages} pages • {userBook.book.reading_time}</p>
+                            </div>
+                            {/* Move to currently reading */}
+                            <div className="flex items-end justify-start mt-1">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="rounded-full text-accent-variant h-6 border-accent-variant bg-accent-variant/5 text-xs font-serif"
+                                onClick={() => handleStartReading(userBook.book_id)}
+                              >
+                                Start Reading
+                                <Sparkles className="h-3 w-3"/>
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="history">
               <Card>
                 <CardContent className="p-1">
-                  <div className="grid grid-cols-4 gap-1">
-                    {[1,2,3,4,5,6,7,8].map((i) => (
-                      <div key={i} className="relative w-auto">
-                        <img
-                          src="/images/book_lovers.jpg"
-                          alt="Book cover"
-                          className="h-auto w-full shadow-md rounded object-cover"
-                        />
-                        {i === 7 && (
-                          <span className="absolute bottom-1 right-1 bg-accent/70 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
-                            <CircleAlert className="h-4 w-4" />
-                          </span>
-                        )}
-                        {i === 8 && (
-                          <span className="absolute bottom-1 right-1 bg-green-600/50 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
-                            <CircleCheckBig className="h-4 w-4" />
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                  {historyBooks.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">
+                      No books in reading history.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-1">
+                      {historyBooks.map((userBook) => (
+                        <div key={userBook.book_id} className="relative w-auto">
+                          <Link href={`/books/${userBook.book_id}`}>
+                            <img
+                              src={userBook.book.cover_url || "/placeholder.svg"}
+                              alt={userBook.book.title || "Book cover"}
+                              className="h-full w-full shadow-md rounded object-cover"
+                            />
+                          </Link>
+                          
+                          {userBook.status === 'finished' && (
+                            <span className="absolute bottom-1 right-1 bg-green-600/50 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
+                              <CircleCheckBig className="h-4 w-4" />
+                            </span>
+                          )}
+                          {userBook.status === 'unfinished' && (
+                            <span className="absolute bottom-1 right-1 bg-accent/70 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
+                              <CircleAlert className="h-4 w-4" />
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -620,17 +1140,51 @@ export default function EditableProfileMain() {
             <TabsContent value="favorites">
               <Card>
                 <CardContent className="p-1">
-                  <div className="grid grid-cols-4 gap-1">
-                    {[1,2,3,4,5,6,7,8].map((i) => (
-                      <div key={i} className="w-auto">
-                        <img
-                          src="/images/glow_of_the_everflame.jpg"
-                          alt="Book cover"
-                          className="h-[150px] w-full shadow-md rounded object-cover"
-                        />
-                      </div>
-                    ))}
-                  </div>
+                  {favoriteBooks.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">
+                      No favorite books.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-1">
+                      {favoriteBooks.map((userBook) => (
+                        <div key={userBook.book_id} className="w-auto">
+                          <Link href={`/books/${userBook.book_id}`}>
+                            <img
+                              src={userBook.book.cover_url || "/placeholder.svg"}
+                              alt={userBook.book.title || "Book cover"}
+                              className="h-full w-full shadow-md rounded object-cover"
+                            />
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="contributions">
+              <Card>
+                <CardContent className="p-1">
+                  {addedBooks.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">
+                      No contributed books.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-1">
+                      {addedBooks.map((book) => (
+                        <div key={book.id} className="w-auto">
+                          <Link href={`/books/${book.id}`}>
+                            <img
+                              src={book.cover_url || "/placeholder.svg"}
+                              alt={book.title || "Book cover"}
+                              className="h-full w-full shadow-md rounded object-cover"
+                            />
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

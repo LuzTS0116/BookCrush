@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { BookMarked, ArrowLeft, Smartphone, BookOpen, Headphones, CircleCheckBig, CircleAlert } from "lucide-react"
+import { BookMarked, ArrowLeft, Smartphone, BookOpen, Headphones, CircleCheckBig, CircleAlert, Star } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Heart, Books, Bookmark, CheckCircle } from "@phosphor-icons/react"
@@ -66,6 +66,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
   const [queueBooks, setQueueBooks] = useState<UserBook[]>([]);
   const [historyBooks, setHistoryBooks] = useState<UserBook[]>([]);
   const [favoriteBooks, setFavoriteBooks] = useState<UserBook[]>([]);
+  const [addedBooks, setAddedBooks] = useState<BookDetails[]>([])
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,6 +98,10 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
         setQueueBooks(queue);
         setHistoryBooks(history);
         setFavoriteBooks(favorites);
+
+        if (profileData.addedBooks) {          
+          setAddedBooks(profileData.addedBooks)
+        }
         
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
@@ -141,7 +146,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
     <div className="container mx-auto px-2 py-2">
       <div className="flex flex-col bg-transparent md:flex-row gap-2">
         <div className="md:w-1/3 bg-transparent">
-          <Card className="px-0 bg-bookWhite/90 rounded-b-3xl overflow-hidden">
+          <Card className="px-0 bg-bookWhite/90 rounded-b-3xl rounded-t-none overflow-hidden">
             <CardHeader className="relative p-0">
                 {/* Banner */}
                 <div className="relative h-32 w-full bg-gradient-to-r from-primary rounded-b-2xl to-accent">
@@ -175,17 +180,6 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                             <p className="text-xs text-secondary/50 font-normal">
                                 <span>{currentFriends} friend{currentFriends !== 1 ? 's' : ''}</span>
                             </p>
-                            {/* <div className="flex flex-row gap-2 text-center mt-1">
-                                <div className="text-secondary font-serif">
-                                    <p className="text-sm/3 font-semibold"><span className="text-sm pr-2">|</span>{historyBooks.length}<span className="text-xs"> Read</span></p>
-                                </div>
-                                <div className="text-secondary-light font-serif">
-                                    <p className="text-sm/3 font-semibold"><span className="text-sm pr-2">|</span>{currentlyReadingBooks.length}<span className="text-xs"> Currently</span></p>
-                                </div>
-                                <div className="text-secondary-light font-serif">
-                                    <p className="text-sm/3 font-semibold"><span className="text-sm pr-2">|</span>{queueBooks.length}<span className="text-xs"> TBR</span><span className="text-sm pl-2">|</span></p>
-                                </div>
-                            </div> */}
                         </div>
                     </div>
                 </div>
@@ -224,18 +218,21 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
 
         <div className="md:w-2/3">
           <Tabs defaultValue="currently-reading" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 rounded-full h-auto p-1 bg-secondary-light text-primary">
-              <TabsTrigger value="currently-reading" className="rounded-full data-[state=active]:text-secondary data-[state=active]:bg-bookWhite">
+            <TabsList className="grid w-full grid-cols-5 rounded-full h-auto p-1 bg-bookWhite/10 text-primary">
+              <TabsTrigger value="currently-reading" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
                 <Books size={32} />
               </TabsTrigger>
-              <TabsTrigger value="reading-queue" className="rounded-full data-[state=active]:text-secondary data-[state=active]:bg-bookWhite">
+              <TabsTrigger value="reading-queue" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
                 <Bookmark size={32} />
               </TabsTrigger>
-              <TabsTrigger value="history" className="rounded-full data-[state=active]:text-secondary data-[state=active]:bg-bookWhite">
+              <TabsTrigger value="history" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
                 <CheckCircle size={32} />
               </TabsTrigger>
-              <TabsTrigger value="favorites" className="rounded-full data-[state=active]:text-secondary data-[state=active]:bg-bookWhite">
+              <TabsTrigger value="favorites" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
                 <Heart size={32} />
+              </TabsTrigger>
+              <TabsTrigger value="contributions" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
+                <Star size={32} />
               </TabsTrigger>
             </TabsList>
 
@@ -258,7 +255,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                             <img
                               src={userBook.book.cover_url || "/placeholder.svg"} // Use actual cover URL
                               alt={userBook.book.title || "Book cover"}
-                              className="h-[150px] w-full shadow-md rounded object-cover" // Added object-cover
+                              className="h-auto w-full shadow-md rounded object-cover" // Added object-cover
                             />
                             </Link>
                           </div>
@@ -272,7 +269,24 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                             </CardHeader>
 
                             <CardContent className="pb-0 px-0">
-                              <div className="flex flex-wrap gap-1.5 mb-2 items-center">
+                              <div className="flex flex-col mb-1">
+                                {/* Genre Tags */}
+                                <div className="flex flex-wrap gap-1">
+                                  {userBook.book.genres?.slice(0, 1).map((genre: string) => (
+                                    <span
+                                      key={genre}
+                                      className="bg-accent/30 text-secondary/40 text-xs/3 font-medium px-2 py-1 rounded-full"
+                                    >
+                                      {genre}
+                                    </span>
+                                  ))}
+                                </div>
+                                {/* Pages & Time */}
+                                <div className="flex-1">
+                                  <p className="text-secondary/80 font-sans font-normal text-sm inline-block">{userBook.book.pages} pages • {userBook.book.reading_time}</p>
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap gap-1 mb-2 items-center">
                                 {/* Added On */}
                                 {userBook.added_at && (
                                   <span className="px-2 py-0.5 text-xs font-regular bg-primary-dark/50 text-secondary rounded-full">
@@ -322,7 +336,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                           <img
                             src={userBook.book.cover_url || "/placeholder.svg"}
                             alt={userBook.book.title || "Book cover"}
-                            className="h-[150px] w-full shadow-md rounded object-cover"
+                            className="h-auto w-full shadow-md rounded object-cover"
                           />
                           </Link>
                         </div>
@@ -403,7 +417,33 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                             <img
                               src={userBook.book.cover_url || "/placeholder.svg"}
                               alt={userBook.book.title || "Book cover"}
-                              className="h-[150px] w-full shadow-md rounded object-cover"
+                              className="h-full w-full shadow-md rounded object-cover"
+                            />
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="contributions">
+              <Card>
+                <CardContent className="p-1">
+                  {addedBooks.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">
+                      No contributed books.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-1">
+                      {addedBooks.map((book) => (
+                        <div key={book.id} className="w-auto">
+                          <Link href={`/books/${book.id}`}>
+                            <img
+                              src={book.cover_url || "/placeholder.svg"}
+                              alt={book.title || "Book cover"}
+                              className="h-full w-full shadow-md rounded object-cover"
                             />
                           </Link>
                         </div>

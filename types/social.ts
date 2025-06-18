@@ -55,5 +55,6 @@ export type ExplorableUser = {
   display_name: string;
   about: string | null;
   favorite_genres: string | null;
+  avatar_url?: string | null; // Added avatar_url field
    // Assumes every explorable user will have a profile
 };

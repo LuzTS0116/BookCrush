@@ -126,5 +126,7 @@ export async function GET(
   } catch (error: any) {
     console.error("Error fetching pending club memberships:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch pending memberships" }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }

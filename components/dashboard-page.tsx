@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Share2 } from "lucide-react"
+import { Loader2, Share2, Calendar, MapPin, Book, Heart, Star } from "lucide-react"
 import Image from "next/image"
 import html2canvas from 'html2canvas';
 import {Dialog,
@@ -15,6 +15,7 @@ import {Dialog,
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { useSession } from "next-auth/react";
+import Link from "next/link"
 
 function useSupabaseTokenExpiry() {
   const { data: session } = useSession();
@@ -45,10 +46,105 @@ function useSupabaseTokenExpiry() {
   return getExpiryInfo();
 }
 
+interface Meeting {
+  id: string;
+  title: string;
+  description: string | null;
+  date: string;
+  duration_minutes: number | null;
+  location: string | null;
+  meeting_type: string;
+  club: {
+    id: string;
+    name: string;
+  };
+  book?: {
+    id: string;
+    title: string;
+    author: string;
+  } | null;
+}
+
+interface Book {
+  id: string;
+  title: string;
+  author: string;
+  description: string;
+  cover_url: string | null;
+  pages: number | null;
+  genres: string[];
+  rating: number | null;
+  reading_time: string;
+  created_at: string;
+  reactions: {
+    counts: {
+      HEART: number;
+      LIKE: number;
+      THUMBS_UP: number;
+      THUMBS_DOWN: number;
+      total: number;
+    };
+    userReaction: string | null;
+  };
+  is_favorite: boolean;
+}
+
 interface QuoteProps {
   quote:  string | null;
   author: string | null;
 }
+
+// Helper function to format the time until meeting
+const formatTimeUntilMeeting = (meetingDate: string): string => {
+  const now = new Date();
+  const meeting = new Date(meetingDate);
+  const diffMs = meeting.getTime() - now.getTime();
+  
+  if (diffMs <= 0) return 'Happening now';
+  
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  
+  if (diffDays > 0) {
+    return `${diffDays} day${diffDays > 1 ? 's' : ''}`;
+  } else if (diffHours > 0) {
+    return `${diffHours} hour${diffHours > 1 ? 's' : ''}`;
+  } else {
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''}`;
+  }
+};
+
+// Helper function to format the meeting date and time
+const formatMeetingDateTime = (meetingDate: string): string => {
+  const date = new Date(meetingDate);
+  return date.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
+};
+
+// Helper function to format when book was added
+const formatTimeAgo = (dateString: string): string => {
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffMs = now.getTime() - date.getTime();
+  
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  
+  if (diffDays > 0) {
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  } else if (diffHours > 0) {
+    return `${diffHours}h ago`;
+  } else {
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    return `${diffMinutes}min${diffMinutes > 1 ? 's' : ''} ago`;
+  }
+};
 
 export default function DashboardPage({
   quote:  initialQuote,
@@ -65,8 +161,20 @@ export default function DashboardPage({
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false); // For Radix dialog
 
+  // Next meeting state
+  const [nextMeeting, setNextMeeting] = useState<Meeting | null>(null);
+  const [meetingLoading, setMeetingLoading] = useState(true);
+  const [meetingError, setMeetingError] = useState<string | null>(null);
+
+  // Latest book state
+  const [latestBook, setLatestBook] = useState<Book | null>(null);
+  const [bookLoading, setBookLoading] = useState(true);
+  const [bookError, setBookError] = useState<string | null>(null);
+
 const { expired, expiryTime, timeUntilExpiry, isExpiringSoon } = useSupabaseTokenExpiry();
-  useEffect(() => {
+
+// Fetch quotes
+useEffect(() => {
     // Nothing to do if the server already provided a quote
     if (quote && author) return;
 
@@ -88,49 +196,88 @@ const { expired, expiryTime, timeUntilExpiry, isExpiringSoon } = useSupabaseToke
     })();
   }, []);    // ← effect runs exactly once (prod) / twice (dev-strict)
 
-// useEffect(() => {
-//   const generateImage = async () => {
-//     if (quoteImageRef.current && showOverlay) {
-//       setLoading(true);
-//       try {
-//         const canvas = await html2canvas(quoteImageRef.current);
-//         const dataUrl = canvas.toDataURL('image/png');
-//         setDownloadedImageUrl(dataUrl);
-//       } catch (err) {
-//         console.error('Failed to generate image:', err);
-//         setDownloadedImageUrl(null);
-//       } finally {
-//         setLoading(false);
-//       }
-//     }
-//   };
+// Fetch next meeting
+useEffect(() => {
+  const fetchNextMeeting = async () => {
+    if (status !== 'authenticated' || !session?.supabaseAccessToken) {
+      setMeetingLoading(false);
+      return;
+    }
 
-//   generateImage();
-// }, [showOverlay]);
+    try {
+      setMeetingLoading(true);
+      setMeetingError(null);
 
-// Shareable Image
-// const handleImageShare = async (ref: HTMLDivElement | null): Promise<string | null> => {
-//   if (!ref) return null;
+      const response = await fetch('/api/meetings?next=true', {
+        headers: {
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-//   const canvas = await html2canvas(ref, {
-//     backgroundColor: null,
-//     useCORS: true,
-//   });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch meetings: ${response.statusText}`);
+      }
 
-//   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve));
-//   if (!blob) return null;
+      const data = await response.json();
+      
+      if (data.meetings && data.meetings.length > 0) {
+        setNextMeeting(data.meetings[0]);
+      } else {
+        setNextMeeting(null);
+      }
+    } catch (error) {
+      console.error('Error fetching next meeting:', error);
+      setMeetingError(error instanceof Error ? error.message : 'Failed to load meeting');
+    } finally {
+      setMeetingLoading(false);
+    }
+  };
 
-//   const url = URL.createObjectURL(blob);
+  fetchNextMeeting();
+}, [status, session?.supabaseAccessToken]);
 
-//   // Download automatically
-//   const a = document.createElement('a');
-//   a.href = url;
-//   a.download = 'daily-quote.png';
-//   a.click();
+// Fetch latest book
+useEffect(() => {
+  const fetchLatestBook = async () => {
+    if (status !== 'authenticated' || !session?.supabaseAccessToken) {
+      setBookLoading(false);
+      return;
+    }
 
-//   return url; // We’ll use this for the preview dialog
-// };
-  
+    try {
+      setBookLoading(true);
+      setBookError(null);
+
+      const response = await fetch('/api/books?latest=true', {
+        headers: {
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch books: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        setLatestBook(data[0]);
+      } else {
+        setLatestBook(null);
+      }
+    } catch (error) {
+      console.error('Error fetching latest book:', error);
+      setBookError(error instanceof Error ? error.message : 'Failed to load book');
+    } finally {
+      setBookLoading(false);
+    }
+  };
+
+  fetchLatestBook();
+}, [status, session?.supabaseAccessToken]);
+
 const handleClickShare = async () => {
   if (!quoteImageRef.current) return;
   
@@ -170,26 +317,68 @@ const handleClickShare = async () => {
             <div className="flex flex-col gap-4 col-span-3">
               <Card className="flex-1 bg-[url('/images/today-bg.svg')] bg-cover">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pt-3 pb-2">
-                  <CardTitle className="text-sm font-medium">Today's Recommendation</CardTitle>
+                  <CardTitle className="text-sm font-medium">Recently Added Book</CardTitle>
                 </CardHeader>
                 <CardContent className="px-3 pb-3">
-                  {/* <div>
-                    <p>Token expired: {expired ? 'Yes' : 'No'}</p>
-                    <p>Expires at: {expiryTime?.toLocaleString()}</p>
-                    <p>Time until expiry: {timeUntilExpiry} seconds</p>
-                    <p>Expiring soon: {isExpiringSoon ? 'Yes' : 'No'}</p>
-                  </div> */}
-                  <div className="text-xl font-bold">Book Name Here</div>
-                  <p className="text-xs text-bookBlack">here goes genre tag</p>
+                  {bookLoading ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-xs text-bookBlack">Loading...</span>
+                    </div>
+                  ) : bookError ? (
+                    <div>
+                      <div className="text-sm font-bold text-red-600">Error</div>
+                      <p className="text-xs text-bookBlack">{bookError}</p>
+                    </div>
+                  ) : latestBook ? (
+                    <div className="flex items-start gap-3">
+                      {/* Book Info */}
+                      <Link href={`/books/${latestBook.id}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-lg font-bold text-bookBlack leading-tight truncate">
+                          {latestBook.title}
+                        </div>
+                        <p className="text-xs text-bookBlack/80 truncate">by {latestBook.author} <span className="text-xs text-bookBlack/35">{formatTimeAgo(latestBook.created_at)}</span></p>
+                      </div>
+                      </Link>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-xl font-bold">No books yet</div>
+                      <p className="text-xs text-bookBlack">Add your first book to get started</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
+              
               <Card className="flex-1 bg-[url('/images/meeting-bg.svg')] bg-cover rounded-bl-3xl">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pt-3 pb-2">
                   <CardTitle className="text-sm font-medium">Next Meeting</CardTitle>
                 </CardHeader>
                 <CardContent className="px-3 pb-3">
-                  <div className="text-xl font-bold">3 days</div>
-                  <p className="text-xs text-bookBlack">May 9, 7:00 PM</p>
+                  {meetingLoading ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-xs text-bookBlack">Loading...</span>
+                    </div>
+                  ) : meetingError ? (
+                    <div>
+                      <div className="text-sm font-bold text-red-600">Error</div>
+                      <p className="text-xs text-bookBlack">{meetingError}</p>
+                    </div>
+                  ) : nextMeeting ? (
+                    <Link href={`/calendar`}>
+                    <div>
+                      <div className="text-xl font-bold">{formatTimeUntilMeeting(nextMeeting.date)}</div>
+                      <p className="text-xs text-bookBlack">{formatMeetingDateTime(nextMeeting.date)}</p>
+                    </div>
+                    </Link>
+                  ) : (
+                    <div>
+                      <div className="text-xl font-bold">No meetings</div>
+                      <p className="text-xs text-bookBlack">No upcoming meetings scheduled</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -238,7 +427,7 @@ const handleClickShare = async () => {
                           <>
                             <DialogHeader className="px-6 pt-4">
                               <DialogTitle className="mt-7 text-center">Ready to share!</DialogTitle>
-                              <DialogDescription>You can now share this quote on Instagram Stories, WhatsApp, or wherever you’d like.</DialogDescription>
+                              <DialogDescription>You can now share this quote on Instagram Stories, WhatsApp, or wherever you'd like.</DialogDescription>
                             </DialogHeader>
 
                             <div className="grid gap-2 py-0">

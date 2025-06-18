@@ -172,7 +172,7 @@ export default function ClubsMain({
       setLoadingAction(false);
     }
   };
-
+console.log(pendingInvitations);
   const handleJoinClub = async (clubId: string) => {
     const baseUrl = getBaseUrl();
     setLoadingAction(true);
@@ -568,10 +568,17 @@ export default function ClubsMain({
                                     <div className="flex">
                                         <p className="text-secondary text-xs/4">{invitation.club.current_book?.pages} pages • {invitation.club.current_book?.reading_time}</p>
                                     </div>
-                                    <span className="flex flex-row items-center w-36 mt-1.5 h-5 px-2 bg-accent-variant/75 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
-                                      <Calendar className="h-3 w-3 mr-1"/>
-                                      {invitation.club.meetings?.[0] && calculateDaysUntilMeeting(invitation.club.meetings?.[0].meeting_date)}.
-                                    </span>
+                                    {invitation.club.meetings && invitation.club.meetings.length > 0 ? (
+                                      <span className="flex flex-row items-center w-36 mt-1.5 h-5 px-2 bg-accent-variant/75 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
+                                        <Calendar className="h-3 w-3 mr-1"/>
+                                        {calculateDaysUntilMeeting(invitation.club.meetings[0].meeting_date)}.
+                                      </span>
+                                      ) : (
+                                      <span className="flex flex-row items-center w-40 mt-1.5 h-5 px-2 bg-accent-variant/75 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
+                                        <Calendar className="h-3 w-3 mr-1"/>
+                                        No meeting date set.
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -725,11 +732,11 @@ export default function ClubsMain({
                                           <p className="text-secondary text-xs/4">{club.current_book?.pages} pages • {club.current_book?.reading_time}</p>
                                       </div>
                                       {club.meetings && club.meetings.length > 0 ? (
-                                      <span className="flex flex-row items-center w-36 mt-1.5 h-5 px-2 bg-accent-variant/75 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
-                                        <Calendar className="h-3 w-3 mr-1"/>
-                                        {calculateDaysUntilMeeting(club.meetings[0].meeting_date)}.
-                                      </span>
-                                      ) : (
+                                        <span className="flex flex-row items-center w-36 mt-1.5 h-5 px-2 bg-accent-variant/75 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
+                                          <Calendar className="h-3 w-3 mr-1"/>
+                                          {calculateDaysUntilMeeting(club.meetings[0].meeting_date)}.
+                                        </span>
+                                        ) : (
                                         <span className="flex flex-row items-center w-40 mt-1.5 h-5 px-2 bg-accent-variant/75 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
                                           <Calendar className="h-3 w-3 mr-1"/>
                                           No meeting date set.

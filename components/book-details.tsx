@@ -51,6 +51,20 @@ interface BookReactions {
   LIKE: number;
 }
 
+// Add interface for friends shelf data
+interface FriendShelf {
+  id: string;
+  name: string;
+  nickname?: string;
+  avatar: string | null;
+  initials: string;
+  shelf: 'currently_reading' | 'queue' | 'history' | 'favorite';
+  status?: 'in_progress' | 'almost_done' | 'finished' | 'unfinished';
+  media_type?: 'e_reader' | 'audio_book' | 'physical_book';
+  added_at: string;
+  is_favorite: boolean;
+}
+
 interface BookData {
   id: string;
   title: string;
@@ -167,6 +181,11 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
   const [customKindleEmail, setCustomKindleEmail] = useState('');
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
 
+  // Add state for friends shelf data
+  const [friendsShelves, setFriendsShelves] = useState<FriendShelf[]>([]);
+  const [isLoadingFriends, setIsLoadingFriends] = useState(false);
+  const [friendsError, setFriendsError] = useState<string | null>(null);
+
   // Add a function to fetch book files
   const fetchBookFiles = async () => {
     try {
@@ -191,8 +210,32 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
   useEffect(() => {
     if (id) {
       fetchBookFiles();
+      fetchFriendsShelves();
     }
   }, [id]);
+
+  // Add function to fetch friends' shelves
+  const fetchFriendsShelves = async () => {
+    try {
+      setIsLoadingFriends(true);
+      setFriendsError(null);
+      
+      const response = await fetch(`/api/books/${id}/friends-shelves`);
+      
+      if (response.ok) {
+        const friendsData = await response.json();
+        setFriendsShelves(friendsData);
+      } else {
+        const errorData = await response.json();
+        setFriendsError(errorData.error || 'Failed to fetch friends shelves');
+      }
+    } catch (error) {
+      console.error('Error fetching friends shelves:', error);
+      setFriendsError('Failed to fetch friends shelves');
+    } finally {
+      setIsLoadingFriends(false);
+    }
+  };
 
   // Fetch book data
   
@@ -527,6 +570,41 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
     handleSendToKindle(fileId, email);
   };
 
+  // Helper function to get shelf display info
+  const getShelfDisplay = (shelf: FriendShelf['shelf']) => {
+    switch (shelf) {
+      case 'currently_reading':
+        return { label: 'Currently Reading', color: 'bg-accent-variant/20 text-accent-variant' };
+      case 'queue':
+        return { label: 'In Queue', color: 'bg-primary/20 text-primary' };
+      case 'history':
+        return { label: 'Finished', color: 'bg-green-600/20 text-green-600' };
+      case 'favorite':
+        return { label: 'Favorite', color: 'bg-red-500/20 text-red-500' };
+      default:
+        return { label: 'Unknown', color: 'bg-gray-500/20 text-gray-500' };
+    }
+  };
+
+  // Helper function to get status display info
+  const getStatusDisplayForFriend = (status?: FriendShelf['status']) => {
+    if (!status) return null;
+    switch (status) {
+      case 'in_progress':
+        return '⏳ In Progress';
+      case 'almost_done':
+        return '💫 Almost Done';
+      case 'finished':
+        return '🔥 Finished';
+      case 'unfinished':
+        return '😑 Unfinished';
+      default:
+        return null;
+    }
+  };
+
+ 
+
   return (
     <div className="space-y-3 px-2 mb-16">
       {/* Header Section */}
@@ -547,13 +625,13 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                     <ArrowLeft className="h-5 w-5 text-secondary" />
                 </button>
             </div>
-            <div className="flex flex-row justify-between gap-2 p-3 pb-2">
-              <div>
+            <div className="flex flex-row justify-normal gap-2 p-3 pb-2 w-full">
+              <div className="flex flex-col">
                 <div className="w-36 h-56 bg-muted/30 rounded-md flex items-center justify-center overflow-hidden">
                   <img src={book.cover || "/placeholder.svg"} alt={book.title} className="max-h-full" />
                 </div>
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col w-full">
                 <div className="flex flex-row justify-between items-start">
                   <div className="flex-1 min-w-0">
                     <h1 className="text-base/5 break-words font-bold text-secondary-light">{book.title}</h1>
@@ -784,11 +862,11 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
             </div>
             
           </CardHeader>
-          <CardContent className="px-3 pb-3">
+          <CardContent className="px-3 pb-5">
             <Separator className="my-3" />
             <div>
               <h2 className="text-base text-secondary-light font-bold mb-0">Overview</h2>
-              <div className="text-sm space-y-2 whitespace-pre-line font-serif leading-4">{book.description}</div>
+              <div className="text-sm space-y-2 whitespace-pre-line leading-4">{book.description}</div>
             </div>
           </CardContent>
         </Card>
@@ -1114,13 +1192,13 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                     <div className="space-y-3">
                       {book.clubs && book.clubs.length > 0 ? (
                         book.clubs.map((club) => (
-                          <div key={club.id} className="p-2 border rounded-lg flex flex-col">
+                          <div key={club.id} className="p-3 bg-secondary/5 rounded-lg flex flex-col">
                             <div>
                               <div className="flex flex-wrap justify-between">
                                   <h3 className="font-medium">{club.name}</h3>
-                                  <Button variant="outline" className="rounded-full bg-primary border-none">View Club</Button>
+                                  <Button variant="outline" className="rounded-full bg-primary/20 border-none hover:bg-primary/35 hover:text-secondary">View Club</Button>
                               </div>
-                              <div className="flex flex-col gap-0 mt-1 text-sm text-muted-foreground">
+                              <div className="flex flex-row gap-2 mt-0 text-sm text-muted-foreground">
                                 <div className="flex items-center gap-1 font-serif text-secondary-light/60">
                                   <User className="h-4 w-4" />
                                   <span>{club.members} members</span>
@@ -1137,9 +1215,9 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                         <div className="text-center py-8 text-muted-foreground">
                           <BookOpen className="h-12 w-12 mx-auto mb-2 opacity-50" />
                           <p>No book clubs are currently reading this book.</p>
-                          <Button variant="outline" className="mt-3 rounded-full">
+                          {/* <Button variant="outline" className="mt-3 rounded-full">
                             Browse Clubs
-                          </Button>
+                          </Button> */}
                         </div>
                       )}
                     </div>
@@ -1150,37 +1228,101 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
               <TabsContent value="friends" className="mt-3">
                 <Card className="p-3">
                   <CardHeader className="p-0">
-                    <CardTitle className="">Friends Reading This</CardTitle>
-                    <CardDescription className="font-serif font-medium">See which friends are reading this book</CardDescription>
+                    <CardTitle className="">Who is Reading this</CardTitle>
+                    <CardDescription className="font-serif font-medium">See which friends have this book on their shelves</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-6 px-0 pt-3 pb-2">
-                    <div className="space-y-3">
-                    {book.clubs && book.clubs.length > 0 ? (
-                      reviews.slice(0, 3).map((review) => (
-                        <div key={review.id} className="p-2 bg-secondary/5 rounded-lg flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                              <Avatar className="h-10 w-10">
-                                <AvatarImage src={review.user.avatar || "/placeholder.svg"} alt={review.user.name} />
-                                <AvatarFallback>{review.user.initials}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium text-base/4">{review.user.name}</p>
-                                <p className="text-xs font-serif text-secondary-light/60">Started {review.date}</p>
+                    {isLoadingFriends ? (
+                      <div className="flex justify-center items-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                        <span className="ml-2 text-muted-foreground">Loading friends...</span>
+                      </div>
+                    ) : friendsError ? (
+                      <div className="text-center py-8 text-red-500">
+                        <p>{friendsError}</p>
+                        <Button 
+                          variant="outline" 
+                          className="mt-3 rounded-full"
+                          onClick={fetchFriendsShelves}
+                        >
+                          Try Again
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {friendsShelves.length > 0 ? (
+                          friendsShelves.map((friend) => {
+                            const shelfDisplay = getShelfDisplay(friend.shelf);
+                            const statusDisplay = getStatusDisplayForFriend(friend.status);
+                            return (
+                              <div key={`${friend.id}-${friend.shelf}`} className="p-3 bg-secondary/5 rounded-lg">
+                                <div className="flex justify-between items-start mb-2">
+                                  <div className="flex items-center gap-3">
+                                    <Avatar className="h-12 w-12">
+                                      <AvatarImage src={friend.avatar || "/placeholder.svg"} alt={friend.name} />
+                                      <AvatarFallback>{friend.initials}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                      <p className="font-medium text-base">{friend.name}</p>
+                                      {friend.nickname && (
+                                        <p className="text-sm text-secondary/70">@{friend.nickname}</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    className="rounded-full bg-primary/20 border-none hover:bg-primary/35 hover:text-secondary"
+                                    onClick={() => router.push(`/profile/${friend.id}`)}
+                                  >
+                                    View Profile
+                                  </Button>
+                                </div>
+                                
+                                <div className="flex flex-row justify-between items-center">
+                                  <div className="flex flex-wrap gap-2 items-center">
+                                    {(shelfDisplay.label === "In Queue") && (
+                                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${shelfDisplay.color}`}>
+                                        {shelfDisplay.label}
+                                      </span>
+                                    )}
+                                    
+                                    {statusDisplay && (
+                                      <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">
+                                        {statusDisplay}
+                                      </span>
+                                    )}
+                                    
+                                    {friend.is_favorite && (
+                                      <span className="px-2 py-1 text-xs font-medium bg-red-100 text-red-600 rounded-full flex items-center gap-1">
+                                        <Heart className="h-3 w-3 fill-current" />
+                                        Favorite
+                                      </span>
+                                    )}
+                                  </div>
+                                  
+                                  <span className="text-xs text-secondary/60 font-serif">
+                                    Added {new Date(friend.added_at).toLocaleDateString('en-US', { 
+                                      month: 'short', 
+                                      day: 'numeric', 
+                                      year: 'numeric' 
+                                    })}
+                                  </span>
+                                </div>
                               </div>
+                            );
+                          })
+                        ) : (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <User className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                            <p>None of your friends have this book on their shelves.</p>
+                            {/* <Button variant="outline" className="mt-3 rounded-full">
+                              Invite Friends
+                            </Button> */}
                           </div>
-                          <Button variant="outline" className="rounded-full bg-primary border-none">Profile</Button>
-                        </div>
-                      ))
-                      ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <BookOpen className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                          <p>No friends are currently reading this book.</p>
-                          <Button variant="outline" className="mt-3 rounded-full">
-                            Browse Clubs
-                          </Button>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>

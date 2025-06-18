@@ -109,7 +109,11 @@ export default function CalendarMain() {
     if (!session?.user?.id) return;
     
     try {
-      const response = await fetch('/api/meetings');
+      const response = await fetch('/api/meetings', {
+        headers: {
+          'Authorization': `Bearer ${session.supabaseAccessToken}`
+        }
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch meetings');
       }

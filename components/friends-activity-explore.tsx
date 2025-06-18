@@ -23,14 +23,23 @@ function ExploreUserCard({ user, onFriendRequestSent }: ExploreUserCardProps) {
     id: user.id,
     display_name: user.display_name,
     email: user.email,
+    avatar_url: user.avatar_url,
   };
 
   return (
     <div className='h-auto'>
     <Card className="p-2 flex flex-col bg-bookWhite/5 w-full max-w-xs mx-auto">
     <CardHeader className="flex p-0 items-center">
-        <div className="flex items-center justify-center w-20 h-20 rounded-full bg-bookWhite mb-1">
-            <User className="h-6 w-6 text-gray-500" />
+        <div className="flex items-center justify-center w-20 h-20 rounded-full bg-bookWhite mb-1 overflow-hidden">
+            {user.avatar_url ? (
+              <img 
+                src={user.avatar_url} 
+                alt={user.display_name || 'User'} 
+                className="w-full h-full rounded-full object-cover" 
+              />
+            ) : (
+              <User className="h-6 w-6 text-gray-500" />
+            )}
         </div>
         <CardTitle className='text-sm/4 font-medium text-bookWhite'>{user.display_name}</CardTitle>
     </CardHeader>

@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Plus, ChevronLeft } from "lucide-react";
 import { BookDetails } from "@/types/book";
+import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 interface BookSuggestion {
   key: string;
@@ -44,16 +46,14 @@ interface AddBookDialogProps {
   books: BookDetails[];
   setBooks: (books: BookDetails[]|[])=> void;
   onBookAdded: (newBook: BookDetails) => void; 
-
 }
 
-
-
 export const AddBookDialog: React.FC<AddBookDialogProps> = ({ open, onOpenChange, books, setBooks, onBookAdded }) => {
+  const { data: session, status } = useSession();
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
   const [suggestions, setSuggestions] = useState<BookSuggestion[]>([]);
-  const [selectedBook, setSelectedBook] = useState<BookDetails | null>(null);
+  const [selectedBook, setSelectedBook] = useState<Partial<BookDetails> | null>(null);
   const [englishFile, setEnglishFile] = useState<File | null>(null);
   const [spanishFile, setSpanishFile] = useState<File | null>(null);
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
@@ -194,7 +194,6 @@ const handleSelect = async (suggestion: BookSuggestion) => {
       .map((genre) => genre.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())) // Apply formatting
       .slice(0, 4); // Apply slice here (changed from 3 to 4)
 
-
   
   setSelectedBook({
     title: suggestion.title,
@@ -206,10 +205,10 @@ const handleSelect = async (suggestion: BookSuggestion) => {
     published_date,
     description,
     rating,
+    // Add default values for required BookDetails properties
+    reactions: { counts: { HEART: 0, THUMBS_UP: 0, THUMBS_DOWN: 0, LIKE: 0, total: 0 }, userReaction: null },
+    is_favorite: false
   });
-
-
- 
 
   setSuggestions([]);
   setShowAllSuggestions(false);
@@ -223,16 +222,22 @@ const handleSelect = async (suggestion: BookSuggestion) => {
     setDebounceTimer(timer);
   }, [title]);
 
-
-
   const handleAddBook = async () => {
-  if (!selectedBook) {
+    // Check authentication first
+    if (status !== 'authenticated' || !session?.supabaseAccessToken) {
+      setValidationError("Authentication required to add books.");
+      toast.error("Please log in to add books");
+      return;
+    }
+
+    if (!selectedBook) {
       setValidationError("Please select a book first.");
       return;
     }
-  // ---ALREADY EXISTING BOOK VALIDATION LOGIC ---
+    
+    // ---ALREADY EXISTING BOOK VALIDATION LOGIC ---
     const existingBook = books.find(
-      (book) => book.title.toLowerCase() === selectedBook.title.toLowerCase()
+      (book) => book.title.toLowerCase() === selectedBook.title?.toLowerCase()
     );
 
     if (existingBook) {
@@ -240,96 +245,165 @@ const handleSelect = async (suggestion: BookSuggestion) => {
       return; // Stop the function here if validation fails
     }
     // --- END ALREADY EXISTING BOOK VALIDATION LOGIC ---
- setIsLoading(true); // Start loading
- setValidationError(null); 
-  try {
-    // Step 1: If there's a file, get a presigned upload URL
-    let englishFileData = null;
-    if (englishFile) {
-      // Get presigned URL
-      const presignResponse = await fetch('/api/books/presign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: englishFile.name,
-          contentType: englishFile.type
-        })
-      });
-      
-      if (!presignResponse.ok) {
-        throw new Error('Failed to get upload URL');
-      }
-      
-      const { signedUrl, path } = await presignResponse.json();
-      
-      // Upload the file
-      const uploadResponse = await fetch(signedUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': englishFile.type },
-        body: englishFile
-      });
-      
-      if (!uploadResponse.ok) {
-        throw new Error('Failed to upload file');
-      }
-      
-      englishFileData = {
-        storageKey: path,
-        originalName: englishFile.name,
-        size: englishFile.size
+    
+    setIsLoading(true); // Start loading
+    setValidationError(null); 
+    
+    try {
+      // Step 1: Create the book entry first
+      const bookData = {
+        title: selectedBook.title,
+        author: selectedBook.author,
+        description: selectedBook.description,
+        reading_speed: selectedBook.reading_time,
+        pages: selectedBook.pages,
+        subjects: selectedBook.genres,
+        coverUrl: selectedBook.cover_url,
+        publishDate: selectedBook.published_date,
+        rating: selectedBook.rating
       };
+      
+      const createResponse = await fetch('/api/books', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
+        body: JSON.stringify(bookData)
+      });
+      
+      if (!createResponse.ok) {
+        const errorData = await createResponse.json().catch(() => ({ error: 'Failed to create book' }));
+        throw new Error(errorData.error || 'Failed to create book');
+      }
+      
+      // Get the created book data
+      const createdBook = await createResponse.json();
+      
+      // Step 2: Upload files if provided and associate them with the book
+      if (englishFile) {
+        await uploadFile(englishFile, "english", createdBook.id);
+      }
+      
+      if (spanishFile) {
+        await uploadFile(spanishFile, "spanish", createdBook.id);
+      }
+      
+      // Notify the parent component that a new book has been added
+      onBookAdded(createdBook);
+      
+      // Reset form and close dialog
+      setSelectedBook(null);
+      setTitle("");
+      setAuthor("");
+      setEnglishFile(null);
+      setSpanishFile(null);
+      onOpenChange(false);
+      
+      // Show success message
+      toast.success('Book added successfully!');
+      
+    } catch (error: unknown) {
+      console.error("Error adding book:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add book';
+      setValidationError(errorMessage);
+      toast.error(`Failed to add book: ${errorMessage}`);
+    } finally {
+      setIsLoading(false);
     }
-    
-    // Step 2: Create the book entry with metadata and file reference
-    const bookData = {
-      title: selectedBook.title,
-      author: selectedBook.author,
-      description: selectedBook.description,
-      reading_speed: selectedBook.reading_time,
-      pages: selectedBook.pages,
-      subjects: selectedBook.genres,
-      coverUrl: selectedBook.cover_url,
-      publishDate: selectedBook.published_date,
-      rating: selectedBook.rating,
-      ...englishFileData // Include file data if available
-    };
-    
-    const createResponse = await fetch('/api/books', {
+  };
+
+  const uploadFile = async (file: File, language: string, bookId: string) => {
+    if (!session?.supabaseAccessToken) {
+      throw new Error('Authentication required for file upload');
+    }
+
+    // Step 1: Get presigned URL
+    const presignResponse = await fetch('/api/books/presign', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(bookData)
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.supabaseAccessToken}`,
+      },
+      body: JSON.stringify({
+        filename: file.name,
+        contentType: file.type
+      })
     });
     
-    if (!createResponse.ok) {
-      const errorData = await createResponse.json();
-      throw new Error(errorData.error || 'Failed to create book');
+    if (!presignResponse.ok) {
+      const errorData = await presignResponse.json().catch(() => ({ error: 'Failed to get upload URL' }));
+      throw new Error(errorData.error || `Failed to get upload URL for ${language} file`);
     }
     
-    // Get the created book data
-    const createdBook = await createResponse.json();
+    const { signedUrl, path } = await presignResponse.json();
     
-    // Notify the parent component that a new book has been added
-    onBookAdded(createdBook);
+    // Step 2: Upload the file
+    const uploadResponse = await fetch(signedUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file
+    });
     
-    // Reset form and close dialog
-    setSelectedBook(null);
-    setTitle("");
-    setAuthor("");
-    setEnglishFile(null);
-    setSpanishFile(null);
-    onOpenChange(false);
+    if (!uploadResponse.ok) {
+      throw new Error(`Failed to upload ${language} file`);
+    }
     
-  } catch (error) {
-    console.error("Error adding book:", error);
-    alert(`Failed to add book: ${error.message}`);
+    // Step 3: Associate file with book in database
+    const fileData = {
+      bookId,
+      storageKey: path,
+      originalName: file.name,
+      size: file.size,
+      mimeType: file.type,
+      language
+    };
+    
+    const associateResponse = await fetch('/api/books/files', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.supabaseAccessToken}`,
+      },
+      body: JSON.stringify(fileData)
+    });
+    
+    if (!associateResponse.ok) {
+      const errorData = await associateResponse.json().catch(() => ({ error: 'Failed to associate file' }));
+      throw new Error(errorData.error || `Failed to associate ${language} file with book`);
+    }
+    
+    return await associateResponse.json();
+  };
+
+  // Show authentication required message if not authenticated
+  if (status === 'unauthenticated') {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogTrigger asChild>
+          <Button className="bg-primary hover:bg-primary-light text-secondary rounded-full">
+            <Plus className="mr-2 h-4 w-4" /> Add Book
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="w-[85vw] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Authentication Required</DialogTitle>
+            <DialogDescription>
+              Please log in to add books to your collection.
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+    );
   }
-};
-  
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogTrigger asChild>
-        <Button className="bg-primary hover:bg-primary-light text-secondary rounded-full">
+        <Button 
+          className="bg-primary hover:bg-primary-light text-secondary rounded-full"
+          disabled={status === 'loading'}
+        >
             <Plus className="mr-2 h-4 w-4" /> Add Book
         </Button>
         </DialogTrigger>
@@ -358,6 +432,7 @@ const handleSelect = async (suggestion: BookSuggestion) => {
                 placeholder="type the book title here"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
+                disabled={isLoading}
               />
               {suggestions.length > 0 && (
                 <div className="border rounded-xl p-2 max-h-60 overflow-y-auto bg-bookWhite shadow">
@@ -396,6 +471,7 @@ const handleSelect = async (suggestion: BookSuggestion) => {
           <button
             onClick={() => setSelectedBook(null)}
             className="absolute left-4 top-4 flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+            disabled={isLoading}
           >
             <ChevronLeft className="w-4 h-4 mr-1" />
               Back
@@ -442,6 +518,7 @@ const handleSelect = async (suggestion: BookSuggestion) => {
                 lang="en"
                 accept=".epub"
                 onChange={e => setEnglishFile(e.target.files?.[0] || null)}
+                disabled={isLoading}
               />
             </div>
             <div className="grid gap-2">
@@ -452,6 +529,7 @@ const handleSelect = async (suggestion: BookSuggestion) => {
                 lang="en"
                 accept=".epub"
                 onChange={e => setSpanishFile(e.target.files?.[0] || null)}
+                disabled={isLoading}
               />
             </div>
             </div>
@@ -459,7 +537,11 @@ const handleSelect = async (suggestion: BookSuggestion) => {
             <p className="text-red-500 text-sm mt-2">{validationError}</p>
           )}
           <DialogFooter className="justify-end">
-            <Button onClick={handleAddBook} disabled={!selectedBook} className="rounded-full bg-accent px-6 mt-2">
+            <Button 
+              onClick={handleAddBook} 
+              disabled={!selectedBook || isLoading || status !== 'authenticated'} 
+              className="rounded-full bg-accent px-6 mt-2"
+            >
                 {isLoading ? "Adding book..." : "Add Book"}
             </Button>
           </DialogFooter>

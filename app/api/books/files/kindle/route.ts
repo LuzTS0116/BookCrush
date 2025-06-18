@@ -137,5 +137,7 @@ export async function POST(req: NextRequest) {
       { error: error.message || "Failed to send book to Kindle" },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 } 

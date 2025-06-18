@@ -8,7 +8,7 @@
   
 //   if (!title) {
 //     return NextResponse.json(
-//       { error: 'Missing “title” query parameter' },
+//       { error: 'Missing "title" query parameter' },
 //       { status: 400 },
 //     );
 //   }
@@ -27,25 +27,55 @@
 
 // app/api/books/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@prisma/client' ;
+import { checkRateLimit, sanitizeInput, logSecurityEvent } from '@/lib/security-utils';
+
 const prisma = new PrismaClient();
 
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing for books API.");
+}
+
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+
 export async function POST(req: NextRequest) {
+  console.log('[API books POST] Request received');
+
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+  }
+
   try {
-    // Initialize Supabase client with cookies
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    // Bearer token authentication (consistent with other APIs)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API books POST] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error('[API books POST] Auth error:', userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
+    }
+
+    console.log('[API books POST] User authenticated:', user.id);
     
-    // Verify user authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+    // Rate limiting check
+    const rateLimitCheck = checkRateLimit(user.id, 'book_creation');
+    if (!rateLimitCheck.allowed) {
+      logSecurityEvent('RATE_LIMIT_EXCEEDED', user.id, { 
+        operation: 'book_creation',
+        endpoint: '/api/books' 
+      }, req);
+      return NextResponse.json({ error: rateLimitCheck.error }, { status: 429 });
     }
     
     // Parse the request body
@@ -65,22 +95,57 @@ export async function POST(req: NextRequest) {
       rating
     } = body;
     
+    // Validate and sanitize title
+    const titleValidation = sanitizeInput.bookTitle(title);
+    if (!titleValidation.isValid) {
+      return NextResponse.json({ error: titleValidation.error }, { status: 400 });
+    }
+
+    // Validate and sanitize description
+    let sanitizedDescription = '';
+    if (description) {
+      const descValidation = sanitizeInput.description(description);
+      if (!descValidation.isValid) {
+        return NextResponse.json({ error: descValidation.error }, { status: 400 });
+      }
+      sanitizedDescription = descValidation.sanitized;
+    }
+
+    // Validate author
+    if (!author || typeof author !== 'string' || author.trim().length === 0) {
+      return NextResponse.json({ error: 'Author is required' }, { status: 400 });
+    }
+    
+    if (author.length > 100) {
+      return NextResponse.json({ error: 'Author name must be less than 100 characters' }, { status: 400 });
+    }
+
+    // Validate pages
+    if (pages && (typeof pages !== 'number' || pages < 1 || pages > 10000)) {
+      return NextResponse.json({ error: 'Pages must be a number between 1 and 10000' }, { status: 400 });
+    }
+
+    // Validate rating
+    if (rating && (typeof rating !== 'number' || rating < 0 || rating > 5)) {
+      return NextResponse.json({ error: 'Rating must be a number between 0 and 5' }, { status: 400 });
+    }
+    
     const genres = subjects && Array.isArray(subjects) 
-      ? subjects.slice(0, 5).map((s: string) => s.trim()) // Added type for s
+      ? subjects.slice(0, 5).map((s: string) => s.trim()).filter(s => s.length > 0)
       : [];
     
-    const newBook = await prisma.book.create({ // Renamed to newBook for clarity
+    const newBook = await prisma.book.create({
       data: {
-        title,
-        author,
-        description: description || "",
+        title: titleValidation.sanitized,
+        author: author.trim(),
+        description: sanitizedDescription,
         reading_time: reading_speed || "N/A",
         pages: pages || null,
         genres,
         cover_url: coverUrl || null,
         published_date: publishDate || null,
         rating: rating || null,
-        added_by: user.id, // This is the user who is adding the book
+        added_by: user.id,
         file: storageKey ? { 
           create: { 
             storage_key: storageKey, 
@@ -93,11 +158,11 @@ export async function POST(req: NextRequest) {
       include: { file: true }
     });
 
-    // --- Create ActivityLog Entry for ADDED_BOOK_TO_LIBRARY ---
+    // Create ActivityLog Entry for ADDED_BOOK_TO_LIBRARY
     if (newBook) {
       await prisma.activityLog.create({
         data: {
-          user_id: user.id, // The user who added the book
+          user_id: user.id,
           activity_type: ActivityType.ADDED_BOOK_TO_LIBRARY,
           target_entity_type: ActivityTargetEntityType.BOOK,
           target_entity_id: newBook.id,
@@ -107,44 +172,145 @@ export async function POST(req: NextRequest) {
           }
         }
       });
+
+      // Log successful book creation
+      logSecurityEvent('BOOK_CREATED', user.id, {
+        bookId: newBook.id,
+        title: newBook.title,
+        hasFile: !!storageKey
+      }, req);
     }
-    // --- End ActivityLog Entry ---
     
+    console.log('[API books POST] Book created successfully:', newBook.id);
     return NextResponse.json(newBook, { status: 201 });
-  } catch (error: any) { // Explicitly type error as any
-    console.error("Error creating book:", error);
+  } catch (error: any) {
+    console.error("[API books POST] Error creating book:", error);
+    
+    // Log security event for failed book creation
+    logSecurityEvent('BOOK_CREATION_FAILED', 'unknown', {
+      error: error.message,
+      endpoint: '/api/books'
+    }, req);
+    
     return NextResponse.json(
       { error: error.message || "Failed to create book" },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
 export async function GET(req: NextRequest) {
+  console.log('[API books GET] Request received');
+
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+  }
+
   try {
-    // Initialize Supabase client with cookies
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    
-    // Verify user authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
+    // Bearer token authentication (consistent with other APIs)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API books GET] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
     }
 
-    // Get all books 
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error('[API books GET] Auth error:', userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
+    }
+
+    console.log('[API books GET] User authenticated:', user.id);
+
+    // Get query parameters
+    const url = new URL(req.url);
+    const limit = url.searchParams.get('limit');
+    const latest = url.searchParams.get('latest') === 'true'; // New parameter for dashboard
+    const filter = url.searchParams.get('filter') || 'all'; // New parameter for filtering: 'all', 'my-books', 'friends'
+
+    console.log('[API books GET] Filter parameter:', filter);
+
+    // Get user's friends first
+    const friendships = await prisma.friendship.findMany({
+      where: {
+        OR: [
+          { userId1: user.id },
+          { userId2: user.id }
+        ]
+      }
+    });
+
+    // Extract friend IDs (excluding current user)
+    const friendIds = friendships.map(friendship => 
+      friendship.userId1 === user.id ? friendship.userId2 : friendship.userId1
+    );
+
+    console.log('[API books GET] User friends:', friendIds.length);
+
+    // Build the where clause based on filter
+    let whereClause: any = {};
+
+    switch (filter) {
+      case 'my-books':
+        whereClause = {
+          added_by: user.id
+        };
+        break;
+      case 'friends':
+        whereClause = {
+          added_by: {
+            in: friendIds
+          }
+        };
+        break;
+      case 'all':
+      default:
+        whereClause = {
+          added_by: {
+            in: [user.id, ...friendIds]
+          }
+        };
+        break;
+    }
+
+    // If no friends and filter is 'friends', return empty array
+    if (filter === 'friends' && friendIds.length === 0) {
+      console.log('[API books GET] No friends found, returning empty array for friends filter');
+      return NextResponse.json([]);
+    }
+
+    // If no friends and filter is 'all', just show user's books
+    if (filter === 'all' && friendIds.length === 0) {
+      whereClause = {
+        added_by: user.id
+      };
+    }
+
+    // Get books with filtering
     const books = await prisma.book.findMany({
+      where: whereClause,
       include: {
-        file: true, 
+        file: true,
+        creator: {
+          select: {
+            id: true,
+            display_name: true,
+            nickname: true,
+            avatar_url: true
+          }
+        }
       },
       orderBy: {
         created_at: 'desc',
       },
+      take: limit ? parseInt(limit) : latest ? 1 : undefined, // Limit for dashboard
     });
+
+    console.log('[API books GET] Found books:', books.length, 'with filter:', filter);
 
     // Get reaction counts for each book and include user's reaction
     const booksWithReactionCounts = await Promise.all(books.map(async (book) => {
@@ -203,17 +369,22 @@ export async function GET(req: NextRequest) {
           counts,
           userReaction: userReaction?.type || null
         },
-        is_favorite: userBook?.is_favorite || false
+        is_favorite: userBook?.is_favorite || false,
+        // Include creator info for "Added by Friends" display
+        added_by_user: book.creator
       };
     }));
 
+    console.log('[API books GET] Returning books with reactions:', booksWithReactionCounts.length);
     return NextResponse.json(booksWithReactionCounts);
 
   } catch (err: any) {
-    console.error("Error fetching books:", err);
+    console.error("[API books GET] Error fetching books:", err);
     return NextResponse.json(
       { error: err.message || "Failed to fetch books" },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

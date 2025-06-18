@@ -3,12 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { PrismaClient } from '@prisma/client'; // Adjust path if necessary
+import { formatProfileWithAvatarUrlServer } from '@/lib/supabase-server-utils';
 
 const prisma = new PrismaClient();
 
 export async function GET(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -69,22 +70,20 @@ export async function GET(req: NextRequest) {
       select: {
         id: true,
         email: true,
-
-          
-            display_name: true,
-            about: true,
-            favorite_genres: true,
-            // Add any other profile fields you want to expose
-          
+        display_name: true,
+        about: true,
+        favorite_genres: true,
+        avatar_url: true, // Include avatar_url
+        // Add any other profile fields you want to expose
       },
     });
 
-    // The 'profile: { isNot: null }' should handle filtering out users without profiles,
-    // but an explicit filter can be added for robustness if 'profile' is truly optional in User
-    
+    // Format all profiles with proper avatar URLs (handles both Google URLs and storage keys)
+    const formattedUsers = await Promise.all(
+      explorableUsers.map(user => formatProfileWithAvatarUrlServer(user))
+    );
 
-
-    return NextResponse.json(explorableUsers, { status: 200 });
+    return NextResponse.json(formattedUsers, { status: 200 });
 
   } catch (error: any) {
     console.error("Error fetching explorable users:", error);

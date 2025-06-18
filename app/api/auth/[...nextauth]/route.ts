@@ -295,7 +295,22 @@ export const authOptions: NextAuthOptions = {
 
       if (session.user) {
         session.user.id = token.id as string;
+        
+        // Try to get user data from Supabase to populate name if missing
+        if (token.supa?.access_token && !session.user.name) {
+          try {
+            const { data: userData } = await supabaseAdmin.auth.getUser(token.supa.access_token);
+            if (userData.user?.user_metadata?.display_name) {
+              session.user.name = userData.user.user_metadata.display_name;
+            } else if (userData.user?.user_metadata?.nickname) {
+              session.user.name = userData.user.user_metadata.nickname;
+            }
+          } catch (error) {
+            console.warn('[Auth Session Callback] Could not fetch user metadata:', error);
+          }
+        }
       }
+      
       session.supabaseAccessToken = token.supa?.access_token;
       session.supabaseRefreshToken = token.supa?.refresh_token;
       

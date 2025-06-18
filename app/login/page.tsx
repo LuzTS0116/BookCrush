@@ -142,7 +142,7 @@ export default function LoginPage() {
                     id="email"
                     type="email"
                     placeholder="you@example.com"
-                    className="pl-10 text-bookWhite"
+                    className="pl-10 text-bookWhite log-sign"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -161,7 +161,7 @@ export default function LoginPage() {
                   <Input
                     id="password"
                     type="password"
-                    className="pl-10 text-bookWhite"
+                    className="pl-10 text-bookWhite log-sign"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required

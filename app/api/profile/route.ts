@@ -5,8 +5,8 @@ import { cookies } from 'next/headers'
 import { formatProfileWithAvatarUrlServer } from '@/lib/supabase-server-utils'
 
 export async function GET(req: NextRequest) {
-  const cookieStore = await cookies()
-  const supabase = createRouteHandlerClient({ cookies: () =>  cookieStore })
+  const cookieStore = cookies()
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -19,7 +19,33 @@ export async function GET(req: NextRequest) {
   const prisma = new PrismaClient()
   try {
     const profile = await prisma.profile.findUnique({
-      where: { id: user.id }
+      where: { id: user.id },
+      select: {
+        id: true,
+        display_name: true,
+        nickname: true,
+        avatar_url: true,
+        about: true,
+        favorite_genres: true,
+        userBooks: {
+          include: {
+            book: true // Include the full book details
+          }
+        },
+        addedBooks: true,
+        //how many memberships
+        _count: {
+          select: {
+            memberships: {
+              where: { status: 'ACTIVE' }
+            },
+            friendshipsAsUser1: true,
+            friendshipsAsUser2: true,
+          }
+        }
+        // Don't include sensitive information like email or kindle_email
+        // Only include what should be publicly visible
+      },
     })
 
     if (!profile) {
@@ -46,7 +72,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req:NextRequest){
 // const { display_name, about } = await req.json();
-const cookieStore = await cookies()
+const cookieStore = cookies()
 const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 const { data: { user } } = await supabase.auth.getUser();
 
@@ -84,7 +110,10 @@ try {
     create: { id: user.id, display_name, about, favorite_genres, nickname, kindle_email, avatar_url }
   })
 
-  return NextResponse.json(profile, { status:201 });
+  // Format the profile with proper avatar URL for consistency with GET endpoint
+  const formattedProfile = await formatProfileWithAvatarUrlServer(profile)
+
+  return NextResponse.json(formattedProfile, { status:201 });
 } catch (error: any) {
   console.error('[API /profile POST] Error:', error); // Log the full error server-side
 

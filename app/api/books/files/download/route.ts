@@ -74,5 +74,7 @@ export async function GET(req: NextRequest) {
       { error: error.message || "Failed to download file" },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 } 

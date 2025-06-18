@@ -17,8 +17,9 @@ interface EnrichedActivity {
   type: ActivityType;
   target_entity_type?: ActivityTargetEntityType | null;
   target_entity_id?: string | null;
+  target_entity_secondary_id?: string | null;
   related_user_id?: string | null;
-  created_at: string;
+  timestamp: string;
   details: any;
   user: UserProfileMinimal;
   relatedUser: UserProfileMinimal;
@@ -158,6 +159,27 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
             to the library.
           </>
         );
+      case ActivityType.REVIEWED_BOOK:
+        return (
+          <>
+            <span className='font-medium'>
+              <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
+            </span>{' '}
+            reviewed{' '}
+            <span className='font-medium'>
+              <Link href={`/books/${activity.target_entity_id}`}>
+                {activity.details?.book_title || 'a book'}
+              </Link>
+            </span>
+            {activity.details?.rating && (
+              <span className='font-normal italic'>
+                {' '}with a {activity.details.rating === 'HEART' ? '❤️' : 
+                          activity.details.rating === 'THUMBS_UP' ? '👍' : 
+                          activity.details.rating === 'THUMBS_DOWN' ? '👎' : '⭐'} rating
+              </span>
+            )}.
+          </>
+        );
       case ActivityType.JOINED_CLUB:
         return (
           <>
@@ -190,6 +212,28 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
               </Link>
             </span>{' '}
             book club.
+          </>
+        );
+      case ActivityType.POSTED_CLUB_DISCUSSION:
+        return (
+          <>
+            <span className='font-medium'>
+              <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
+            </span>{' '}
+            posted a comment in{' '}
+            <span className='font-medium'>
+              <Link href={`/clubs/${activity.target_entity_secondary_id}`}>
+                {activity.details?.club_name || 'a club'}
+              </Link>
+            </span>
+            {activity.details?.book_title && (
+              <>
+                {' '}about{' '}
+                <span className='font-medium italic'>
+                  {activity.details.book_title}.
+                </span>
+              </>
+            )}
           </>
         );
       default:
@@ -234,7 +278,7 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
         <div className="space-y-1 flex-1 min-w-0">
           <p className={textClasses}>
             {renderActivityText()}
-            <span className='text-xs text-secondary/50 font-serif font-medium'> {timeSince(activity.created_at)}</span>
+            <span className='text-xs text-secondary/50 font-serif font-medium'> {timeSince(activity.timestamp)}</span>
           </p>
         </div>
       </div>
@@ -246,8 +290,8 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
       <div className={`flex items-center justify-center ${avatarClasses} rounded-full bg-bookWhite mr-4 shrink-0`}>
         {activity.user?.avatar_url ? (
           <img 
-            src={activity.actor_avatar_url} 
-            alt={activity.actor_name || 'User'} 
+            src={activity.user.avatar_url} 
+            alt={activity.user.display_name || 'User'} 
             className="w-full h-full rounded-full object-cover" 
           />
         ) : (
@@ -258,7 +302,7 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
         <div className="flex flex-col">
           <CardTitle className={textClasses}>
             {renderActivityText()}
-            <span className='font-serif font-light text-xs opacity-80'> {timeSince(activity.created_at)}</span>
+            <span className='font-serif font-light text-xs opacity-80'> {timeSince(activity.timestamp)}</span>
           </CardTitle>
         </div>
       </div>

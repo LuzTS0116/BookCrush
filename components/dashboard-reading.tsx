@@ -4,13 +4,14 @@ import { useState, useEffect, useMemo } from "react"; // Added useEffect, useMem
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronDown, Smartphone, BookOpen, Headphones, Sparkles } from "lucide-react";
+import { ChevronDown, Smartphone, BookOpen, Headphones, Sparkles, ArrowRight, EllipsisVertical, Loader2 } from "lucide-react";
 import { Heart } from "@phosphor-icons/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion"; // Retaining these if you plan to use animation
 import { BookDetails, BookFile, UserBook, StatusDisplay, TabDisplay } from "@/types/book";
 import { toast } from "sonner";
+import { useSession } from "next-auth/react"; // Add session management
 
 // Re-define these with consistent types matching Prisma enums
 const statuses: StatusDisplay[] = [
@@ -31,6 +32,11 @@ const readingOptions = [
   { label: "Physical Book", icon: BookOpen, value: "physical_book" },
 ];
 
+// Define the available shelf types for the dropdown
+const SHELF_OPTIONS = [
+  { label: "Move to Reading Queue", value: "queue" },
+];
+
 // Helper to get status display info
 const getStatusDisplay = (statusCode: UserBook['status']): StatusDisplay => {
   return statuses.find(s => s.value === statusCode) || statuses[0]; // Default to "In Progress" if not found
@@ -42,6 +48,7 @@ const getMediaTypeDisplay = (mediaType: UserBook['media_type']) => {
 };
 
 export default function DashboardReading() {
+  const { data: session, status } = useSession(); // Add session management
   // State to hold books for each shelf
   const [currentlyReadingBooks, setCurrentlyReadingBooks] = useState<UserBook[]>([]);
   const [queueBooks, setQueueBooks] = useState<UserBook[]>([]);
@@ -51,6 +58,10 @@ export default function DashboardReading() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // State to manage per-book loading/feedback for adding to shelf
+  // Key: bookId, Value: { isLoading: boolean, message: string | null }
+  const [shelfActionsStatus, setShelfActionsStatus] = useState<Record<string, { isLoading: boolean, message: string | null }>>({});
 
   // Function to fetch books from the API
   const fetchBooks = async (shelf: UserBook['shelf']) => {
@@ -100,12 +111,6 @@ export default function DashboardReading() {
             : userBook
         )
       );
-
-      
-
-
-
-      
 
       // Call your API to update the book's status
       const response = await fetch('/api/shelf', {
@@ -307,6 +312,82 @@ export default function DashboardReading() {
     }
   };
 
+  // Function to add/move a book to a shelf
+    const handleAddToShelf = async (bookId: string, shelf: string) => {
+      if (!session?.supabaseAccessToken) {
+        toast.error('Authentication required');
+        return;
+      }
+  
+      setShelfActionsStatus(prev => ({
+        ...prev,
+        [bookId]: { isLoading: true, message: null }
+      }));
+
+      try {
+        // Get the current book to determine source shelf
+        const currentBook = [...currentlyReadingBooks, ...queueBooks].find(book => book.book_id === bookId);
+        const sourceShelf = currentBook?.shelf;
+
+        // Optimistic UI updates - only handle moving from currently reading to queue
+        if (sourceShelf === "currently_reading" && shelf === "queue") {
+          // Moving from currently reading to queue
+          setCurrentlyReadingBooks(prevBooks => 
+            prevBooks.filter(userBook => userBook.book_id !== bookId)
+          );
+          toast.success('Book moved to Reading Queue!');
+        }
+
+        // API call to update the shelf
+        const response = await fetch('/api/shelf', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.supabaseAccessToken}`,
+          },
+          body: JSON.stringify({ bookId, shelf, status: 'in_progress' })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to move book to shelf');
+        }
+
+        const result = await response.json();
+        console.log('Book moved to shelf:', result);
+
+        // Clear loading status
+        setShelfActionsStatus(prev => ({
+          ...prev,
+          [bookId]: { isLoading: false, message: null }
+        }));
+
+        // Refresh the target shelf if user is viewing it
+        if (activeTab === shelf) {
+          fetchBooks(shelf as UserBook['shelf']);
+        }
+
+      } catch (err: any) {
+        console.error("Error moving book to shelf:", err);
+        toast.error(`Failed to move book: ${err.message}`);
+        
+        // Rollback optimistic updates on error
+        if (activeTab === "currently_reading") {
+          fetchBooks("currently_reading");
+        }
+        
+        setShelfActionsStatus(prev => ({
+          ...prev,
+          [bookId]: { isLoading: false, message: `Error: ${err.message}` }
+        }));
+
+        // Clear error message after a few seconds
+        setTimeout(() => {
+          setShelfActionsStatus(prev => ({ ...prev, [bookId]: { isLoading: false, message: null } }));
+        }, 3000);
+      }
+    };
+
   return (
     <div className="container pb-6 mx-auto px-4">
       <div className="space-y-8">
@@ -335,7 +416,7 @@ export default function DashboardReading() {
             </div>
 
             {/* Content for "Currently Reading" Tab */}
-            <TabsContent value="currently_reading" className="space-y-4">
+            <TabsContent value="currently_reading" className="space-y-1">
               {isLoading ? (
                 <div className="text-center py-8">Loading books...</div>
               ) : error ? (
@@ -345,9 +426,12 @@ export default function DashboardReading() {
                   No books currently reading.
                 </p>
               ) : (
+                <>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {currentlyReadingBooks.map((userBook) => {
+                  {currentlyReadingBooks.slice(0, 8).map((userBook) => {
                     const currentStatusDisplay = getStatusDisplay(userBook.status);
+                    const bookId = userBook.book_id || '';
+                    const currentShelfStatus = shelfActionsStatus[bookId];
                     const currentMediaTypeDisplay = getMediaTypeDisplay(userBook.media_type);
                     return (
                       <Card key={userBook.book_id} className="relative overflow-hidden bg-bookWhite py-3">
@@ -365,14 +449,63 @@ export default function DashboardReading() {
                           {/* Content */}
                           <div className="flex flex-col justify-between flex-1">
                             <CardHeader className="pb-2 px-0 pt-0">
-                              <Link href={`/books/${userBook.book_id}`}>
-                                <CardTitle>{userBook.book.title}</CardTitle>
-                              </Link>
+                              <div className="flex flex-row justify-between items-start">
+                                <Link href={`/books/${userBook.book_id}`}>
+                                  <CardTitle className="leading-5">{userBook.book.title}</CardTitle>
+                                </Link>
+                                <div>
+                                  {/* --- NEW: Change Shelf Dropdown --- */}
+                                  {bookId && (
+                                  <div className="flex items-start relative">
+                                    <DropdownMenu.Root>
+                                      <DropdownMenu.Trigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none hover:bg-transparent"
+                                          disabled={currentShelfStatus?.isLoading} // Disable while action is loading
+                                        >
+                                          {currentShelfStatus?.isLoading ? (
+                                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                          ) : (
+                                            <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
+                                          )}
+                                        </Button>
+                                      </DropdownMenu.Trigger>
+
+                                      <DropdownMenu.Portal>
+                                        <DropdownMenu.Content
+                                          className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                                          sideOffset={5}
+                                        >
+                                        {SHELF_OPTIONS.filter(shelf => shelf.value !== userBook.shelf).map((shelf) => (
+                                          <DropdownMenu.Item
+                                            key={shelf.value}
+                                            onSelect={() => handleAddToShelf(bookId, shelf.value)}
+                                            className="px-3 py-2 text-xs text-center bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
+                                            disabled={currentShelfStatus?.isLoading}
+                                          >
+                                            {shelf.label}
+                                          </DropdownMenu.Item>
+                                        ))}
+                                        </DropdownMenu.Content>
+                                      </DropdownMenu.Portal>
+                                    </DropdownMenu.Root>
+                                    {/* Display action status message */}
+                                    {currentShelfStatus?.message && (
+                                      <p className="absolute top-full mb-1 right-0 text-nowrap text-xs mt-1 bg-primary/85 py-1 px-2 text-center flex-1 rounded-xl z-50" style={{ color: currentShelfStatus.message.startsWith('Error') ? 'red' : 'secondary' }}>
+                                        {currentShelfStatus.message}
+                                      </p>
+                                    )}
+                                  </div>
+                                  )}
+                                </div>
+                              </div>
                               <CardDescription>{userBook.book.author}</CardDescription>
                             </CardHeader>
 
                             <CardContent className="pb-0 px-0">
-                              <div className="flex flex-wrap gap-1.5 mb-2 items-center">
+                              <div className="flex flex-wrap gap-1 mb-2 items-center">
                                 {/* Added On */}
                                 {userBook.added_at && (
                                   <span className="px-2 py-0.5 text-xs font-regular bg-primary-dark/50 text-secondary rounded-full">
@@ -490,11 +623,22 @@ export default function DashboardReading() {
                     );
                   })}
                 </div>
+                {currentlyReadingBooks.length > 8 && (
+                <div className="flex justify-center pt-4">
+                  <Link href="/profile">
+                    <Button variant="secondary" className="border-b-2 bg-transparent rounded-none px-1 border-bookWhite/65 font-light pb-0.5">
+                      Go to Profile for complete list
+                      <ArrowRight />
+                    </Button>
+                  </Link>
+                </div>
+                )}
+              </>
               )}
             </TabsContent>
 
             {/* Content for "Reading Queue" Tab */}
-            <TabsContent value="queue" className="space-y-4">
+            <TabsContent value="queue" className="space-y-1">
               {isLoading ? (
                 <div className="text-center py-8">Loading books...</div>
               ) : error ? (
@@ -504,9 +648,12 @@ export default function DashboardReading() {
                   No books in reading queue.
                 </p>
               ) : (
+                <>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {queueBooks.map((userBook) => {
+                  {queueBooks.slice(0, 8).map((userBook) => {
                     const currentStatusDisplay = getStatusDisplay(userBook.status);
+                    const bookId = userBook.book_id || '';
+                    const currentShelfStatus = shelfActionsStatus[bookId];
                     const currentMediaTypeDisplay = getMediaTypeDisplay(userBook.media_type);
                     return (
                       <Card key={userBook.book_id} className="relative overflow-hidden bg-bookWhite py-3">
@@ -525,7 +672,7 @@ export default function DashboardReading() {
                           <div className="flex flex-col">
                             <CardHeader className="pb-0.5 px-0 pt-0">
                               <Link href={`/books/${userBook.book_id}`}>
-                                <CardTitle>{userBook.book.title}</CardTitle>
+                                <CardTitle className="leading-5">{userBook.book.title}</CardTitle>
                               </Link>
                               <CardDescription>{userBook.book.author}</CardDescription>
                             </CardHeader>
@@ -620,6 +767,17 @@ export default function DashboardReading() {
                     );
                   })}
                 </div>
+                {queueBooks.length > 8 && (
+                <div className="flex justify-center">
+                  <Link href="/profile">
+                    <Button variant="secondary" className="border-b-2 bg-transparent rounded-none px-1 border-bookWhite/65 font-light pb-0.5">
+                      Go to Profile for complete Queue
+                      <ArrowRight />
+                    </Button>
+                  </Link>
+                </div>
+                )}
+              </>
               )}
             </TabsContent>
           </Tabs>

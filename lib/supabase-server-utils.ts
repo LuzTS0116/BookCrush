@@ -27,10 +27,19 @@ export async function getSupabasePublicUrlServer(bucketName: string, filePath: s
 
 /**
  * Server-side utility to get avatar public URL
- * @param avatarPath - Path to the avatar file
+ * @param avatarPath - Path to the avatar file or full URL
  * @returns Public URL string or null
  */
 export async function getAvatarPublicUrlServer(avatarPath: string | null | undefined): Promise<string | null> {
+  if (!avatarPath) return null
+  
+  // Check if avatarPath is already a full URL (starts with http:// or https://)
+  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
+    // It's already a full URL (like Google avatar), return as is
+    return avatarPath
+  }
+  
+  // It's a relative path, convert to public URL
   return getSupabasePublicUrlServer('profiles', avatarPath)
 }
 

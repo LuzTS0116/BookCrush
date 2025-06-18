@@ -16,7 +16,7 @@ export function ActivityCard() {
     <div className="container mx-auto bg-secondary-light pt-6 pb-4 px-4 rounded-t-3xl">
         <div className="space-y-8">
             <div className="grid gap-6 md:grid-cols-2">
-              <Card className="bg-[url('/images/recent_bg2.png')] bg-cover rounded-t-3xl shadow-none p-4 rounded-b-lg">
+              <Card className="bg-[url('/images/recent_bg2.png')] bg-cover h-full rounded-t-3xl shadow-none p-4 rounded-b-lg">
                 <CardHeader className="p-0">
                   <CardTitle className="text-bookBlack text-xl font-bold leading-none mt-1">Recent Activity</CardTitle>
                   <CardDescription className="font-serif font-medium text-secondary">Your friends have been busy—take a look!</CardDescription>

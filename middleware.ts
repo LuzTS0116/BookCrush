@@ -26,6 +26,7 @@ const globalPublicRoutes = [
   { path: '/api/discussions', exact: false }, // All discussions API routes
   { path: '/api/user-books', exact: false }, // All user-books API routes
   { path: '/api/files', exact: false }, // All files API routes
+  { path: '/api/profile/presign', exact: true }
 ];
 
 export async function middleware(request: NextRequest) {

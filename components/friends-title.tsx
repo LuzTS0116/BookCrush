@@ -16,7 +16,7 @@ export default function FriendsTitle({friends, sent, request}: Props) {
       <div className="space-y-8">
         <div className="relative flex flex-col md:flex-row justify-between gap-2 overflow-visible">
           <div className="w-[75vw]">
-            <h1 className="text-3xl font-bold tracking-tight text-bookWhite">Friends<span className="text-2xl"></span></h1>
+            <h1 className="text-3xl font-bold tracking-tight text-bookWhite">Friends 🌷<span className="text-2xl"></span></h1>
             <p className="text-bookWhite font-serif text-base/5">
               Connect with book lovers, all in one place. See who you're sharing the shelf with and keep up with your favorite readers.
             </p>
@@ -27,14 +27,14 @@ export default function FriendsTitle({friends, sent, request}: Props) {
             />
           </div>
           {/* Flower SVG positioned to the right */}
-          <div className="absolute right-[-60px] top-3 block">
+          {/* <div className="absolute right-[-60px] top-3 block">
             <Image 
             src="/images/logo-mark.svg"
             alt="Create and Manage your Book Clubs | BookCrush"
             width={32}
             height={32}
             className="w-32 h-32 opacity-50 rotate-[-25deg]" />
-          </div>
+          </div> */}
         </div>  
       </div>
     </div>

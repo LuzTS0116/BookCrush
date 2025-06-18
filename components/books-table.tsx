@@ -39,6 +39,7 @@ import { BookDetails } from "@/types/book";
 import { AddBookDialog } from "./add-book-dialog"
 import { ViewBookDetailsDialog } from "./ViewBookDetailsDialog"
 import { toast } from "sonner"; // Changed from react-hot-toast to sonner
+import { useSession } from "next-auth/react"; // Add session management
 
 // Define the available shelf types for the dropdown
 const SHELF_OPTIONS = [
@@ -54,20 +55,32 @@ interface BookReactions {
   LIKE: number;
 }
 
+// Extended BookDetails interface to include creator info
+interface ExtendedBookDetails extends BookDetails {
+  added_by_user?: {
+    id: string;
+    display_name: string;
+    nickname: string | null;
+    avatar_url: string | null;
+  };
+}
+
 export default function BooksTableContents() {
+  const { data: session, status } = useSession(); // Add session management
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedGenre, setSelectedGenre] = useState("all") // This doesn't seem used in the current JSX
   const [viewMode, setViewMode] = useState<"card" | "table">("card")
+  const [activeTab, setActiveTab] = useState("all") // Track active tab
   //reactions
   const [reactions, setReactions] = useState<BookReactions>({ HEART: 0, THUMBS_UP: 0, THUMBS_DOWN: 0, LIKE: 0 })
   /* pagination */
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 6
+  const itemsPerPage = 10
 
   /* ------------------------------------------------------------------ */
   /*  UI state                                                           */
   /* ------------------------------------------------------------------ */
-  const [books, setBooks] = useState<BookDetails[]>([]);
+  const [books, setBooks] = useState<ExtendedBookDetails[]>([]);
 
   /* form fields inside the dialog (might be redundant if AddBookDialog handles its own state) */
   const [title, setTitle] = useState("");
@@ -83,25 +96,41 @@ export default function BooksTableContents() {
   // Key: bookId, Value: { isLoading: boolean, message: string | null }
   const [shelfActionsStatus, setShelfActionsStatus] = useState<Record<string, { isLoading: boolean, message: string | null }>>({});
 
-
   // Calculate pagination
   const totalPages = Math.ceil(books.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const currentBooks = books.slice(startIndex, endIndex)
 
+  // Function to fetch all books from your API - Updated for Bearer token auth and filtering
+  const fetchBooks = async (filter: string = 'all') => {
+    if (status !== 'authenticated' || !session?.supabaseAccessToken) {
+      setIsLoading(false);
+      setError('Authentication required to fetch books');
+      return;
+    }
 
-  // Function to fetch all books from your API
-  const fetchBooks = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/books'); // Your API route to get all books
+      console.log('[BooksTable] Fetching books with Bearer token, filter:', filter);
+      const response = await fetch(`/api/books?filter=${filter}`, {
+        headers: {
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch books');
+        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+        throw new Error(errorData.error || `Failed to fetch books: ${response.statusText}`);
       }
-      const data: BookDetails[] = await response.json();
+      
+      const data: ExtendedBookDetails[] = await response.json();
+      console.log('[BooksTable] Successfully fetched books:', data.length, 'for filter:', filter);
       setBooks(data);
+      // Reset pagination when switching tabs
+      setCurrentPage(1);
     } catch (err: any) {
       console.error("Error fetching books:", err);
       setError(err.message || "Could not load books.");
@@ -109,42 +138,47 @@ export default function BooksTableContents() {
       setIsLoading(false);
     }
   };
-  console.log(books)
 
-  // Fetch books on component mount
+  console.log('[BooksTable] Current state:', { 
+    booksCount: books.length, 
+    isLoading, 
+    error, 
+    sessionStatus: status,
+    hasAccessToken: !!session?.supabaseAccessToken,
+    activeTab
+  });
+
+  // Fetch books when session becomes available or tab changes
   useEffect(() => {
-    fetchBooks();
-  }, []);
+    if (status === 'authenticated' && session?.supabaseAccessToken) {
+      // Map tab values to API filter values
+      const filterMap: Record<string, string> = {
+        'all': 'all',
+        'my-books': 'my-books',
+        'club-books': 'friends' // "Added by Friends" maps to 'friends' filter
+      };
+      fetchBooks(filterMap[activeTab] || 'all');
+    } else if (status === 'unauthenticated') {
+      setIsLoading(false);
+      setError('Please log in to view books');
+    }
+  }, [status, session?.supabaseAccessToken, activeTab]);
 
-  // Fetch reactions on component mount
-    useEffect(() => {
-      const fetchReactions = async () => {
-        try {
-          
-          // Fetch reactions
-          const [reactionsResponse] = await Promise.all([
-            fetch(`/api/books/${id}/reactions`)
-          ])
-  
-          if (reactionsResponse.ok) {
-            const reactionsData = await reactionsResponse.json()
-            setReactions(reactionsData.reactions)
-          } else {
-            console.error('Failed to fetch reactions')
-          }
-  
-        } catch (error) {
-          console.error('Error fetching reactions:', error)
-        } finally {
-        }
-      }
-  
-      fetchReactions()
-    }, [])
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    // fetchBooks will be called by the useEffect above
+  };
 
   // Callback to update the books list after a new book is added via dialog
   const handleBookAdded = (newBook: BookDetails) => {
-    setBooks(prev => [newBook, ...prev]);
+    // When a new book is added, refresh the current tab
+    const filterMap: Record<string, string> = {
+      'all': 'all',
+      'my-books': 'my-books', 
+      'club-books': 'friends'
+    };
+    fetchBooks(filterMap[activeTab] || 'all');
   };
 
   function formatDate(timestamp: string) {
@@ -157,6 +191,11 @@ export default function BooksTableContents() {
 
   // Function to add/move a book to a shelf
   const handleAddToShelf = async (bookId: string, shelf: string) => {
+    if (!session?.supabaseAccessToken) {
+      toast.error('Authentication required');
+      return;
+    }
+
     setShelfActionsStatus(prev => ({
       ...prev,
       [bookId]: { isLoading: true, message: null }
@@ -165,7 +204,10 @@ export default function BooksTableContents() {
       // Your API call to add/move the book
       const response = await fetch('/api/shelf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
         body: JSON.stringify({ bookId, shelf, status: 'in_progress' }) // Default status for new additions
       });
       if (!response.ok) {
@@ -201,6 +243,10 @@ export default function BooksTableContents() {
   // Add book to favorites - heart
   const handleFavorite = async (bookId: string) => {
     if (!bookId) return;
+    if (!session?.supabaseAccessToken) {
+      toast.error('Authentication required');
+      return;
+    }
     
     // Get the current book
     const currentBook = books.find(book => book.id === bookId);
@@ -220,6 +266,7 @@ export default function BooksTableContents() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
         },
         body: JSON.stringify({ bookId }),
       });
@@ -257,6 +304,24 @@ export default function BooksTableContents() {
       toast.error('Failed to update favorite status');
     }
   };
+
+  // Show loading state while checking authentication
+  if (status === 'loading') {
+    return (
+      <div className="container mx-auto px-4 py-6 pb-20">
+        <p className="text-center text-muted-foreground mt-8">Loading...</p>
+      </div>
+    );
+  }
+
+  // Show authentication required message
+  if (status === 'unauthenticated') {
+    return (
+      <div className="container mx-auto px-4 py-6 pb-20">
+        <p className="text-center text-muted-foreground mt-8">Please log in to view books.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-6 pb-20">
@@ -305,7 +370,7 @@ export default function BooksTableContents() {
         </div>
 
         <div className="">
-          <Tabs defaultValue="all" className="">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="">
             <div className="flex justify-center">
               <TabsList className="bg-secondary-light text-primary rounded-full mb-2">
                 <TabsTrigger
@@ -332,22 +397,41 @@ export default function BooksTableContents() {
             {isLoading ? (
               <p className="text-center text-muted-foreground mt-8">Loading books...</p>
             ) : error ? (
-              <p className="text-center text-red-500 mt-8">Error: {error}</p>
+              <div className="text-center mt-8">
+                <p className="text-red-500 mb-4">Error: {error}</p>
+                <Button onClick={() => {
+                  const filterMap: Record<string, string> = {
+                    'all': 'all',
+                    'my-books': 'my-books',
+                    'club-books': 'friends'
+                  };
+                  fetchBooks(filterMap[activeTab] || 'all');
+                }} variant="outline">
+                  Retry
+                </Button>
+              </div>
             ) : books.length === 0 ? (
-              <p className="text-center text-muted-foreground mt-8">
-                No books yet. Click &ldquo;Add Book&rdquo; to get started.
-              </p>
+              <div className="text-center text-muted-foreground mt-8">
+                {activeTab === 'my-books' ? (
+                  <p>No books added by you yet. Click &ldquo;Add Book&rdquo; to get started.</p>
+                ) : activeTab === 'club-books' ? (
+                  <p>No books added by your friends yet. Connect with friends who love reading!</p>
+                ) : (
+                  <p>No books yet. Click &ldquo;Add Book&rdquo; to get started or connect with friends.</p>
+                )}
+              </div>
             ) : (
-              <TabsContent value="all" className="space-y-4">
+              <TabsContent value={activeTab} className="space-y-4">
                 {viewMode === "card" ? (
                   <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                     {currentBooks.map((book) => {
-                      const currentShelfStatus = shelfActionsStatus[book.id];
+                      const bookId = book.id || ''; // Handle undefined book.id
+                      const currentShelfStatus = shelfActionsStatus[bookId];
                       return (
-                        <Card key={book.id} className="flex flex-col gap-2">
+                        <Card key={bookId} className="relative flex flex-col gap-2">
                           <div className="flex gap-4 px-4 pt-4 pb-4">
                             {/* Cover Image */}
-                            <Link href={`/books/${book.id}`}>
+                            <Link href={`/books/${bookId}`}>
                               <div className="w-[110px] h-35 bg-muted/30 rounded flex items-center justify-center overflow-hidden shrink-0">
                                 <img
                                   src={book.cover_url || "/placeholder.svg"}
@@ -363,69 +447,79 @@ export default function BooksTableContents() {
                               <div>
                                 <div className="flex flex-row justify-between">
                                   <div className="flex-1 min-w-0">
-                                    <Link href={`/books/${book.id}`}>
+                                    <Link href={`/books/${bookId}`}>
                                       <h3 className="text-lg/5 font-semibold break-words text-secondary">{book.title}</h3>
                                     </Link>
                                   </div>
                                   {/* --- NEW: Add to Shelf Dropdown --- */}
-                                  <div className="flex items-start">
-                                  <DropdownMenu.Root>
-                                    <DropdownMenu.Trigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none"
-                                        disabled={currentShelfStatus?.isLoading} // Disable while action is loading
-                                      >
-                                        <Plus className="h-4 w-4 text-muted-foreground" />
-                                      </Button>
-                                    </DropdownMenu.Trigger>
-
-                                    <DropdownMenu.Portal>
-                                      <DropdownMenu.Content
-                                        className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
-                                        sideOffset={5}
-                                      >
-                                      {SHELF_OPTIONS.map((shelf) => (
-                                        <DropdownMenu.Item
-                                          key={shelf.value}
-                                          onSelect={() => handleAddToShelf(book.id, shelf.value)}
-                                          className="px-3 py-2 text-xs text-center bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
+                                  {bookId && (
+                                    <div className="flex items-start">
+                                    <DropdownMenu.Root>
+                                      <DropdownMenu.Trigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none"
+                                          disabled={currentShelfStatus?.isLoading} // Disable while action is loading
                                         >
-                                          {shelf.label}
-                                        </DropdownMenu.Item>
-                                      ))}
-                                      </DropdownMenu.Content>
-                                    </DropdownMenu.Portal>
-                                  </DropdownMenu.Root>
-                                  {/* Display action status message */}
-                                  {currentShelfStatus?.message && (
-                                    <p className="absolute top-full mb-1 right-0 text-nowrap text-xs mt-1 bg-primary/85 py-1 px-2 text-center flex-1 rounded-xl z-50" style={{ color: currentShelfStatus.message.startsWith('Error') ? 'red' : 'secondary' }}>
-                                      {currentShelfStatus.message}
-                                    </p>
+                                          <Plus className="h-4 w-4 text-muted-foreground" />
+                                        </Button>
+                                      </DropdownMenu.Trigger>
+
+                                      <DropdownMenu.Portal>
+                                        <DropdownMenu.Content
+                                          className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                                          sideOffset={5}
+                                        >
+                                        {SHELF_OPTIONS.map((shelf) => (
+                                          <DropdownMenu.Item
+                                            key={shelf.value}
+                                            onSelect={() => handleAddToShelf(bookId, shelf.value)}
+                                            className="px-3 py-2 text-xs text-center bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
+                                          >
+                                            {shelf.label}
+                                          </DropdownMenu.Item>
+                                        ))}
+                                        </DropdownMenu.Content>
+                                      </DropdownMenu.Portal>
+                                    </DropdownMenu.Root>
+                                    {/* Display action status message */}
+                                    {currentShelfStatus?.message && (
+                                      <p className="absolute top-full mb-1 right-0 text-nowrap text-xs mt-1 bg-primary/85 py-1 px-2 text-center flex-1 rounded-xl z-50" style={{ color: currentShelfStatus.message.startsWith('Error') ? 'red' : 'secondary' }}>
+                                        {currentShelfStatus.message}
+                                      </p>
+                                    )}
+                                    </div>
                                   )}
-                                  </div>
                                 </div>
                                 <p className="text-secondary/50 text-sm">{book.author}</p>
+                                
+                                {/* Show who added the book for non-my-books tabs */}
+                                {activeTab !== 'my-books' && book.added_by_user && book.added_by_user.id !== session?.user?.id && (
+                                  <p className="text-xs text-secondary/60 italic">
+                                    Added by {book.added_by_user.nickname || book.added_by_user.display_name}
+                                  </p>
+                                )}
+                                
                                 <div>
                                     <div className="flex gap-2">
                                       <div className="flex items-center gap-1">
                                           <Heart
                                               className="h-3 w-3 text-primary"
                                           />
-                                          <span className="font-serif font-medium text-xs text-secondary">{book.reactions.counts.HEART}</span>
+                                          <span className="font-serif font-medium text-xs text-secondary">{book.reactions?.counts?.HEART || 0}</span>
                                       </div>
                                       <div className="flex items-center gap-1">
                                           <ThumbsUp
                                               className="h-3 w-3 text-accent-variant"
                                           />
-                                          <span className="font-serif font-medium text-xs text-secondary">{book.reactions.counts.THUMBS_UP}</span>
+                                          <span className="font-serif font-medium text-xs text-secondary">{book.reactions?.counts?.THUMBS_UP || 0}</span>
                                       </div>
                                       <div className="flex items-center gap-1">
                                           <ThumbsDown
                                               className="h-3 w-3 text-accent"
                                           />
-                                          <span className="font-serif font-medium text-xs text-secondary">{book.reactions.counts.THUMBS_DOWN}</span>
+                                          <span className="font-serif font-medium text-xs text-secondary">{book.reactions?.counts?.THUMBS_DOWN || 0}</span>
                                       </div>
                                     </div>
                                   </div>
@@ -452,21 +546,23 @@ export default function BooksTableContents() {
                               <div className="flex flex-row justify-between items-end gap-2 text-sm">
                                 <div>
                                   <p className="text-secondary/60 text-xs font-serif font-medium">
-                                    Added <span> {new Date(book.created_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})}</span>
+                                    Added <span> {book.created_at ? new Date(book.created_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'}) : 'Unknown'}</span>
                                   </p>
                                 </div>
-                                <div className="flex justify-end items-end">
-                                    <button
-                                      onClick={() => handleFavorite(book.id!)}
-                                      className={`p-0`}
-                                    >
-                                      <Heart
-                                        className="h-5 w-5"
-                                        color="#C51104"
-                                        weight={book.is_favorite ? "fill" : "regular"}
-                                      />
-                                    </button>
-                                </div>
+                                {bookId && (
+                                  <div className="flex justify-end items-end">
+                                      <button
+                                        onClick={() => handleFavorite(bookId)}
+                                        className={`p-0 absolute bottom-2 right-3`}
+                                      >
+                                        <Heart
+                                          className="h-5 w-5"
+                                          color="#C51104"
+                                          weight={book.is_favorite ? "fill" : "regular"}
+                                        />
+                                      </button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -475,7 +571,7 @@ export default function BooksTableContents() {
                     })}
                   </div>
                 ) : (
-                  // --- Table View (Placeholder) ---
+                  // --- Table View ---
                   <div className="rounded-md border">
                     <Table className="rounded-lg">
                       <TableHeader >
@@ -484,14 +580,16 @@ export default function BooksTableContents() {
                           <TableHead className="p-2">Author</TableHead>
                           <TableHead className="p-2">Pages</TableHead>
                           <TableHead className="p-2">Genre</TableHead>
+                          {activeTab !== 'my-books' && <TableHead className="p-2">Added By</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {currentBooks.map((book) => {
-                          const currentShelfStatus = shelfActionsStatus[book.id];
+                          const bookId = book.id || ''; // Handle undefined book.id
+                          const currentShelfStatus = shelfActionsStatus[bookId];
                           return (
-                            <TableRow key={book.id}>
-                              <TableCell className="font-medium p-2"><Link href={`/books/${book.id}`}>{book.title}</Link></TableCell>
+                            <TableRow key={bookId}>
+                              <TableCell className="font-medium p-2"><Link href={`/books/${bookId}`}>{book.title}</Link></TableCell>
                               <TableCell className="p-2">{book.author}</TableCell>
                               <TableCell className="p-2">{book.pages}</TableCell>
                               <TableCell className="p-2">
@@ -504,6 +602,14 @@ export default function BooksTableContents() {
                                   </span>
                                 ))}
                               </TableCell>
+                              {activeTab !== 'my-books' && (
+                                <TableCell className="p-2 text-xs text-secondary/60">
+                                  {book.added_by_user && book.added_by_user.id !== session?.user?.id
+                                    ? (book.added_by_user.nickname || book.added_by_user.display_name)
+                                    : 'You'
+                                  }
+                                </TableCell>
+                              )}
                             </TableRow>
                           );
                         })}

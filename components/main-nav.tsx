@@ -20,6 +20,7 @@ import {
 import { useSession } from "next-auth/react";
 import { handleSignOut } from '@/lib/auth';
 import { useProfile } from "@/hooks/use-profile"
+import React, { useState } from "react";
 
 export function MainNav() {
   
@@ -41,7 +42,7 @@ export function MainNav() {
   
   // Check if the current path matches /clubs/[id], /profile/[id], or /books/[id]
   const shouldHideNav = /^\/(clubs|profile|books)\/[^/]+$/.test(pathname) ||
-  ["/profile", "/profile-setup", "/login", "/signup", "/home"].includes(pathname);
+  ["/","/profile", "/profile-setup", "/login", "/signup", "/home"].includes(pathname);
 
   // if (status === "loading") {
   //   return <p>Loading session…</p>;
@@ -73,6 +74,8 @@ export function MainNav() {
       active: pathname === "/friends",
     },
   ]
+console.log("avatarUrl in mainnav", avatarUrl)
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   return (
     <div className={cn('bg-secondary-light rounded-bl-2xl rounded-br-2xl', { 'hidden': shouldHideNav })}>
@@ -110,7 +113,7 @@ export function MainNav() {
           <Link href="/#" className="text-muted-foreground hover:text-primary">
             <Heart className="h-5 w-5 font-bold"/>
           </Link>
-          <DropdownMenu>
+          <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar className="h-8 w-8">
@@ -129,9 +132,9 @@ export function MainNav() {
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56 border-none rounded-xl" align="end" forceMount>
+            <DropdownMenuContent className="w-auto border-none rounded-xl bg-secondary/50 backdrop-blur-sm" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
+                <div className="flex flex-col items-end space-y-1">
                   <p className="text-sm font-medium leading-none">
                     {displayName}
                     {profileError && (
@@ -143,15 +146,15 @@ export function MainNav() {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>
-                <Link href="/profile" className="flex w-full">
+                <Link href="/profile" className="flex justify-end w-full" onClick={() => setDropdownOpen(false)}>
                   Profile
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
-              <Button onClick={handleSignOut} className="rounded-full">
-        Sign out
-      </Button>
+              <DropdownMenuItem className="flex justify-end">
+                <Button onClick={handleSignOut} className="rounded-full">
+                  Sign out
+                </Button>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -20,6 +20,7 @@ model Profile {
   avatar_url      String?
   kindle_email    String?  @db.Text
   favorite_genres String[]
+  role            UserRole @default(USER)
   created_at      DateTime @default(now()) @db.Timestamptz(6)
   updated_at      DateTime @updatedAt @db.Timestamptz(6)
 
@@ -49,6 +50,9 @@ model Profile {
   // New invitation-related relations
   sentInvitations     ClubInvitation[]    @relation("SentInvitations")
   receivedInvitations ClubInvitation[]    @relation("ReceivedInvitations")
+
+  // Feedback relation
+  feedback Feedback[] @relation("UserFeedback")
 
   @@map("profiles")
   @@schema("public")
@@ -375,6 +379,7 @@ enum ActivityType {
   LEFT_CLUB
   CLUB_SELECTED_BOOK   // A club the user is a member of selected a new current book
   CLUB_NEW_MEMBER      // A new member joined a club the user is part of
+  POSTED_CLUB_DISCUSSION // User posted a discussion in a club
 
   // Milestones / Achievements
   FINISHED_BOOKS_MONTHLY_MILESTONE // e.g., "User finished X books this month"
@@ -388,6 +393,7 @@ enum ActivityTargetEntityType {
   USER_BOOK // Represents a UserBook table entry (book on a specific user's shelf)
   PROFILE   // Represents another user/profile (e.g. friend request target, new friend)
   CLUB
+  CLUB_DISCUSSION // Represents a ClubDiscussion entry
   FRIEND_REQUEST
   // REVIEW // if you add reviews
   // GENERIC // For activities not tied to a specific DB entity ID e.g. monthly milestone
@@ -503,5 +509,50 @@ model BookReview {
 
   @@unique([user_id, book_id]) // One review per user per book
   @@map("book_reviews")
+  @@schema("public")
+}
+
+enum FeedbackType {
+  BUG_REPORT
+  FEATURE_REQUEST
+  GENERAL_FEEDBACK
+  COMPLAINT
+  COMPLIMENT
+
+  @@schema("public")
+}
+
+enum FeedbackStatus {
+  PENDING
+  REVIEWED
+  IN_PROGRESS
+  RESOLVED
+  DISMISSED
+
+  @@schema("public")
+}
+
+model Feedback {
+  id          String         @id @default(uuid()) @db.Uuid
+  user_id     String         @db.Uuid
+  type        FeedbackType
+  content     String         @db.Text
+  status      FeedbackStatus @default(PENDING)
+  admin_notes String?        @db.Text
+  created_at  DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime       @updatedAt @db.Timestamptz(6)
+
+  user Profile @relation("UserFeedback", fields: [user_id], references: [id])
+
+  @@map("feedback")
+  @@schema("public")
+}
+
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+  SUPER_ADMIN
+
   @@schema("public")
 }

@@ -56,3 +56,9 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
+
+.log-sign:-webkit-autofill {
+  box-shadow: 0 0 0px 1000px #18203f inset !important; /* your bg color */
+  -webkit-text-fill-color: #faf4e7 !important;            /* your text color */
+  transition: background-color 9999s ease-in-out 0s;
+}

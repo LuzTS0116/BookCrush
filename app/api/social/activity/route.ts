@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { PrismaClient, Profile, ActivityLog, ActivityType} from '@prisma/client' ;
+import { getAvatarPublicUrlServer } from '@/lib/supabase-server-utils';
 
 const prisma = new PrismaClient();
 
 // Helper function to enrich activities with necessary details for the frontend
 async function enrichActivity(activity: ActivityLog & { user: Profile }): Promise<any> {
+  // Format the avatar URL from storage key to public URL
+  const avatarUrl = await getAvatarPublicUrlServer(activity.user.avatar_url);
+  
   let enrichedActivity: any = {
     id: activity.id,
     type: activity.activity_type,
@@ -14,7 +18,7 @@ async function enrichActivity(activity: ActivityLog & { user: Profile }): Promis
     user: {
       id: activity.user.id,
       display_name: activity.user.display_name,
-      avatar_url: (activity.user as any).avatar_url || null, // If you have avatar_url
+      avatar_url: avatarUrl,
     },
     details: activity.details, // Raw details JSON
     // Add more specific structured data based on activity_type
@@ -47,9 +51,16 @@ async function enrichActivity(activity: ActivityLog & { user: Profile }): Promis
     if (activity.related_user_id) {
       const relatedUser = await prisma.profile.findUnique({
         where: { id: activity.related_user_id },
-        select: { id: true, display_name: true }
+        select: { id: true, display_name: true, avatar_url: true }
       });
-      enrichedActivity.relatedUser = relatedUser;
+      
+      if (relatedUser) {
+        const relatedUserAvatarUrl = await getAvatarPublicUrlServer(relatedUser.avatar_url);
+        enrichedActivity.relatedUser = {
+          ...relatedUser,
+          avatar_url: relatedUserAvatarUrl
+        };
+      }
     }
   }else if ( activity.activity_type === 'ADDED_BOOK_TO_LIBRARY' ) {
     if (activity.target_entity_id) {

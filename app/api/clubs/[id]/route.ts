@@ -207,5 +207,7 @@ export async function GET(
   } catch (error: any) {
     console.error("Error fetching club details:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch club details" }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }

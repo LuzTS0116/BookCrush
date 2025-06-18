@@ -9,11 +9,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Pencil, Save } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Pencil, Save, Loader2, AlertCircle, CheckCircle } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from 'next/navigation'
 
 // Simple loading component
@@ -28,6 +28,7 @@ function LoadingClubs() {
 
 export default function ProfileSetupPage() {
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [name, setName] = useState("")
   const [bio, setBio] = useState("")
   const [selectedGenre, setSelectedGenre] = useState("")
@@ -35,6 +36,7 @@ export default function ProfileSetupPage() {
   const [nickname, setNickname] = useState("")
   const [kindleEmail, setKindleEmail] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   
   // Profile picture states
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -72,6 +74,7 @@ export default function ProfileSetupPage() {
     if (selectedGenre && !favoriteGenres.includes(selectedGenre)) {
       setFavoriteGenres([...favoriteGenres, selectedGenre])
       setSelectedGenre("")
+      setError(null) // Clear any previous errors
     }
   }
 
@@ -99,6 +102,7 @@ export default function ProfileSetupPage() {
 
     setIsUploadingPicture(true)
     setError(null)
+    setSuccess(null)
 
     try {
       // Create preview URL for immediate display
@@ -140,9 +144,11 @@ export default function ProfileSetupPage() {
 
       // Store the path for form submission
       setAvatarUrl(path)
+      setSuccess('Profile picture uploaded successfully!')
 
     } catch (err) {
-      setError((err as Error).message)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to upload profile picture';
+      setError(errorMessage)
       console.error('Profile picture upload error:', err)
       // Clear preview on error
       setProfilePicturePreview(null)
@@ -154,8 +160,28 @@ export default function ProfileSetupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     console.log('[ProfileSetupPage] handleSubmit triggered');
     e.preventDefault()
+    
+    // Clear previous messages
     setError(null)
-    setIsLoading(true);
+    setSuccess(null)
+    
+    // Basic validation
+    if (!name.trim()) {
+      setError('Full name is required');
+      return;
+    }
+    
+    if (!nickname.trim()) {
+      setError('Username is required');
+      return;
+    }
+    
+    if (kindleEmail && !kindleEmail.includes('@')) {
+      setError('Please enter a valid Kindle email address');
+      return;
+    }
+    
+    setIsSubmitting(true);
 
     try {
       const res = await fetch('/api/profile', {
@@ -189,19 +215,32 @@ export default function ProfileSetupPage() {
         throw new Error(message);
       }
 
-      // Redirect back to the original page if there was one
-      router.push(redirectedFrom || '/dashboard')
+      setSuccess('Profile saved successfully! Redirecting...');
+      
+      // Small delay to show success message before redirect
+      setTimeout(() => {
+        router.push(redirectedFrom || '/dashboard')
+      }, 1500);
+      
     } catch (err) {
-      setError((err as Error).message)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save profile';
+      setError(errorMessage)
       console.error(err)
-    }finally {
-        setIsLoading(false);
-      }
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   useEffect(() => {
     setIsLoading(false);
-  }, []);
+    
+    // Get nickname from URL parameters and use it as initial display name
+    const nicknameFromUrl = searchParams.get('nickname');
+    if (nicknameFromUrl) {
+      setName(nicknameFromUrl); // Use nickname as initial display name
+      setNickname(nicknameFromUrl); // Also set the nickname field
+    }
+  }, [searchParams]);
 
   // Cleanup profile picture preview URL
   useEffect(() => {
@@ -212,8 +251,18 @@ export default function ProfileSetupPage() {
     };
   }, [profilePicturePreview]);
 
+  // Auto-clear success messages
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => {
+        setSuccess(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
   return (
-    <div className="relative w-full h-auto overflow-hidden px-4 pt-9">
+    <div className="relative w-full h-auto overflow-hidden px-4 pt-9 pb-8">
       <Image 
         src="/images/background.png"
         alt="Create and Manage your Book Clubs | BookCrush"
@@ -233,7 +282,7 @@ export default function ProfileSetupPage() {
         {isLoading ? (
         <LoadingClubs />
         
-      ) : error ? (
+      ) : error && !isSubmitting ? (
         <div className="container mx-auto px-4 py-6 pb-20 flex items-center justify-center min-h-[400px]">
           <div className="text-center text-red-500">
             <p>Failed to load profile setup page</p>
@@ -247,7 +296,7 @@ export default function ProfileSetupPage() {
           </div>
         </div>
       ) : (
-        <Card className="w-full max-w-2xl border-primary/20 bg-[url('/images/quote-bg.svg')] bg-cover">
+        <Card className="w-full max-w-2xl border-primary/20 bg-[url('/images/quote-bg.svg')] bg-cover mb-12">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl/6 font-bold text-center text-secondary">Complete Your Profile</CardTitle>
             <CardDescription className="text-center text-base/5 font-medium font-serif">
@@ -255,6 +304,30 @@ export default function ProfileSetupPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Error Alert */}
+            {error && (
+              <Alert variant="destructive" className="mb-4 bg-red-500/20 border-red-500/30 text-red-100">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            {/* Success Alert */}
+            {success && (
+              <Alert className="mb-4 bg-green-500/20 border-green-500/30 text-green-100">
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription>{success}</AlertDescription>
+              </Alert>
+            )}
+            
+            {/* Loading Alert for form submission */}
+            {isSubmitting && (
+              <Alert className="mb-4 bg-primary/20 border-primary/30 text-bookWhite">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <AlertDescription>Saving your profile...</AlertDescription>
+              </Alert>
+            )}
+            
             <form onSubmit={handleSubmit} className="space-y-2">
               <div className="flex flex-col items-center mb-2">
                 <div className="relative mb-2">
@@ -271,8 +344,8 @@ export default function ProfileSetupPage() {
                     type="button"
                     size="icon"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploadingPicture}
-                    className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-accent hover:bg-primary-light"
+                    disabled={isUploadingPicture || isSubmitting}
+                    className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-accent hover:bg-primary-light disabled:opacity-50"
                   >
                     {isUploadingPicture ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -287,34 +360,38 @@ export default function ProfileSetupPage() {
                   onChange={handleProfilePictureUpload}
                   accept="image/jpeg,image/jpg,image/png,image/webp"
                   style={{ display: 'none' }}
+                  disabled={isSubmitting}
                 />
-                {profilePicturePreview && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Profile picture uploaded successfully
+                {isUploadingPicture && (
+                  <p className="text-xs text-primary mt-1 flex items-center">
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    Uploading image...
                   </p>
                 )}
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-0">
-                  <Label htmlFor="name">Full Name</Label>
+                  <Label htmlFor="name">Full Name *</Label>
                   <Input
                     id="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="bg-white/60 text-secondary border border-secondary-light file:text-bookWhite placeholder:text-secondary/70"
                     placeholder="Your full name"
+                    disabled={isSubmitting}
                     required
                   />
                 </div>
                 <div className="space-y-0">
-                  <Label htmlFor="nickname">Username</Label>
+                  <Label htmlFor="nickname">Username *</Label>
                   <Input
                     id="nickname"
                     value={nickname}
                     onChange={(e) => setNickname(e.target.value)}
                     className="bg-white/60 text-secondary border border-secondary-light file:text-bookWhite placeholder:text-secondary/70"
                     placeholder="Your username"
+                    disabled={isSubmitting}
                     required
                   />
                 </div>
@@ -327,6 +404,7 @@ export default function ProfileSetupPage() {
                     onChange={(e) => setKindleEmail(e.target.value)}
                     className="bg-white/60 text-secondary border border-secondary-light file:text-bookWhite placeholder:text-secondary/70"
                     placeholder="your_kindle@kindle.com"
+                    disabled={isSubmitting}
                   />
                 </div>
               </div>
@@ -339,6 +417,7 @@ export default function ProfileSetupPage() {
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="Tell us about yourself and your reading interests..."
                   className="min-h-[100px] rounded-2xl font-serif text-sm/4 italic bg-white/60 text-secondary border border-secondary-light placeholder:text-secondary/70"
+                  disabled={isSubmitting}
                 />
               </div>
 
@@ -351,7 +430,8 @@ export default function ProfileSetupPage() {
                       <button
                         type="button"
                         onClick={() => removeGenre(genre)}
-                        className="ml-2 text-primary-dark hover:text-primary"
+                        className="ml-2 text-primary-dark hover:text-primary disabled:opacity-50"
+                        disabled={isSubmitting}
                       >
                         ×
                       </button>
@@ -362,8 +442,12 @@ export default function ProfileSetupPage() {
                   )}
                 </div>
                 <div className="flex gap-2 items-center">
-                  <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-                    <SelectTrigger className="flex-1 rounded-full bg-white/60">
+                  <Select 
+                    value={selectedGenre} 
+                    onValueChange={setSelectedGenre}
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger className="flex-1 rounded-full bg-white/60 disabled:opacity-50">
                       <SelectValue placeholder="Select a genre" />
                     </SelectTrigger>
                     <SelectContent>
@@ -374,7 +458,12 @@ export default function ProfileSetupPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button type="button" onClick={addGenre} disabled={!selectedGenre} className="rounded-full bg-primary-dark text-bookWhite">
+                  <Button 
+                    type="button" 
+                    onClick={addGenre} 
+                    disabled={!selectedGenre || isSubmitting} 
+                    className="rounded-full bg-primary-dark text-bookWhite disabled:opacity-50"
+                  >
                     Add
                   </Button>
                 </div>
@@ -382,8 +471,22 @@ export default function ProfileSetupPage() {
             </form>
           </CardContent>
           <CardFooter className="flex justify-end">
-            <Button onClick={handleSubmit} className="rounded-full text-bookWhite font-normal bg-accent-variant/80 hover:bg-accent-variant">
-              Save Profile
+            <Button 
+              onClick={handleSubmit} 
+              className="rounded-full text-bookWhite font-normal bg-accent-variant/80 hover:bg-accent-variant disabled:opacity-50"
+              disabled={isSubmitting || isUploadingPicture}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving Profile...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Profile
+                </>
+              )}
             </Button>
           </CardFooter>
         </Card>

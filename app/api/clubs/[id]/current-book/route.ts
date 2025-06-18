@@ -224,6 +224,8 @@ export async function GET(
       { error: error.message || 'Failed to fetch current book' },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
@@ -356,6 +358,8 @@ export async function PUT(
       { error: error.message || 'Failed to set current book' },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
@@ -418,5 +422,7 @@ export async function DELETE(
       { error: error.message || 'Failed to remove current book' },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

@@ -51,7 +51,6 @@ export async function GET(
           }
         },
         addedBooks: true,
-        
         //how many memberships
         _count: {
           select: {
@@ -62,8 +61,6 @@ export async function GET(
             friendshipsAsUser2: true,
           }
         }
-        
-       
         // Don't include sensitive information like email or kindle_email
         // Only include what should be publicly visible
       },

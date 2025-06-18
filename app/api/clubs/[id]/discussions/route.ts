@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@prisma/client';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 
@@ -64,7 +64,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const discussions = await prisma.clubDiscussion.findMany({
       where: {
         club_id: clubId,
-        book_id: bookIdToFilterBy, // This will correctly fetch for a specific book_id or for NULL book_id
+        book_id: bookIdToFilterBy || undefined, // Convert null to undefined for Prisma
         parent_discussion_id: null,
       },
       include: {
@@ -86,6 +86,8 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   } catch (error: any) {
     console.error(`Error fetching discussions for club ${clubId}:`, error);
     return NextResponse.json({ error: error.message || 'Failed to fetch discussions' }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
@@ -124,14 +126,36 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       data: {
         club_id: clubId,
         user_id: authUser.id,
-        book_id: bookId, // This can be null for general discussions
+        book_id: bookId || undefined, // Convert null to undefined for Prisma
         content: text.trim(),
       },
       include: {
         user: { select: { id: true, display_name: true } },
-        // book: bookId ? { select: { id: true, title: true } } : undefined, // include book if bookId exists
+        club: { select: { id: true, name: true } },
+        book: bookId ? { select: { id: true, title: true } } : undefined,
       }
     });
+
+    // Create activity log for club discussion
+    try {
+      await prisma.activityLog.create({
+        data: {
+          user_id: authUser.id,
+          activity_type: ActivityType.POSTED_CLUB_DISCUSSION,
+          target_entity_type: ActivityTargetEntityType.CLUB_DISCUSSION,
+          target_entity_id: newDiscussion.id,
+          target_entity_secondary_id: clubId, // Store club_id for context
+          details: {
+            club_name: newDiscussion.club?.name,
+            book_title: newDiscussion.book?.title || null,
+            discussion_preview: text.trim().substring(0, 100) + (text.trim().length > 100 ? '...' : ''),
+          }
+        }
+      });
+    } catch (activityError) {
+      console.error('Failed to create activity log for club discussion:', activityError);
+      // Don't fail the main request if activity logging fails
+    }
     
     const mappedNewDiscussion = mapPrismaDiscussionToFrontend(newDiscussion);
     return NextResponse.json(mappedNewDiscussion, { status: 201 });
@@ -142,5 +166,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
     }
     return NextResponse.json({ error: error.message || 'Failed to create discussion' }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 } 

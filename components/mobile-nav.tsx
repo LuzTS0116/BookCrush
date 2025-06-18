@@ -10,7 +10,7 @@ import { motion, AnimatePresence } from "framer-motion"
 export function MobileNav() {
   const pathname = usePathname()
 
-  const shouldHideNav = ["/login", "/signup", "/home"].includes(pathname);
+  const shouldHideNav = ["/","/login", "/signup", "/home"].includes(pathname);
 
   const routes = [
     {

@@ -87,5 +87,7 @@ export async function PATCH(
   } catch (error) {
     console.error('Error updating meeting attendance:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 } 

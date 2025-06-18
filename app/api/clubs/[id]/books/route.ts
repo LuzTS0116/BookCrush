@@ -61,6 +61,8 @@ export async function GET(
       { error: 'Failed to fetch club books' },
       { status: 500 }
     )
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
@@ -123,6 +125,8 @@ export async function POST(
       { error: 'Failed to add book to club' },
       { status: 500 }
     )
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
@@ -221,5 +225,7 @@ export async function PATCH(
       { error: 'Failed to update book status' },
       { status: 500 }
     )
+  } finally {
+    await prisma.$disconnect();
   }
 } 

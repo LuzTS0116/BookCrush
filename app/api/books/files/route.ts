@@ -82,6 +82,8 @@ export async function POST(req: NextRequest) {
       { error: error.message || "Failed to associate file with book" },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
@@ -127,5 +129,7 @@ export async function GET(req: NextRequest) {
       { error: error.message || "Failed to fetch book files" },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 } 
