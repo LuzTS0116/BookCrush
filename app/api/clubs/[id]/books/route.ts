@@ -3,10 +3,11 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { useParams } from 'next/navigation'
-import { PrismaClient } from '@prisma/client';
-import {  ClubRole  } from '@prisma/client';
 
-const prisma = new PrismaClient();
+import {  ClubRole  } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+
+
 // Schema for adding a book to club history
 const addBookSchema = z.object({
   bookId: z.string().uuid(),
@@ -62,7 +63,7 @@ export async function GET(
       { status: 500 }
     )
   } finally {
-    await prisma.$disconnect();
+    
   }
 }
 
@@ -126,7 +127,7 @@ export async function POST(
       { status: 500 }
     )
   } finally {
-    await prisma.$disconnect();
+    
   }
 }
 
@@ -226,6 +227,6 @@ export async function PATCH(
       { status: 500 }
     )
   } finally {
-    await prisma.$disconnect();
+    
   }
 } 

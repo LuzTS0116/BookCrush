@@ -6,9 +6,9 @@ export default function BooksPageContents() {
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row justify-between gap-2">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-bookWhite">Books<span className="text-2xl"> ✨</span></h1>
+            <h1 className="text-3xl font-bold tracking-tight text-bookWhite">Shared Library<span className="text-2xl"> ✨</span></h1>
             <p className="text-bookWhite font-serif text-base/5">
-              Welcome to your shared library! Share your favorite books with friends, discover new reads, and build your library together.
+              Where book lovers gather and stories are shared. Discover new reads, share your favorite books, and build your library together.
             </p>
           </div>
         </div>  

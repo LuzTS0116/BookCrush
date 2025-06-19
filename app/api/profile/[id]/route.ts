@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { PrismaClient } from '@prisma/client';
+
 import { getPublicProfileData } from '@/lib/friendship-utils';
 import { canViewProfile } from '@/lib/friendship-utils';
+import { formatProfileWithAvatarUrlServer } from '@/lib/supabase-server-utils';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+
 
 export async function GET(
   req: NextRequest,
@@ -70,7 +72,10 @@ export async function GET(
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
-    return NextResponse.json(profile, { status: 200 });
+    // Format the profile with proper avatar URL
+    const formattedProfile = await formatProfileWithAvatarUrlServer(profile);
+
+    return NextResponse.json(formattedProfile, { status: 200 });
 
   } catch (error: any) {
     console.error("Error fetching user profile:", error);
@@ -79,6 +84,6 @@ export async function GET(
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect();
+    
   }
 }

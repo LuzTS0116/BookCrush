@@ -174,8 +174,9 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@prisma/client' ;
 import {  ClubRole, ClubMembershipStatus, club_book_status  } from '@prisma/client';
 import { z } from 'zod';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+
 
 const setCurrentBookSchema = z.object({
   bookId: z.string().uuid(),
@@ -225,7 +226,7 @@ export async function GET(
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect();
+    
   }
 }
 
@@ -359,7 +360,7 @@ export async function PUT(
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect();
+    
   }
 }
 
@@ -423,6 +424,6 @@ export async function DELETE(
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect();
+    
   }
 }

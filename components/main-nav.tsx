@@ -4,7 +4,7 @@ import Link from "next/link"
 import Image from "next/image";
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { BookOpen, Home, BookMarked, Users, Calendar, Bell, Search } from "lucide-react"
+import { BookOpen, Home, BookMarked, Users, Calendar, Bell, Search, Shield } from "lucide-react"
 import { Heart, Coffee } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -20,11 +20,13 @@ import {
 import { useSession } from "next-auth/react";
 import { handleSignOut } from '@/lib/auth';
 import { useProfile } from "@/hooks/use-profile"
+import { useUserRole } from "@/hooks/useUserRole"
 import React, { useState } from "react";
 
 export function MainNav() {
   
   const { data: session, status } = useSession(); // will be 'authenticated' here
+  const { isSuperAdmin } = useUserRole();
 
   // The useProfile hook already uses SWR with proper caching (5 minutes)
   // and deduplication, so it will only fetch once and reuse the data
@@ -74,7 +76,7 @@ export function MainNav() {
       active: pathname === "/friends",
     },
   ]
-console.log("avatarUrl in mainnav", avatarUrl)
+
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   return (
@@ -150,6 +152,17 @@ console.log("avatarUrl in mainnav", avatarUrl)
                   Profile
                 </Link>
               </DropdownMenuItem>
+              {isSuperAdmin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <Link href="/admin" className="flex justify-end w-full items-center gap-2" onClick={() => setDropdownOpen(false)}>
+                      <Shield className="h-4 w-4 text-red-600" />
+                      Admin Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem className="flex justify-end">
                 <Button onClick={handleSignOut} className="rounded-full">

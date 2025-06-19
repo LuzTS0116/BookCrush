@@ -5,8 +5,9 @@ import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { PrismaClient } from '@prisma/client'
 import {  ClubMembershipStatus, ClubRole  } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient()
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -90,6 +91,6 @@ export async function POST(req: NextRequest) {
     console.error("Error managing club membership:", error);
     return NextResponse.json({ error: error.message || "Failed to join/apply for club" }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 }

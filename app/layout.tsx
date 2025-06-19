@@ -45,7 +45,7 @@ export default async function RootLayout({
   
 
   return (
-    <html lang="en" className={`${chivo.variable} ${quicksand.variable}`}>
+    <html lang="en" className={`${chivo.variable} ${quicksand.variable}`} suppressHydrationWarning>
       <body>
         <AuthSessionProvider initialSession={session}>
           <SupabaseBridge>

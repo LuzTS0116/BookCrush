@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import sgMail from '@sendgrid/mail';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+
+
 
 // Initialize SendGrid with API key
 if (process.env.SENDGRID_API_KEY) {
@@ -138,6 +139,6 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect();
+    
   }
 } 

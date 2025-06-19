@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react"; // Added useEffect, useMem
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronDown, Smartphone, BookOpen, Headphones, Sparkles, ArrowRight, EllipsisVertical, Loader2 } from "lucide-react";
+import { ChevronDown, Smartphone, BookOpen, Headphones, Sparkles, ArrowRight, EllipsisVertical, Loader2, Edit3, Check, X } from "lucide-react";
 import { Heart } from "@phosphor-icons/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import Link from "next/link";
@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from "framer-motion"; // Retaining these if y
 import { BookDetails, BookFile, UserBook, StatusDisplay, TabDisplay } from "@/types/book";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react"; // Add session management
+import { Textarea } from "@/components/ui/textarea";
 
 // Re-define these with consistent types matching Prisma enums
 const statuses: StatusDisplay[] = [
@@ -63,6 +64,22 @@ export default function DashboardReading() {
   // Key: bookId, Value: { isLoading: boolean, message: string | null }
   const [shelfActionsStatus, setShelfActionsStatus] = useState<Record<string, { isLoading: boolean, message: string | null }>>({});
 
+  // State for personal note editing
+  const [editingNoteBookId, setEditingNoteBookId] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState<string>("");
+  const [isUpdatingNote, setIsUpdatingNote] = useState(false);
+
+  // State for confirmation dialogs
+  const [confirmRemoval, setConfirmRemoval] = useState<{
+    bookId: string | null;
+    bookTitle: string | null;
+    shelf: 'currently_reading' | 'queue' | null;
+  }>({
+    bookId: null,
+    bookTitle: null,
+    shelf: null
+  });
+
   // Function to fetch books from the API
   const fetchBooks = async (shelf: UserBook['shelf']) => {
     setIsLoading(true);
@@ -92,6 +109,66 @@ export default function DashboardReading() {
   useEffect(() => {
     fetchBooks(activeTab);
   }, [activeTab]); // Dependency array: re-run when activeTab changes
+
+  // Function to handle personal note updates
+  const handleNoteUpdate = async (bookId: string, shelf: UserBook['shelf']) => {
+    if (!noteText.trim() && !noteText) return; // Allow empty notes to be saved
+    
+    setIsUpdatingNote(true);
+    try {
+      const response = await fetch('/api/user-books/comment', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookId,
+          shelf,
+          comment: noteText.trim() || null, // Send null for empty comments
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update note');
+      }
+
+      // Update local state optimistically
+      const targetBooks = shelf === "currently_reading" ? currentlyReadingBooks : queueBooks;
+      const setTargetBooks = shelf === "currently_reading" ? setCurrentlyReadingBooks : setQueueBooks;
+
+      setTargetBooks(prevBooks =>
+        prevBooks.map(userBook => 
+          userBook.book_id === bookId 
+            ? { ...userBook, comment: noteText.trim() || null }
+            : userBook
+        )
+      );
+
+      // Reset editing state
+      setEditingNoteBookId(null);
+      setNoteText("");
+      toast.success(noteText.trim() ? 'Note updated!' : 'Note removed!');
+
+    } catch (err: any) {
+      console.error("Error updating note:", err);
+      toast.error(`Failed to update note: ${err.message}`);
+    } finally {
+      setIsUpdatingNote(false);
+    }
+  };
+
+  // Function to start editing a note
+  const startEditingNote = (bookId: string, currentComment: string | null) => {
+    setEditingNoteBookId(bookId);
+    setNoteText(currentComment || "");
+  };
+
+  // Function to cancel editing
+  const cancelEditingNote = () => {
+    setEditingNoteBookId(null);
+    setNoteText("");
+  };
 
   // Function to handle status updates via API
   const handleStatusChange = async (
@@ -388,6 +465,104 @@ export default function DashboardReading() {
       }
     };
 
+  // Function to remove book from queue
+  const handleRemoveFromQueue = async (bookId: string) => {
+    try {
+      // Optimistically remove from queue
+      setQueueBooks(prevBooks => 
+        prevBooks.filter(userBook => userBook.book_id !== bookId)
+      );
+
+      // Call API to remove book from queue shelf
+      const response = await fetch('/api/shelf', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          bookId, 
+          shelf: 'queue'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to remove book from queue');
+      }
+
+      // Show success message
+      toast.success('Book removed from Reading Queue.');
+
+    } catch (err: any) {
+      console.error("Error removing book from queue:", err);
+      toast.error(`Failed to remove book: ${err.message}`);
+      // Rollback UI update if API fails
+      fetchBooks("queue"); // Re-fetch queue to restore the book
+    }
+  };
+
+  // Function to remove book from currently reading shelf
+  const handleRemoveFromCurrentlyReading = async (bookId: string) => {
+    try {
+      // Optimistically remove from currently reading
+      setCurrentlyReadingBooks(prevBooks => 
+        prevBooks.filter(userBook => userBook.book_id !== bookId)
+      );
+
+      // Call API to remove book from currently reading shelf
+      const response = await fetch('/api/shelf', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          bookId, 
+          shelf: 'currently_reading'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to remove book from shelf');
+      }
+
+      // Show success message
+      toast.success('Book removed from Currently Reading.');
+
+    } catch (err: any) {
+      console.error("Error removing book from currently reading:", err);
+      toast.error(`Failed to remove book: ${err.message}`);
+      // Rollback UI update if API fails
+      fetchBooks("currently_reading"); // Re-fetch currently reading to restore the book
+    }
+  };
+
+  // Functions to handle confirmation dialogs
+  const showRemoveConfirmation = (bookId: string, bookTitle: string, shelf: 'currently_reading' | 'queue') => {
+    setConfirmRemoval({
+      bookId,
+      bookTitle,
+      shelf
+    });
+  };
+
+  const cancelRemoval = () => {
+    setConfirmRemoval({
+      bookId: null,
+      bookTitle: null,
+      shelf: null
+    });
+  };
+
+  const confirmRemovalAction = async () => {
+    if (!confirmRemoval.bookId || !confirmRemoval.shelf) return;
+
+    if (confirmRemoval.shelf === 'currently_reading') {
+      await handleRemoveFromCurrentlyReading(confirmRemoval.bookId);
+    } else if (confirmRemoval.shelf === 'queue') {
+      await handleRemoveFromQueue(confirmRemoval.bookId);
+    }
+
+    // Close confirmation dialog
+    cancelRemoval();
+  };
+
   return (
     <div className="container pb-6 mx-auto px-4">
       <div className="space-y-8">
@@ -488,6 +663,13 @@ export default function DashboardReading() {
                                             {shelf.label}
                                           </DropdownMenu.Item>
                                         ))}
+                                        <DropdownMenu.Item
+                                          onSelect={() => showRemoveConfirmation(bookId, userBook.book.title, 'currently_reading')}
+                                          className="px-3 py-2 text-xs text-center bg-red-500/90 my-2 rounded-md cursor-pointer hover:bg-red-600 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
+                                          disabled={currentShelfStatus?.isLoading}
+                                        >
+                                          Remove from Shelf
+                                        </DropdownMenu.Item>
                                         </DropdownMenu.Content>
                                       </DropdownMenu.Portal>
                                     </DropdownMenu.Root>
@@ -584,24 +766,57 @@ export default function DashboardReading() {
                               </DropdownMenu.Root>
                               </div>
 
-                                {/* Personal Note - (if you add this to UserBook model) */}
-                                {/* <span className="px-2 py-0.5 text-xs font-regular bg-accent text-secondary rounded-full max-w-[180px] truncate">
-                                  "Loved the intro so far!"
-                                </span> */}
+                                {/* Personal Note - Interactive editing */}
+                                {editingNoteBookId === userBook.book_id ? (
+                                  <div className="flex flex-col gap-2 w-full">
+                                    <div className="relative">
+                                      <Textarea
+                                        value={noteText}
+                                        onChange={(e) => setNoteText(e.target.value)}
+                                        placeholder="Share your thoughts so far - no spoilers!!!"
+                                        className="min-h-[60px] text-xs bg-bookWhite p-1.5 border-secondary/20 resize-none"
+                                        maxLength={60}
+                                      />
+                                      <div className="absolute bottom-1 right-1.5 text-xs text-muted-foreground">
+                                        {noteText.length}/60
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2 justify-end">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={cancelEditingNote}
+                                        disabled={isUpdatingNote}
+                                        className="h-6 px-2 text-xs bg-secondary/10 text-secondary/45 border-none"
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleNoteUpdate(userBook.book_id, userBook.shelf)}
+                                        disabled={isUpdatingNote}
+                                        className="h-6 px-2 text-xs bg-accent hover:bg-accent-variant"
+                                      >
+                                        {isUpdatingNote ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <Check className="h-3 w-3" />
+                                        )}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div
+                                    onClick={() => startEditingNote(userBook.book_id, userBook.comment)}
+                                    className="group cursor-pointer flex items-center gap-1 px-2 py-0.5 text-xs font-regular bg-accent/80 text-secondary rounded-full max-w-[180px] hover:bg-accent transition-colors"
+                                  >
+                                    <span className="truncate">
+                                      {userBook.comment ? `"${userBook.comment}"` : "Add a thought..."}
+                                    </span>
+                                    <Edit3 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                                  </div>
+                                )}
                               </div>
-
-                              {/* <div className="flex justify-end items-end">
-                                <button
-                                  onClick={() => handleFavorite(userBook.id!)}
-                                  className={`p-0`}
-                                >
-                                  <Heart
-                                    className="h-5 w-5"
-                                    color="#C51104"
-                                    weight={userBook.is_favorite ? "fill" : "regular"}
-                                  />
-                                </button>
-                              </div> */}
                             </CardContent>
 
                             <CardFooter className="pt-0 px-0">
@@ -671,9 +886,55 @@ export default function DashboardReading() {
                           {/* Content */}
                           <div className="flex flex-col">
                             <CardHeader className="pb-0.5 px-0 pt-0">
-                              <Link href={`/books/${userBook.book_id}`}>
-                                <CardTitle className="leading-5">{userBook.book.title}</CardTitle>
-                              </Link>
+                              <div className="flex flex-row justify-between items-start">
+                                <Link href={`/books/${userBook.book_id}`}>
+                                  <CardTitle className="leading-5">{userBook.book.title}</CardTitle>
+                                </Link>
+                                <div>
+                                  {/* Queue Management Dropdown */}
+                                  {bookId && (
+                                  <div className="flex items-start relative">
+                                    <DropdownMenu.Root>
+                                      <DropdownMenu.Trigger asChild>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none hover:bg-transparent"
+                                          disabled={currentShelfStatus?.isLoading}
+                                        >
+                                          {currentShelfStatus?.isLoading ? (
+                                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                          ) : (
+                                            <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
+                                          )}
+                                        </Button>
+                                      </DropdownMenu.Trigger>
+
+                                      <DropdownMenu.Portal>
+                                        <DropdownMenu.Content
+                                          className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                                          sideOffset={5}
+                                        >
+                                          <DropdownMenu.Item
+                                            onSelect={() => showRemoveConfirmation(bookId, userBook.book.title, 'queue')}
+                                            className="px-3 py-2 text-xs text-center bg-red-500/90 my-2 rounded-md cursor-pointer hover:bg-red-600 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
+                                            disabled={currentShelfStatus?.isLoading}
+                                          >
+                                            Remove from Queue
+                                          </DropdownMenu.Item>
+                                        </DropdownMenu.Content>
+                                      </DropdownMenu.Portal>
+                                    </DropdownMenu.Root>
+                                    {/* Display action status message */}
+                                    {currentShelfStatus?.message && (
+                                      <p className="absolute top-full mb-1 right-0 text-nowrap text-xs mt-1 bg-primary/85 py-1 px-2 text-center flex-1 rounded-xl z-50" style={{ color: currentShelfStatus.message.startsWith('Error') ? 'red' : 'secondary' }}>
+                                        {currentShelfStatus.message}
+                                      </p>
+                                    )}
+                                  </div>
+                                  )}
+                                </div>
+                              </div>
                               <CardDescription>{userBook.book.author}</CardDescription>
                             </CardHeader>
                             <CardContent className="pb-0 px-0">
@@ -783,6 +1044,35 @@ export default function DashboardReading() {
           </Tabs>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmRemoval.bookId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-bookWhite rounded-2xl p-6 max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-secondary mb-2">
+              Remove Book from {confirmRemoval.shelf === 'currently_reading' ? 'Currently Reading' : 'Reading Queue'}?
+            </h3>
+            <p className="text-secondary/70 mb-4">
+              Are you sure you want to remove "{confirmRemoval.bookTitle}" from your {confirmRemoval.shelf === 'currently_reading' ? 'currently reading list' : 'reading queue'}? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={cancelRemoval}
+                className="rounded-full"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmRemovalAction}
+                className="rounded-full bg-red-500 hover:bg-red-600 text-bookWhite"
+              >
+                Remove Book
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -30,8 +30,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@prisma/client' ;
 import { checkRateLimit, sanitizeInput, logSecurityEvent } from '@/lib/security-utils';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -197,7 +198,7 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect();
+    
   }
 }
 
@@ -385,6 +386,6 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect();
+    
   }
 }

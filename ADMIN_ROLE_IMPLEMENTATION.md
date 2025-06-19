@@ -4,12 +4,36 @@
 
 This implementation adds a comprehensive role-based access control system to your book club platform, restricting admin dashboard access to users with appropriate permissions.
 
-## Role Hierarchy
+## User Roles
+
+The system supports four role levels with hierarchical permissions:
 
 1. **USER** (default) - Regular platform users
 2. **MODERATOR** - Can moderate content and discussions
-3. **ADMIN** - Full admin dashboard access
-4. **SUPER_ADMIN** - Highest level access
+3. **ADMIN** - Can manage books, users, and platform content
+4. **SUPER_ADMIN** - Full platform access including admin dashboard
+
+## Role Hierarchy
+
+Each higher role inherits all permissions from lower roles:
+- SUPER_ADMIN > ADMIN > MODERATOR > USER
+
+## Admin Dashboard Access
+
+The admin dashboard (`/admin`) is restricted to **SUPER_ADMIN** users only. This provides:
+
+### Dashboard Features
+- Platform statistics (users, books, clubs, activity)
+- User management interface
+- Book management interface  
+- Club management interface
+- Feedback management interface
+- Activity monitoring
+
+### Access Control
+- **Frontend**: Uses `useUserRole()` hook to check permissions
+- **Backend**: Uses `requireSuperAdmin()` middleware for API protection
+- **Navigation**: Admin dashboard link appears in user menu for super admins only
 
 ## Implementation Steps
 
@@ -70,13 +94,16 @@ The admin dashboard page (`/app/admin/page.tsx`) now:
 Use the provided script to assign roles:
 
 ```bash
-# Assign admin role to a user
+# Assign super admin role
+npx tsx scripts/assign-admin-role.ts user@example.com SUPER_ADMIN
+
+# Assign admin role  
 npx tsx scripts/assign-admin-role.ts user@example.com ADMIN
 
-# Assign super admin role
-npx tsx scripts/assign-admin-role.ts admin@example.com SUPER_ADMIN
+# Assign moderator role
+npx tsx scripts/assign-admin-role.ts user@example.com MODERATOR
 
-# List current admins
+# List all admin users
 npx tsx scripts/assign-admin-role.ts --list
 ```
 

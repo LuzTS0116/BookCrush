@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { requireAdmin } from '../../../../lib/auth-utils';
-
-const prisma = new PrismaClient();
+import { requireSuperAdmin } from '../../../../lib/auth-utils';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(req: NextRequest) {
   try {
-    // Check admin authentication and role
-    await requireAdmin();
+    // Check super admin authentication and role
+    await requireSuperAdmin();
 
     // Get current date for monthly calculations
     const now = new Date();
@@ -159,12 +157,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
     
-    if (error.message === 'Admin access required') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    if (error.message === 'Super admin access required') {
+      return NextResponse.json({ error: 'Super admin access required' }, { status: 403 });
     }
     
     return NextResponse.json({ error: error.message || 'Failed to fetch admin statistics' }, { status: 500 });
-  } finally {
-    await prisma.$disconnect();
   }
 } 

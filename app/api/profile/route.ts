@@ -3,6 +3,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { formatProfileWithAvatarUrlServer } from '@/lib/supabase-server-utils'
+import { prisma } from '@/lib/prisma';
 
 export async function GET(req: NextRequest) {
   const cookieStore = cookies()
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  const prisma = new PrismaClient()
+  
   try {
     const profile = await prisma.profile.findUnique({
       where: { id: user.id },
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect()
+    
   }
 }
 
@@ -83,7 +84,6 @@ if (!user) {
     )
   }
 
-const prisma = new PrismaClient()
 try {
   const payload = await req.json()
   const {
@@ -143,6 +143,6 @@ try {
     );
   }
 } finally {
-  await prisma.$disconnect()
+  
 }
 }

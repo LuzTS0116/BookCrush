@@ -253,7 +253,7 @@ export default function AdminUsersPage() {
                 placeholder="Search users by name, email, or username..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
+                className="pl-8 text-bookWhite placeholder:text-bookWhite"
               />
             </div>
           </div>

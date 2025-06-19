@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@prisma/client';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+
 
 // Helper to map user data and discussion fields
 function mapPrismaDiscussionToFrontend(discussion: any) {
@@ -87,7 +88,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     console.error(`Error fetching discussions for club ${clubId}:`, error);
     return NextResponse.json({ error: error.message || 'Failed to fetch discussions' }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 }
 
@@ -167,6 +168,6 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     }
     return NextResponse.json({ error: error.message || 'Failed to create discussion' }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 } 

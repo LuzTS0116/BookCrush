@@ -6,9 +6,10 @@ import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { PrismaClient } from '@prisma/client'
 import {  ClubMembershipStatus, ClubRole, ActivityType, ActivityTargetEntityType  } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
 
-const prisma = new PrismaClient()
+
 export async function POST(req: NextRequest) {
   try {
     const cookieStore = await cookies();
@@ -126,6 +127,6 @@ export async function POST(req: NextRequest) {
     console.error("Error approving club membership:", error);
     return NextResponse.json({ error: error.message || "Failed to approve membership" }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 }

@@ -1,8 +1,8 @@
 // import { NextRequest, NextResponse } from 'next/server';
-// import { PrismaClient } from '@prisma/client';
+// 
 // import { createApiSupabase } from '@/lib/auth-server'; // Assuming you have this
 
-// const prisma = new PrismaClient();
+// 
 
 // // PUT: Update a discussion post
 // export async function PUT(req: NextRequest, { params }: { params: { discussionId: string } }) {

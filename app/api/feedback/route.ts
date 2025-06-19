@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { PrismaClient } from '@prisma/client';
-import { checkRateLimit, validateContent, sanitizeContent, logSecurityEvent } from '@/lib/security-utils';
 
-const prisma = new PrismaClient();
+import { checkRateLimit, validateContent, sanitizeContent, logSecurityEvent } from '@/lib/security-utils';
+import { prisma } from '@/lib/prisma';
+
+
 
 // Feedback type enum (matching schema)
 const FEEDBACK_TYPES = {
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 }
 
@@ -161,6 +162,6 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching feedback history:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 } 

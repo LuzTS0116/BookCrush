@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { BookMarked, ArrowLeft, Mail, Send, Pencil, Save, X, Users, CircleCheckBig, CircleAlert, Loader2, Star, Smartphone, BookOpen, Headphones, ChevronDown, Sparkles, EllipsisVertical } from "lucide-react"
+import { BookMarked, ArrowLeft, Mail, Send, Pencil, Save, X, Users, CircleCheckBig, CircleAlert, Loader2, Star, Smartphone, BookOpen, Headphones, ChevronDown, Sparkles, EllipsisVertical, Edit3, Check } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Heart, Books, Bookmark, CheckCircle } from "@phosphor-icons/react"
@@ -79,6 +79,22 @@ export default function EditableProfileMain() {
 
   // State to manage per-book loading/feedback for adding to shelf
   const [shelfActionsStatus, setShelfActionsStatus] = useState<Record<string, { isLoading: boolean, message: string | null }>>({})
+
+  // State for personal note editing
+  const [editingNoteBookId, setEditingNoteBookId] = useState<string | null>(null)
+  const [noteText, setNoteText] = useState<string>("")
+  const [isUpdatingNote, setIsUpdatingNote] = useState(false)
+
+  // State for confirmation dialogs
+  const [confirmRemoval, setConfirmRemoval] = useState<{
+    bookId: string | null;
+    bookTitle: string | null;
+    shelf: 'currently_reading' | 'queue' | null;
+  }>({
+    bookId: null,
+    bookTitle: null,
+    shelf: null
+  })
 
   // Book state variables
   const [currentlyReadingBooks, setCurrentlyReadingBooks] = useState<UserBook[]>([])
@@ -344,6 +360,65 @@ export default function EditableProfileMain() {
     }
   }, [avatarPreview])
 
+  // Function to handle personal note updates
+  const handleNoteUpdate = async (bookId: string, shelf: UserBook['shelf']) => {
+    if (!noteText.trim() && !noteText) return; // Allow empty notes to be saved
+    
+    setIsUpdatingNote(true);
+    try {
+      const response = await fetch('/api/user-books/comment', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bookId,
+          shelf,
+          comment: noteText.trim() || null, // Send null for empty comments
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update note');
+      }
+
+      // Update local state optimistically
+      if (shelf === "currently_reading") {
+        setCurrentlyReadingBooks(prevBooks =>
+          prevBooks.map(userBook => 
+            userBook.book_id === bookId 
+              ? { ...userBook, comment: noteText.trim() || null }
+              : userBook
+          )
+        );
+      }
+
+      // Reset editing state
+      setEditingNoteBookId(null);
+      setNoteText("");
+      toast.success(noteText.trim() ? 'Note updated!' : 'Note removed!');
+
+    } catch (err: any) {
+      console.error("Error updating note:", err);
+      toast.error(`Failed to update note: ${err.message}`);
+    } finally {
+      setIsUpdatingNote(false);
+    }
+  };
+
+  // Function to start editing a note
+  const startEditingNote = (bookId: string, currentComment: string | null) => {
+    setEditingNoteBookId(bookId);
+    setNoteText(currentComment || "");
+  };
+
+  // Function to cancel editing
+  const cancelEditingNote = () => {
+    setEditingNoteBookId(null);
+    setNoteText("");
+  };
+
   // Function to handle status updates via API
   const handleStatusChange = async (
     bookId: string, 
@@ -571,6 +646,112 @@ export default function EditableProfileMain() {
         setShelfActionsStatus(prev => ({ ...prev, [bookId]: { isLoading: false, message: null } }));
       }, 3000);
     }
+  };
+
+  // Function to remove book from queue
+  const handleRemoveFromQueue = async (bookId: string) => {
+    try {
+      // Optimistically remove from queue
+      setQueueBooks(prevBooks => 
+        prevBooks.filter(userBook => userBook.book_id !== bookId)
+      );
+
+      // Call API to remove book from queue shelf
+      const response = await fetch('/api/shelf', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          bookId, 
+          shelf: 'queue'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to remove book from queue');
+      }
+
+      // Show success message
+      toast.success('Book removed from Reading Queue.');
+
+    } catch (err: any) {
+      console.error("Error removing book from queue:", err);
+      toast.error(`Failed to remove book: ${err.message}`);
+      // Rollback UI update if API fails
+      const rollbackResponse = await fetch('/api/shelf?shelf=queue');
+      if (rollbackResponse.ok) {
+        const rollbackBooks = await rollbackResponse.json();
+        setQueueBooks(rollbackBooks);
+      }
+    }
+  };
+
+  // Function to remove book from currently reading shelf
+  const handleRemoveFromCurrentlyReading = async (bookId: string) => {
+    try {
+      // Optimistically remove from currently reading
+      setCurrentlyReadingBooks(prevBooks => 
+        prevBooks.filter(userBook => userBook.book_id !== bookId)
+      );
+
+      // Call API to remove book from currently reading shelf
+      const response = await fetch('/api/shelf', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          bookId, 
+          shelf: 'currently_reading'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to remove book from shelf');
+      }
+
+      // Show success message
+      toast.success('Book removed from Currently Reading.');
+
+    } catch (err: any) {
+      console.error("Error removing book from currently reading:", err);
+      toast.error(`Failed to remove book: ${err.message}`);
+      // Rollback UI update if API fails
+      const rollbackResponse = await fetch('/api/shelf?shelf=currently_reading');
+      if (rollbackResponse.ok) {
+        const rollbackBooks = await rollbackResponse.json();
+        setCurrentlyReadingBooks(rollbackBooks);
+      }
+    }
+  };
+
+  // Functions to handle confirmation dialogs
+  const showRemoveConfirmation = (bookId: string, bookTitle: string, shelf: 'currently_reading' | 'queue') => {
+    setConfirmRemoval({
+      bookId,
+      bookTitle,
+      shelf
+    });
+  };
+
+  const cancelRemoval = () => {
+    setConfirmRemoval({
+      bookId: null,
+      bookTitle: null,
+      shelf: null
+    });
+  };
+
+  const confirmRemovalAction = async () => {
+    if (!confirmRemoval.bookId || !confirmRemoval.shelf) return;
+
+    if (confirmRemoval.shelf === 'currently_reading') {
+      await handleRemoveFromCurrentlyReading(confirmRemoval.bookId);
+    } else if (confirmRemoval.shelf === 'queue') {
+      await handleRemoveFromQueue(confirmRemoval.bookId);
+    }
+
+    // Close confirmation dialog
+    cancelRemoval();
   };
 
   if (isLoading) {
@@ -920,6 +1101,13 @@ export default function EditableProfileMain() {
                                             {shelf.label}
                                           </DropdownMenu.Item>
                                         ))}
+                                        <DropdownMenu.Item
+                                          onSelect={() => showRemoveConfirmation(bookId, userBook.book.title, 'currently_reading')}
+                                          className="px-3 py-2 text-xs text-center bg-red-500/90 my-2 rounded-md cursor-pointer hover:bg-red-600 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
+                                          disabled={currentShelfStatus?.isLoading}
+                                        >
+                                          Remove from Shelf
+                                        </DropdownMenu.Item>
                                         </DropdownMenu.Content>
                                       </DropdownMenu.Portal>
                                     </DropdownMenu.Root>
@@ -936,7 +1124,7 @@ export default function EditableProfileMain() {
                               <CardDescription className="text-xs">{userBook.book.author}</CardDescription>
                             </CardHeader>
 
-                            <CardContent className="pb-0 pt-4 px-0">
+                            <CardContent className="pb-0 pt-0 px-0">
                               <div className="flex flex-wrap gap-1 mb-2 items-center">
                                 {/* Added On */}
                                 {userBook.added_at && (
@@ -1013,6 +1201,57 @@ export default function EditableProfileMain() {
                                     </DropdownMenu.Portal>
                                   </DropdownMenu.Root>
                                 </div>
+
+                                {/* Personal Note - Interactive editing */}
+                                {editingNoteBookId === userBook.book_id ? (
+                                  <div className="flex flex-col gap-2 w-full mt-2">
+                                    <div className="relative">
+                                      <Textarea
+                                        value={noteText}
+                                        onChange={(e) => setNoteText(e.target.value)}
+                                        placeholder="Share your thoughts so far - no spoilers!!!"
+                                        className="min-h-[60px] text-xs bg-bookWhite p-1.5 border-secondary/20 resize-none"
+                                        maxLength={60}
+                                      />
+                                      <div className="absolute bottom-1 right-1.5 text-xs text-muted-foreground">
+                                        {noteText.length}/60
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2 justify-end">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={cancelEditingNote}
+                                        disabled={isUpdatingNote}
+                                        className="h-6 px-2 text-xs bg-secondary/10 text-secondary/45 border-none"
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleNoteUpdate(userBook.book_id, userBook.shelf)}
+                                        disabled={isUpdatingNote}
+                                        className="h-6 px-2 text-xs bg-accent hover:bg-accent-variant"
+                                      >
+                                        {isUpdatingNote ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <Check className="h-3 w-3" />
+                                        )}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div
+                                    onClick={() => startEditingNote(userBook.book_id, userBook.comment)}
+                                    className="group cursor-pointer flex items-center gap-1 px-2 py-0.5 text-xs font-regular bg-accent/80 text-secondary rounded-full max-w-[180px] hover:bg-accent transition-colors mt-1"
+                                  >
+                                    <span className="truncate">
+                                      {userBook.comment ? `"${userBook.comment}"` : "Add a thought..."}
+                                    </span>
+                                    <Edit3 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                                  </div>
+                                )}
                               </div>
                             </CardContent>
                           </div>
@@ -1049,9 +1288,43 @@ export default function EditableProfileMain() {
                         {/* Content */}
                         <div className="flex flex-col flex-1">
                           <CardHeader className="pb-2 px-0 pt-0">
-                            <Link href={`/books/${userBook.book_id}`}>
-                              <CardTitle className="text-sm">{userBook.book.title}</CardTitle>
-                            </Link>
+                            <div className="flex flex-row justify-between items-start">
+                              <Link href={`/books/${userBook.book_id}`}>
+                                <CardTitle className="text-sm">{userBook.book.title}</CardTitle>
+                              </Link>
+                              <div>
+                                {/* Queue Management Dropdown */}
+                                {userBook.book_id && (
+                                <div className="flex items-start relative">
+                                  <DropdownMenu.Root>
+                                    <DropdownMenu.Trigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none hover:bg-transparent"
+                                      >
+                                        <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
+                                      </Button>
+                                    </DropdownMenu.Trigger>
+
+                                    <DropdownMenu.Portal>
+                                      <DropdownMenu.Content
+                                        className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                                        sideOffset={5}
+                                      >
+                                        <DropdownMenu.Item
+                                          onSelect={() => showRemoveConfirmation(userBook.book_id, userBook.book.title, 'queue')}
+                                          className="px-3 py-2 text-xs text-center bg-red-500/90 my-2 rounded-md cursor-pointer hover:bg-red-600 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
+                                        >
+                                          Remove from Queue
+                                        </DropdownMenu.Item>
+                                      </DropdownMenu.Content>
+                                    </DropdownMenu.Portal>
+                                  </DropdownMenu.Root>
+                                </div>
+                                )}
+                              </div>
+                            </div>
                             <CardDescription className="text-xs">{userBook.book.author}</CardDescription>
                           </CardHeader>
                           <CardContent className="pb-0 pt-1 px-0">
@@ -1191,6 +1464,35 @@ export default function EditableProfileMain() {
           </Tabs>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmRemoval.bookId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-bookWhite rounded-2xl p-6 max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-secondary mb-2">
+              Remove Book from {confirmRemoval.shelf === 'currently_reading' ? 'Currently Reading' : 'Reading Queue'}?
+            </h3>
+            <p className="text-secondary/70 mb-4">
+              Are you sure you want to remove "{confirmRemoval.bookTitle}" from your {confirmRemoval.shelf === 'currently_reading' ? 'currently reading list' : 'reading queue'}? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={cancelRemoval}
+                className="rounded-full"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmRemovalAction}
+                className="rounded-full bg-red-500 hover:bg-red-600 text-bookWhite"
+              >
+                Remove Book
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 } 

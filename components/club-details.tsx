@@ -121,6 +121,7 @@ interface PendingInvitation {
     id: string;
     display_name: string;
     email: string;
+    avatar_url?: string | null;
   } | null;
 }
 
@@ -140,6 +141,12 @@ interface ClubData {
   book_history: BookHistoryEntry[];
   discussions: Discussion[];
   pendingMemberships?: ClubMembershipRequest[]; // Populated only if currentUserIsAdmin is true
+  meetings: Array<{
+    id: string;
+    meeting_date: string;
+    location: string;
+    title?: string;
+  }>; // Add meetings property
 }
 
 
@@ -165,8 +172,9 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
 
   //wrap params with React.use() 
-  const {id} = useParams();
   const router = useRouter();
+  const {id} = useParams();
+  
 
   const {
     avatarUrl
@@ -546,7 +554,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
               {/* Back Button */}
               <button
-                  onClick={() => router.back()} // You can also use navigate("/previous") if using React Router
+                  onClick={() => router.back()} // Revert to browser history navigation
                   className="absolute top-3 left-3 p-2 rounded-full bg-bookWhite/80 backdrop-blur-sm hover:bg-bookWhite shadow-md"
               >
                   <ArrowLeft className="h-5 w-5 text-secondary" />
@@ -659,7 +667,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                           <DialogHeader>
                           <DialogTitle>Book Not Completed</DialogTitle>
                           <DialogDescription>
-                              Let us know why this one didn’t work out.
+                              Let us know why this one didn't work out.
                           </DialogDescription>
                           </DialogHeader>
                           <div className="grid gap-4 py-4">
@@ -684,11 +692,11 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                               </SelectTrigger>
                               <SelectContent className="font-medium">
                                 <SelectItem value="1">📖 Lost interest in the story</SelectItem>
-                                <SelectItem value="2">🕒 Didn’t have enough time</SelectItem>
+                                <SelectItem value="2">🕒 Didn't have enough time</SelectItem>
                                 <SelectItem value="3">🤯 Too confusing or hard to follow</SelectItem>
                                 <SelectItem value="4">😔 Not in the right mood for this book</SelectItem>
                                 <SelectItem value="5">🔁 Planning to finish later</SelectItem>
-                                <SelectItem value="6">😐 Didn’t connect with the characters or style</SelectItem>
+                                <SelectItem value="6">😐 Didn't connect with the characters or style</SelectItem>
                                 <SelectItem value="7">❌ Offensive or uncomfortable content</SelectItem>
                                 <SelectItem value="8">💤 Too slow-paced or boring</SelectItem>
                                 <SelectItem value="9">📚 Overwhelmed by other reads</SelectItem>
@@ -845,7 +853,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                           <div key={discussion.id || i} className="flex gap-4 bg-secondary-light/10 p-2 rounded-md">
                             <Avatar className="h-10 w-10">
                               <AvatarImage
-                                src= {discussion.user?.avatar_url}
+                                src={discussion.user?.avatar_url || undefined}
                                 alt={discussion.user?.display_name || 'User'}
                               />
                               <AvatarFallback className="bg-primary text-primary-foreground">
@@ -1050,7 +1058,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                     <Avatar className="h-8 w-8">
                       {/* For real members, you'd iterate over an array of `club.members`
                           each with their own avatar/name properties, fetched from the backend. */}
-                      <AvatarImage src={club.memberships[i].user.avatar_url} alt={club.memberships[i].user.display_name} />
+                      <AvatarImage src={club.memberships[i].user.avatar_url || undefined} alt={club.memberships[i].user.display_name} />
                       <AvatarFallback
                         className={
                           i === 0 ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
@@ -1280,7 +1288,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
                           <AvatarImage 
-                            src={invitation.invitee?.avatar_url} 
+                            src={invitation.invitee?.avatar_url || undefined} 
                             alt={invitation.invitee?.display_name || invitation.email} 
                           />
                           <AvatarFallback className="bg-orange-500 text-white">

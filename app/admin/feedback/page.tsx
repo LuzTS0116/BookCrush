@@ -257,7 +257,7 @@ export default function AdminFeedbackPage() {
                 placeholder="Search feedback by content or user..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
+                className="pl-8 text-bookWhite placeholder:text-bookWhite"
               />
             </div>
             <Select value={statusFilter} onValueChange={setStatusFilter}>

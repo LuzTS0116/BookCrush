@@ -1,43 +1,37 @@
-import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseAdmin'; // Assuming this is your configured admin client
-import { PrismaClient, Prisma } from '@prisma/client';
+import { NextResponse, type NextRequest } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient()
-
-export async function GET(request: Request) {
-  const authHeader = request.headers.get('Authorization');
-
+export async function GET(request: NextRequest) {
+  const authHeader = request.headers.get('authorization');
+  
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return NextResponse.json({ error: 'Unauthorized: Missing or invalid token' }, { status: 401 });
+    return NextResponse.json({ error: 'Authorization header missing or invalid' }, { status: 401 });
   }
 
-  const accessToken = authHeader.split(' ')[1];
-
-  if (!accessToken) {
-    return NextResponse.json({ error: 'Unauthorized: Invalid token format' }, { status: 401 });
-  }
+  const token = authHeader.split(' ')[1];
 
   try {
-    // Validate the token and get the user
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(accessToken);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      },
+    });
 
-    if (userError || !user) {
-      console.error('[API /profile-status] Error getting user from token:', userError?.message);
-      return NextResponse.json({ error: userError?.message || 'Invalid token' }, { status: 401 });
+    if (!response.ok) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Check if a profile exists for this user
+    const user = await response.json();
 
-      const profile = await prisma.profile.findUnique({
-      where: { id: user.id }
-    })
+    const profile = await prisma.profile.findUnique({
+      where: { id: user.id },
+      select: { id: true }
+    });
 
-    console.log('Prisma Profile check API response:', { hasProfile: !!profile });
     return NextResponse.json({ hasProfile: !!profile });
-
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError)
-    console.error('[API /profile-status] Unexpected Prisma error code:', error.code);
+    console.error('Error checking profile status:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 } 

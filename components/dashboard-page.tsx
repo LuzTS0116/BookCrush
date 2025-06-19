@@ -335,10 +335,13 @@ const handleClickShare = async () => {
                       {/* Book Info */}
                       <Link href={`/books/${latestBook.id}`}>
                       <div className="flex-1 min-w-0">
-                        <div className="text-lg font-bold text-bookBlack leading-tight truncate">
+                        <div className="text-lg font-bold text-bookBlack leading-tight truncate max-w-40">
                           {latestBook.title}
                         </div>
-                        <p className="text-xs text-bookBlack/80 truncate">by {latestBook.author} <span className="text-xs text-bookBlack/35">{formatTimeAgo(latestBook.created_at)}</span></p>
+                        <div className="flex flex-row gap-1.5">
+                          <p className="text-xs text-bookBlack/80 truncate max-w-32">by {latestBook.author}</p>
+                          <p className="text-xs text-bookBlack/35">{formatTimeAgo(latestBook.created_at)}</p>
+                        </div>
                       </div>
                       </Link>
                     </div>
@@ -443,7 +446,7 @@ const handleClickShare = async () => {
                                 <a
                                   href={downloadedImageUrl}
                                   download="quote.png"
-                                  className="bg-primary-dark text-secondary px-4 py-2 rounded-full text-sm hover:bg-bookBlack/90 transition"
+                                  className="bg-primary text-secondary px-4 py-2 rounded-full text-sm hover:bg-primary-dark transition"
                                 >
                                   Download image
                                 </a>

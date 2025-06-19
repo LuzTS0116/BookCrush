@@ -18,11 +18,14 @@ import {
   Star,
   Settings,
   BarChart3,
-  Activity
+  Activity,
+  Shield,
+  ArrowLeft
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface AdminStats {
   users: {
@@ -54,22 +57,36 @@ interface AdminStats {
 
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
+  const { role, isLoading: roleLoading, isSuperAdmin } = useUserRole();
   const router = useRouter();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if user is admin (you'll need to implement admin role checking)
+    // Check authentication status
     if (status === 'unauthenticated') {
       router.push('/login');
       return;
     }
 
-    if (status === 'authenticated') {
+    // Wait for role to load
+    if (roleLoading) {
+      return;
+    }
+
+    // Check if user has super admin role
+    if (status === 'authenticated' && !roleLoading) {
+      if (!isSuperAdmin) {
+        setError('Super Admin access required. You do not have permission to access this page.');
+        setIsLoading(false);
+        return;
+      }
+      
+      // User is authenticated and has super admin role, fetch stats
       fetchAdminStats();
     }
-  }, [status, router]);
+  }, [status, roleLoading, isSuperAdmin, router]);
 
   const fetchAdminStats = async () => {
     try {
@@ -78,7 +95,7 @@ export default function AdminDashboard() {
       });
 
       if (response.status === 403) {
-        setError('Admin access required. You do not have permission to access this page.');
+        setError('Super Admin access required. You do not have permission to access this page.');
         return;
       }
 
@@ -95,7 +112,8 @@ export default function AdminDashboard() {
     }
   };
 
-  if (status === 'loading' || isLoading) {
+  // Show loading while checking authentication and role
+  if (status === 'loading' || roleLoading || (status === 'authenticated' && isLoading && !error)) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-center min-h-[400px]">
@@ -108,14 +126,31 @@ export default function AdminDashboard() {
     );
   }
 
-  if (error) {
+  // Show access denied for non-super-admin users
+  if (error || (!roleLoading && !isSuperAdmin)) {
     return (
       <div className="container mx-auto px-4 py-8">
         <Card className="border-red-200 bg-red-50">
           <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
-              <p className="text-red-800">Error loading admin dashboard: {error}</p>
+            <div className="flex items-center space-x-2 mb-4">
+              <Shield className="h-6 w-6 text-red-600" />
+              <div>
+                <h2 className="text-lg font-semibold text-red-800">Access Denied</h2>
+                <p className="text-red-700">
+                  {error || 'Super Admin access required. You do not have permission to access this page.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex space-x-2">
+              <Button variant="outline" onClick={() => router.back()}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Go Back
+              </Button>
+              <Button asChild>
+                <Link href="/dashboard">
+                  Go to Dashboard
+                </Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -128,12 +163,24 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+          <div className="flex items-center space-x-3 mb-2">
+            <Shield className="h-8 w-8 text-red-600" />
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Super Admin Dashboard</h1>
+              <Badge variant="destructive" className="mt-1">
+                SUPER ADMIN ACCESS
+              </Badge>
+            </div>
+          </div>
           <p className="text-muted-foreground">
-            Manage your book club platform
+            Manage your book club platform • Welcome, {session?.user?.name || 'Super Admin'}
           </p>
         </div>
         <div className="flex space-x-2">
+          <Button variant="outline" onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
+          </Button>
           <Button variant="outline" asChild>
             <Link href="/admin/settings">
               <Settings className="h-4 w-4 mr-2" />
@@ -200,7 +247,7 @@ export default function AdminDashboard() {
 
       {/* Main Admin Tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="books">Books</TabsTrigger>
@@ -230,7 +277,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm">Total Activities</span>
-                    <Badge variant="outline">{stats?.activity.totalActivities || 0}</Badge>
+                    <Badge variant="outline" className='text-secondary'>{stats?.activity.totalActivities || 0}</Badge>
                   </div>
                 </div>
               </CardContent>
@@ -244,19 +291,19 @@ export default function AdminDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <Button variant="outline" className="w-full justify-start" asChild>
+                <Button variant="outline" className="w-full justify-start text-bookWhite" asChild>
                   <Link href="/admin/users">
                     <Users className="h-4 w-4 mr-2" />
                     Manage Users
                   </Link>
                 </Button>
-                <Button variant="outline" className="w-full justify-start" asChild>
+                <Button variant="outline" className="w-full justify-start text-bookWhite" asChild>
                   <Link href="/admin/books">
                     <BookOpen className="h-4 w-4 mr-2" />
                     Manage Books
                   </Link>
                 </Button>
-                <Button variant="outline" className="w-full justify-start" asChild>
+                <Button variant="outline" className="w-full justify-start text-bookWhite" asChild>
                   <Link href="/admin/feedback">
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Review Feedback

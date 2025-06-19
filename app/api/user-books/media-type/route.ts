@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { PrismaClient, book_media_type } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+
 
 // Helper function to parse media type
 const parseMediaType = (mediaTypeString: string): book_media_type => {
@@ -91,6 +92,6 @@ export async function PATCH(req: NextRequest) {
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect();
+    
   }
 } 

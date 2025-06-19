@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { requireAdmin } from '../../../../../lib/auth-utils';
 
-const prisma = new PrismaClient();
+import { requireAdmin } from '../../../../../lib/auth-utils';
+import { prisma } from '@/lib/prisma';
+
+
 
 export async function GET(
   req: NextRequest,
@@ -46,7 +47,7 @@ export async function GET(
     
     return NextResponse.json({ error: error.message || 'Failed to fetch user' }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 }
 
@@ -110,7 +111,7 @@ export async function PUT(
 
     return NextResponse.json({ error: error.message || 'Failed to update user' }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 }
 
@@ -161,6 +162,6 @@ export async function DELETE(
 
     return NextResponse.json({ error: error.message || 'Failed to delete user' }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 } 

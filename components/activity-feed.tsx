@@ -418,7 +418,7 @@ export function ActivityFeed({ compact = false, maxItems, showHeader = false, on
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-start gap-2 bg-transparent mx-4 h-[51vh] w-auto overflow-y-auto no-scrollbar rounded-lg p-2">
+        <div className="flex flex-col items-start gap-2 bg-transparent mx-4 h-[61vh] w-auto overflow-y-auto no-scrollbar rounded-lg p-2">
           {displayedActivities.map((activity, index) => (
             <ActivityItemCard key={index} activity={activity} compact={false} />
           ))}

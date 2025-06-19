@@ -377,19 +377,19 @@ export default function BooksTableContents() {
                   value="all"
                   className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full"
                 >
-                  All Books
+                  Explore
                 </TabsTrigger>
                 <TabsTrigger
                   value="my-books"
                   className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full"
                 >
-                  My Books
+                  My Library
                 </TabsTrigger>
                 <TabsTrigger
                   value="club-books"
                   className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full"
                 >
-                  Added by Friends
+                  Friends Library
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -442,7 +442,7 @@ export default function BooksTableContents() {
                             </Link>
 
                             {/* Right Section */}
-                            <div className="flex-1 flex flex-col justify-between gap-2">
+                            <div className="flex-1 flex flex-col justify-between gap-0.5">
                               {/* Title and Author */}
                               <div>
                                 <div className="flex flex-row justify-between">
@@ -494,13 +494,6 @@ export default function BooksTableContents() {
                                 </div>
                                 <p className="text-secondary/50 text-sm">{book.author}</p>
                                 
-                                {/* Show who added the book for non-my-books tabs */}
-                                {activeTab !== 'my-books' && book.added_by_user && book.added_by_user.id !== session?.user?.id && (
-                                  <p className="text-xs text-secondary/60 italic">
-                                    Added by {book.added_by_user.nickname || book.added_by_user.display_name}
-                                  </p>
-                                )}
-                                
                                 <div>
                                     <div className="flex gap-2">
                                       <div className="flex items-center gap-1">
@@ -539,21 +532,27 @@ export default function BooksTableContents() {
 
                               {/* Pages & Time */}
                               <div className="flex-1">
-                                <p className="text-secondary/80 font-sans font-normal bg-accent/25 rounded-full px-2 text-sm inline-block">{book.pages} pages • {book.reading_time}</p>
+                                <p className="text-secondary/60 font-sans font-normal bg-accent/20 rounded-full px-2 text-xs inline-block">{book.pages} pages • {book.reading_time}</p>
                               </div>
 
                               {/* Meta Info */}
                               <div className="flex flex-row justify-between items-end gap-2 text-sm">
                                 <div>
+                                  {/* Show who added the book for non-my-books tabs */}
+                                  {activeTab !== 'my-books' && book.added_by_user && (
+                                    <p className="text-xs leading-none text-secondary/60">
+                                      Added by {book.added_by_user.nickname || book.added_by_user.display_name}
+                                    </p>
+                                  )}
                                   <p className="text-secondary/60 text-xs font-serif font-medium">
-                                    Added <span> {book.created_at ? new Date(book.created_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'}) : 'Unknown'}</span>
+                                    {book.created_at ? new Date(book.created_at).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'}) : 'Unknown'}
                                   </p>
                                 </div>
                                 {bookId && (
                                   <div className="flex justify-end items-end">
                                       <button
                                         onClick={() => handleFavorite(bookId)}
-                                        className={`p-0 absolute bottom-2 right-3`}
+                                        className={`p-0 absolute bottom-3 right-3`}
                                       >
                                         <Heart
                                           className="h-5 w-5"

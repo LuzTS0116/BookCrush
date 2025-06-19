@@ -55,6 +55,7 @@ export interface UserBook {
   position: number | null;
   is_favorite: boolean; // Added to match Prisma schema
   added_at: string; // DateTime will be string in JSON
+  comment: string | null; // Personal note/comment field
   book: BookDetails; // Nested book object
 }
 

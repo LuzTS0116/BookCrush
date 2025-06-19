@@ -2,10 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient } from '@prisma/client'; // Adjust path if necessary
+ // Adjust path if necessary
 import { formatProfileWithAvatarUrlServer } from '@/lib/supabase-server-utils';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+
 
 export async function GET(req: NextRequest) {
   try {
@@ -89,6 +90,6 @@ export async function GET(req: NextRequest) {
     console.error("Error fetching explorable users:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch explorable users" }, { status: 500 });
   } finally {
-    await prisma.$disconnect(); // Ensure Prisma client is disconnected
+     // Ensure Prisma client is disconnected
   }
 }

@@ -3,9 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 // import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'; // Using standard client
 import { createClient } from '@supabase/supabase-js'; // Standard Supabase client
 import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma';
 import {  ClubMembershipStatus, ClubRole  } from '@prisma/client'; // ClubRole might not be needed here
 
-const prisma = new PrismaClient()
+
 
 // Initialize Supabase client - credentials should be in environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -144,6 +145,6 @@ export async function GET(req: NextRequest) {
     console.error("Error fetching discoverable clubs:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch discoverable clubs" }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 }

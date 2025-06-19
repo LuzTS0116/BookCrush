@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma';
 import {  FriendRequestStatus  } from '@prisma/client'; // Import Prisma enum
 
-const prisma = new PrismaClient()
+
 
 export async function GET(req: NextRequest) {
   try {

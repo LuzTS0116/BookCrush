@@ -72,7 +72,7 @@ export default function DashboardFeedback() {
     };
 
     return (
-        <div className="px-4 pb-6 pt-0 rounded-b-3xl bg-secondary-light space-y-2 shadow-sm">
+        <div className="container mx-auto px-4 pb-6 pt-0 rounded-b-3xl bg-secondary-light space-y-2 shadow-sm">
             <div className="rounded-t-lg rounded-b-3xl p-4 bg-accent">
                 <h2 className="text-bookBlack text-xl font-bold leading-none mt-1">Feedback</h2>
                 <p className="font-serif font-medium text-secondary leading-none text-sm mt-1">
@@ -81,11 +81,11 @@ export default function DashboardFeedback() {
                 </p>
 
                 {isSubmitted ? (
-                    <div className="mt-4 p-4 bg-green-100 rounded-xl flex items-center gap-3">
-                        <CheckCircle className="h-6 w-6 text-green-600" />
+                    <div className="mt-4 p-4 bg-accent-variant/15 rounded-xl flex items-center gap-3">
+                        <CheckCircle className="h-6 w-6 text-accent-variant/80" />
                         <div>
-                            <p className="font-medium text-green-800">Feedback Submitted!</p>
-                            <p className="text-sm text-green-600">Thank you for helping us improve the app.</p>
+                            <p className="font-medium text-accent-variant">Feedback Submitted!</p>
+                            <p className="text-sm text-accent-variant/80">Thank you for helping us improve the app.</p>
                         </div>
                     </div>
                 ) : (

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+
+
 
 export async function PATCH(
   request: NextRequest,
@@ -88,6 +89,6 @@ export async function PATCH(
     console.error('Error updating meeting attendance:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 } 

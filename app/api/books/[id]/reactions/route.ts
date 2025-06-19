@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { PrismaClient } from '@prisma/client'
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient()
+
 
 // GET /api/books/[id]/reactions - Get reaction counts and user's reaction for a book
 export async function GET(
@@ -76,6 +77,6 @@ export async function GET(
     console.error('Error fetching book reactions:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   } finally {
-    await prisma.$disconnect()
+    
   }
 } 

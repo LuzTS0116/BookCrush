@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
+import { prisma } from '@/lib/prisma';
 import { PrismaClient, ReactionType } from '@prisma/client' 
 
-const prisma = new PrismaClient()
+
 
 // GET /api/books/[id]/reviews - Fetch reviews for a book
 export async function GET(
@@ -63,7 +64,7 @@ export async function GET(
     console.error('Error fetching book reviews:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   } finally {
-    await prisma.$disconnect()
+    
   }
 }
 
@@ -209,6 +210,6 @@ export async function POST(
     console.error('Error creating book review:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   } finally {
-    await prisma.$disconnect()
+    
   }
 } 

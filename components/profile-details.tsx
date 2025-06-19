@@ -307,6 +307,15 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                                   </span>
                                 </div>  
                               </div>
+
+                                {/* Personal Note/Comment - Display only for friends */}
+                                {userBook.comment && (
+                                  <div className="flex items-center gap-1 px-2 py-0.5 text-xs font-regular bg-accent/80 text-secondary rounded-full max-w-[180px]">
+                                    <span className="truncate">
+                                      "{userBook.comment}"
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </CardContent>
                             <CardFooter className="pt-0 px-0">

@@ -1,7 +1,7 @@
 // import { NextRequest, NextResponse } from 'next/server';
-// import { PrismaClient } from '@prisma/client'; // Assuming you have this
+//  // Assuming you have this
 
-// const prisma = new PrismaClient();
+// 
 
 // // POST: Create a reply to a discussion post
 // export async function POST(req: NextRequest, { params }: { params: { discussionId: string } }) {

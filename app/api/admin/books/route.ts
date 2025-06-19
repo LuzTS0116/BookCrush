@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { requireAdmin } from '../../../../lib/auth-utils';
 
-const prisma = new PrismaClient();
+import { requireAdmin } from '../../../../lib/auth-utils';
+import { prisma } from '@/lib/prisma';
+
+
 
 export async function GET(req: NextRequest) {
   try {
@@ -56,7 +57,7 @@ export async function GET(req: NextRequest) {
     
     return NextResponse.json({ error: error.message || 'Failed to fetch books' }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 }
 
@@ -128,6 +129,6 @@ export async function POST(req: NextRequest) {
     
     return NextResponse.json({ error: error.message || 'Failed to create book' }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 } 

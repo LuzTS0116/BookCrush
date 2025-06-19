@@ -3,10 +3,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient } from '@prisma/client';
-import {  ClubRole, ClubMembershipStatus  } from '@prisma/client';
 
-const prisma = new PrismaClient();
+import {  ClubRole, ClubMembershipStatus  } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+
+
 
 export async function GET(
   request: Request,
@@ -208,6 +209,6 @@ export async function GET(
     console.error("Error fetching club details:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch club details" }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 }

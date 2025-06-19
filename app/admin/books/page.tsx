@@ -313,7 +313,7 @@ export default function AdminBooksPage() {
                 placeholder="Search books by title, author, or genre..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
+                className="pl-8 text-bookWhite placeholder:text-bookWhite"
               />
             </div>
           </div>
@@ -361,7 +361,7 @@ export default function AdminBooksPage() {
                           </Badge>
                         ))}
                         {book.genres?.length > 2 && (
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-xs text-secondary">
                             +{book.genres.length - 2}
                           </Badge>
                         )}

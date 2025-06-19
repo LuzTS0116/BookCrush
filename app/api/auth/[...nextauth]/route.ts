@@ -112,9 +112,10 @@ import NextAuth, { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import Credentials from 'next-auth/providers/credentials';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+
+
 
 const {
   GOOGLE_CLIENT_ID,

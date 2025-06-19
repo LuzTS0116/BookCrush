@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+
+
 
 export async function POST(req: NextRequest) {
   try {
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect();
+    
   }
 }
 
@@ -130,6 +131,6 @@ export async function GET(req: NextRequest) {
       { status: 500 }
     );
   } finally {
-    await prisma.$disconnect();
+    
   }
 } 

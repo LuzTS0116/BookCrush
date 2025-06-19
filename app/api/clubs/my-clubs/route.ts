@@ -4,8 +4,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js'; // Standard Supabase client
 import { PrismaClient } from '@prisma/client'
 import {  ClubMembershipStatus, ClubRole  } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient()
+
 
 // Initialize Supabase client - credentials should be in environment variables
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -155,6 +156,6 @@ export async function GET(req: NextRequest) {
     console.error("[API my-clubs] Error fetching user's clubs:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch user's clubs" }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 }

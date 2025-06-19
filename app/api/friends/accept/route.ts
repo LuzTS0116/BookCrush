@@ -3,8 +3,9 @@ import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { PrismaClient, ActivityType, ActivityTargetEntityType  } from '@prisma/client';
 import {  FriendRequestStatus  } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient()
+
 
 export async function POST(req: NextRequest) {
   try {

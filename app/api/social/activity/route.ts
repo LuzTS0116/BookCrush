@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient, Profile, ActivityLog, ActivityType} from '@prisma/client' ;
+import { Profile, ActivityLog, ActivityType} from '@prisma/client' ;
 import { getAvatarPublicUrlServer } from '@/lib/supabase-server-utils';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+
 
 // Helper function to enrich activities with necessary details for the frontend
 async function enrichActivity(activity: ActivityLog & { user: Profile }): Promise<any> {

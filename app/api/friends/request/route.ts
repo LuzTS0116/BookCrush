@@ -4,8 +4,9 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { PrismaClient, ActivityType, ActivityTargetEntityType  } from '@prisma/client';
 import {  FriendRequestStatus  } from '@prisma/client'; // Import Prisma enum
 import { checkRateLimit, logSecurityEvent } from '@/lib/security-utils';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient()
+
 
 export async function POST(req: NextRequest) {
   let user: any = null; // Declare user variable in broader scope
@@ -159,6 +160,6 @@ export async function POST(req: NextRequest) {
     
     return NextResponse.json({ error: error.message || "Failed to send request" }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 }

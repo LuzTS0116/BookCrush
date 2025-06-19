@@ -3,10 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 // import { cookies } from 'next/headers'; // No longer directly using cookies here
 // import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'; // Using standard client
 import { createClient } from '@supabase/supabase-js'; // Standard Supabase client
-import { PrismaClient } from '@prisma/client';
-import {  ClubMembershipStatus, ClubRole  } from '@prisma/client';
 
-const prisma = new PrismaClient();
+import {  ClubMembershipStatus, ClubRole  } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
+
+
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -127,6 +128,6 @@ export async function GET(
     console.error("Error fetching pending club memberships:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch pending memberships" }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 }

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
-const prisma = new PrismaClient();
+
+
 
 export async function GET(
   request: NextRequest,
@@ -86,7 +87,7 @@ export async function GET(
     console.error('Error fetching club meetings:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 }
 
@@ -202,6 +203,6 @@ export async function POST(
     console.error('Error creating club meeting:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    
   }
 } 
