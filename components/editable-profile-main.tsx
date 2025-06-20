@@ -8,14 +8,25 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { BookMarked, ArrowLeft, Mail, Send, Pencil, Save, X, Users, CircleCheckBig, CircleAlert, Loader2, Star, Smartphone, BookOpen, Headphones, ChevronDown, Sparkles, EllipsisVertical, Edit3, Check } from "lucide-react"
+import { BookMarked, ArrowLeft, Mail, Send, Pencil, Save, X, Users, CircleCheckBig, CircleAlert, Loader2, Star, Smartphone, BookOpen, Headphones, ChevronDown, Sparkles, EllipsisVertical, Edit3, Check, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { FavoriteBookDialog } from "./favorite-book-dialog"
+import { ContributionBookDialog } from "./contribution-book-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Heart, Books, Bookmark, CheckCircle } from "@phosphor-icons/react"
 import { getDisplayAvatarUrl } from "@/lib/supabase-utils"
 import { BookDetails, BookFile, UserBook, StatusDisplay, TabDisplay } from "@/types/book"
 import Link from "next/link"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { toast } from "sonner"
 import { useSession } from 'next-auth/react'
 
@@ -47,6 +58,182 @@ const getMediaTypeDisplay = (mediaType: UserBook['media_type']) => {
 const SHELF_OPTIONS = [
   { label: "Move to Reading Queue", value: "queue" },
 ];
+
+// Add interface for the finished book dialog
+interface FinishedBookDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  book: UserBook | null;
+  onSubmit: (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => void;
+  isSubmitting: boolean;
+}
+
+// Add the FinishedBookDialog component
+function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: FinishedBookDialogProps) {
+  const [reviewText, setReviewText] = useState("");
+  const [rating, setRating] = useState<"HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null>(null);
+
+  // Reset form when dialog opens/closes
+  useEffect(() => {
+    if (!isOpen) {
+      setReviewText("");
+      setRating(null);
+    }
+  }, [isOpen]);
+
+  const handleSubmit = () => {
+    if (!rating) {
+      toast.error('Please select a rating');
+      return;
+    }
+    onSubmit(reviewText, rating);
+  };
+
+  const getRatingIcon = (ratingType: "HEART" | "THUMBS_UP" | "THUMBS_DOWN", isSelected: boolean) => {
+    const baseClasses = "h-6 w-6";
+    const selectedClasses = isSelected ? "ring-2 ring-offset-2" : "";
+    
+    switch (ratingType) {
+      case "HEART":
+        return (
+          <LucideHeart 
+            className={`${baseClasses} ${isSelected ? "text-primary fill-primary ring-primary" : "text-muted-foreground"} ${selectedClasses}`} 
+          />
+        );
+      case "THUMBS_UP":
+        return (
+          <LucideThumbsUp 
+            className={`${baseClasses} ${isSelected ? "text-accent-variant ring-accent-variant" : "text-muted-foreground"} ${selectedClasses}`} 
+          />
+        );
+      case "THUMBS_DOWN":
+        return (
+          <LucideThumbsDown 
+            className={`${baseClasses} ${isSelected ? "text-accent ring-accent" : "text-muted-foreground"} ${selectedClasses}`} 
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  if (!book) return null;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px] bg-bookWhite">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold text-secondary">
+            🎉 Congratulations on finishing "{book.book.title}"!
+          </DialogTitle>
+          <DialogDescription className="text-secondary/70">
+            How was your reading experience? Share your thoughts with the community.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-6 py-4">
+          {/* Book Info */}
+          <div className="flex items-center gap-3 p-3 bg-secondary/5 rounded-lg">
+            <img
+              src={book.book.cover_url || "/placeholder.svg"}
+              alt={book.book.title}
+              className="w-16 h-24 object-cover rounded shadow-sm"
+            />
+            <div>
+              <h3 className="font-semibold text-secondary">{book.book.title}</h3>
+              <p className="text-sm text-secondary/70">{book.book.author}</p>
+            </div>
+          </div>
+
+          {/* Rating Selection */}
+          <div className="space-y-3">
+            <div>
+              <h4 className="text-sm font-medium text-secondary mb-3">Rate this book:</h4>
+              <div className="flex justify-center gap-6">
+                <button
+                  onClick={() => setRating("HEART")}
+                  className={`p-3 rounded-full transition-all ${
+                    rating === "HEART" 
+                      ? "bg-primary/20 scale-110" 
+                      : "hover:bg-secondary/10 hover:scale-105"
+                  }`}
+                  disabled={isSubmitting}
+                >
+                  {getRatingIcon("HEART", rating === "HEART")}
+                </button>
+                <button
+                  onClick={() => setRating("THUMBS_UP")}
+                  className={`p-3 rounded-full transition-all ${
+                    rating === "THUMBS_UP" 
+                      ? "bg-accent-variant/20 scale-110" 
+                      : "hover:bg-secondary/10 hover:scale-105"
+                  }`}
+                  disabled={isSubmitting}
+                >
+                  {getRatingIcon("THUMBS_UP", rating === "THUMBS_UP")}
+                </button>
+                <button
+                  onClick={() => setRating("THUMBS_DOWN")}
+                  className={`p-3 rounded-full transition-all ${
+                    rating === "THUMBS_DOWN" 
+                      ? "bg-accent/20 scale-110" 
+                      : "hover:bg-secondary/10 hover:scale-105"
+                  }`}
+                  disabled={isSubmitting}
+                >
+                  {getRatingIcon("THUMBS_DOWN", rating === "THUMBS_DOWN")}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Review Text */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium text-secondary">Share your thoughts (optional):</h4>
+            <Textarea
+              placeholder="What did you think about this book? Share your experience..."
+              value={reviewText}
+              onChange={(e) => setReviewText(e.target.value)}
+              className="min-h-[100px] bg-secondary/5 border-secondary/20 text-secondary placeholder:text-secondary/50"
+              disabled={isSubmitting}
+            />
+            <p className="text-xs text-secondary/50 text-right">
+              {reviewText.length}/500 characters
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="rounded-full"
+          >
+            Skip Review
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!rating || isSubmitting}
+            className="rounded-full bg-accent hover:bg-accent-variant"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Finish & Review
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 interface Profile {
   id: string
@@ -116,7 +303,20 @@ export default function EditableProfileMain() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  
+
+  // Add state for the finished book dialog
+  const [finishedBookDialog, setFinishedBookDialog] = useState<{
+    isOpen: boolean;
+    book: UserBook | null;
+    bookId: string | null;
+    currentShelf: UserBook['shelf'] | null;
+  }>({
+    isOpen: false,
+    book: null,
+    bookId: null,
+    currentShelf: null
+  });
+  const [isSubmittingFinishedReview, setIsSubmittingFinishedReview] = useState(false);
 
   const genres = [
     "Biography",
@@ -419,12 +619,27 @@ export default function EditableProfileMain() {
     setNoteText("");
   };
 
-  // Function to handle status updates via API
+  // Modified handleStatusChange function
   const handleStatusChange = async (
     bookId: string, 
     currentShelf: UserBook['shelf'], 
     newStatus: UserBook['status']
   ) => {
+    // If the new status is "finished", open the review dialog instead of immediately updating
+    if (newStatus === "finished") {
+      const book = [...currentlyReadingBooks, ...queueBooks].find(b => b.book_id === bookId);
+      if (book) {
+        setFinishedBookDialog({
+          isOpen: true,
+          book,
+          bookId,
+          currentShelf
+        });
+        return; // Don't proceed with status update yet
+      }
+    }
+
+    // For all other status changes, proceed as normal
     try {
       // Optimistic UI update: immediately update the state
       if (currentShelf === "currently_reading") {
@@ -449,14 +664,19 @@ export default function EditableProfileMain() {
         throw new Error(errorData.error || 'Failed to update book status');
       }
 
-      // If finished or unfinished, remove from currently reading
-      if (newStatus === "finished" || newStatus === "unfinished") {
-        setCurrentlyReadingBooks(prevBooks =>
-          prevBooks.filter(userBook => 
-            userBook.book_id !== bookId
-          )
-        );
-        toast.success(`Book marked as ${newStatus === "finished" ? "finished" : "unfinished"}!`);
+      // If unfinished, remove from currently reading and add to history
+      if (newStatus === "unfinished") {
+        const updatedBook = currentlyReadingBooks.find(b => b.book_id === bookId);
+        if (updatedBook) {
+          setCurrentlyReadingBooks(prevBooks =>
+            prevBooks.filter(userBook => userBook.book_id !== bookId)
+          );
+          setHistoryBooks(prevBooks => [
+            { ...updatedBook, status: newStatus, shelf: 'history' as UserBook['shelf'] },
+            ...prevBooks
+          ]);
+        }
+        toast.success('Book marked as unfinished and moved to history!');
       } else {
         toast.success('Status updated!');
       }
@@ -475,6 +695,91 @@ export default function EditableProfileMain() {
         );
       }
     }
+  };
+
+  // Function to handle finished book review submission
+  const handleFinishedBookReview = async (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => {
+    if (!finishedBookDialog.bookId || !finishedBookDialog.currentShelf) return;
+
+    setIsSubmittingFinishedReview(true);
+    
+    try {
+      // Submit review if text is provided
+      if (reviewText.trim()) {
+        const reviewResponse = await fetch(`/api/books/${finishedBookDialog.bookId}/reviews`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: reviewText.trim(),
+            rating: rating
+          })
+        });
+
+        if (!reviewResponse.ok) {
+          const errorData = await reviewResponse.json();
+          throw new Error(errorData.error || 'Failed to submit review');
+        }
+      } else {
+        // If no review text, just submit the rating as a reaction
+        const reactionResponse = await fetch('/api/reactions/toggle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            targetId: finishedBookDialog.bookId,
+            targetType: 'BOOK',
+            type: rating
+          })
+        });
+
+        if (!reactionResponse.ok) {
+          const errorData = await reactionResponse.json();
+          throw new Error(errorData.error || 'Failed to submit rating');
+        }
+      }
+
+      // Update book status to finished
+      const statusResponse = await fetch('/api/shelf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          bookId: finishedBookDialog.bookId, 
+          shelf: finishedBookDialog.currentShelf, 
+          status: 'finished' 
+        })
+      });
+
+      if (!statusResponse.ok) {
+        const errorData = await statusResponse.json();
+        throw new Error(errorData.error || 'Failed to mark book as finished');
+      }
+
+      // Optimistic UI updates: Remove from currently reading and add to history
+      const finishedBook = currentlyReadingBooks.find(b => b.book_id === finishedBookDialog.bookId);
+      if (finishedBook) {
+        setCurrentlyReadingBooks(prevBooks =>
+          prevBooks.filter(userBook => userBook.book_id !== finishedBookDialog.bookId)
+        );
+        setHistoryBooks(prevBooks => [
+          { ...finishedBook, status: 'finished' as UserBook['status'], shelf: 'history' as UserBook['shelf'] },
+          ...prevBooks
+        ]);
+      }
+
+      // Close dialog and show success message
+      setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
+      toast.success('Book marked as finished! Thanks for sharing your thoughts.');
+
+    } catch (err: any) {
+      console.error("Error submitting finished book review:", err);
+      toast.error(`Failed to submit: ${err.message}`);
+    } finally {
+      setIsSubmittingFinishedReview(false);
+    }
+  };
+
+  // Function to close the finished book dialog
+  const closeFinishedBookDialog = () => {
+    setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
   };
 
   // Function to handle media type updates via API
@@ -752,6 +1057,17 @@ export default function EditableProfileMain() {
 
     // Close confirmation dialog
     cancelRemoval();
+  };
+
+  // Handle favorite change from FavoriteBookDialog
+  const handleFavoriteChange = (bookId: string, isFavorite: boolean) => {
+    if (!isFavorite) {
+      // If unfavorited, remove from favoriteBooks list
+      setFavoriteBooks(prev => prev.filter(userBook => userBook.book_id !== bookId));
+    }
+    // Note: If favorited, the book would need to be added to favorites list
+    // but since this is called from FavoriteBookDialog which only shows books
+    // that are already favorited, we only handle the unfavorite case
   };
 
   if (isLoading) {
@@ -1088,14 +1404,14 @@ export default function EditableProfileMain() {
 
                                       <DropdownMenu.Portal>
                                         <DropdownMenu.Content
-                                          className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                                          className="w-auto rounded-xl flex flex-col justify-end bg-transparent shadow-xl px-1 mr-7 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
                                           sideOffset={5}
                                         >
                                         {SHELF_OPTIONS.filter(shelf => shelf.value !== userBook.shelf).map((shelf) => (
                                           <DropdownMenu.Item
                                             key={shelf.value}
                                             onSelect={() => handleAddToShelf(bookId, shelf.value)}
-                                            className="px-3 py-2 text-xs text-center bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
+                                            className="px-3 py-2 text-xs text-center bg-secondary/90 my-1 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
                                             disabled={currentShelfStatus?.isLoading}
                                           >
                                             {shelf.label}
@@ -1103,7 +1419,7 @@ export default function EditableProfileMain() {
                                         ))}
                                         <DropdownMenu.Item
                                           onSelect={() => showRemoveConfirmation(bookId, userBook.book.title, 'currently_reading')}
-                                          className="px-3 py-2 text-xs text-center bg-red-500/90 my-2 rounded-md cursor-pointer hover:bg-red-600 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
+                                          className="px-3 py-2 text-xs text-end w-[132px] self-end bg-red-700/90 my-1 rounded-md cursor-pointer hover:bg-red-600 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
                                           disabled={currentShelfStatus?.isLoading}
                                         >
                                           Remove from Shelf
@@ -1290,7 +1606,7 @@ export default function EditableProfileMain() {
                           <CardHeader className="pb-2 px-0 pt-0">
                             <div className="flex flex-row justify-between items-start">
                               <Link href={`/books/${userBook.book_id}`}>
-                                <CardTitle className="text-sm">{userBook.book.title}</CardTitle>
+                                <CardTitle className="leading-5">{userBook.book.title}</CardTitle>
                               </Link>
                               <div>
                                 {/* Queue Management Dropdown */}
@@ -1314,9 +1630,9 @@ export default function EditableProfileMain() {
                                       >
                                         <DropdownMenu.Item
                                           onSelect={() => showRemoveConfirmation(userBook.book_id, userBook.book.title, 'queue')}
-                                          className="px-3 py-2 text-xs text-center bg-red-500/90 my-2 rounded-md cursor-pointer hover:bg-red-600 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
+                                          className="px-3 py-2 text-xs text-center bg-red-700/90 my-2 rounded-md cursor-pointer hover:bg-red-800 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
                                         >
-                                          Remove from Queue
+                                          Remove from Shelf
                                         </DropdownMenu.Item>
                                       </DropdownMenu.Content>
                                     </DropdownMenu.Portal>
@@ -1420,15 +1736,11 @@ export default function EditableProfileMain() {
                   ) : (
                     <div className="grid grid-cols-4 gap-1">
                       {favoriteBooks.map((userBook) => (
-                        <div key={userBook.book_id} className="w-auto">
-                          <Link href={`/books/${userBook.book_id}`}>
-                            <img
-                              src={userBook.book.cover_url || "/placeholder.svg"}
-                              alt={userBook.book.title || "Book cover"}
-                              className="h-full w-full shadow-md rounded object-cover"
-                            />
-                          </Link>
-                        </div>
+                        <FavoriteBookDialog 
+                          key={userBook.book_id}
+                          userBook={userBook} 
+                          onFavoriteChange={handleFavoriteChange}
+                        />
                       ))}
                     </div>
                   )}
@@ -1447,13 +1759,7 @@ export default function EditableProfileMain() {
                     <div className="grid grid-cols-4 gap-1">
                       {addedBooks.map((book) => (
                         <div key={book.id} className="w-auto">
-                          <Link href={`/books/${book.id}`}>
-                            <img
-                              src={book.cover_url || "/placeholder.svg"}
-                              alt={book.title || "Book cover"}
-                              className="h-full w-full shadow-md rounded object-cover"
-                            />
-                          </Link>
+                          <ContributionBookDialog addedBooks={book} />
                         </div>
                       ))}
                     </div>
@@ -1465,17 +1771,24 @@ export default function EditableProfileMain() {
         </div>
       </div>
 
+      {/* Add the FinishedBookDialog component */}
+      <FinishedBookDialog
+        isOpen={finishedBookDialog.isOpen}
+        onClose={closeFinishedBookDialog}
+        book={finishedBookDialog.book}
+        onSubmit={handleFinishedBookReview}
+        isSubmitting={isSubmittingFinishedReview}
+      />
+
       {/* Confirmation Modal */}
       {confirmRemoval.bookId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-bookWhite rounded-2xl p-6 max-w-md mx-4 shadow-xl">
-            <h3 className="text-lg font-semibold text-secondary mb-2">
-              Remove Book from {confirmRemoval.shelf === 'currently_reading' ? 'Currently Reading' : 'Reading Queue'}?
-            </h3>
-            <p className="text-secondary/70 mb-4">
-              Are you sure you want to remove "{confirmRemoval.bookTitle}" from your {confirmRemoval.shelf === 'currently_reading' ? 'currently reading list' : 'reading queue'}? This action cannot be undone.
+          <div className="bg-bookWhite/95 w-[80vw] rounded-2xl p-4 max-w-md mx-4 shadow-xl">
+            <p className="text-secondary/70 text-center leading-5">
+              Are you sure you want to remove "{confirmRemoval.bookTitle}" from your {confirmRemoval.shelf === 'currently_reading' ? 'currently reading shelf' : 'reading queue'}?
             </p>
-            <div className="flex gap-3 justify-end">
+            <p className="text-secondary/70 text-center leading-5 mb-3">This action cannot be undone.</p>
+            <div className="flex gap-3 justify-center">
               <Button
                 variant="outline"
                 onClick={cancelRemoval}
@@ -1485,7 +1798,7 @@ export default function EditableProfileMain() {
               </Button>
               <Button
                 onClick={confirmRemovalAction}
-                className="rounded-full bg-red-500 hover:bg-red-600 text-bookWhite"
+                className="rounded-full bg-red-700 hover:bg-red-800 text-bookWhite"
               >
                 Remove Book
               </Button>

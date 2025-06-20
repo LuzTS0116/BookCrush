@@ -6,6 +6,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 
 import {  ClubRole, ClubMembershipStatus  } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { getAvatarPublicUrlServer } from '@/lib/supabase-server-utils';
 
 
 
@@ -96,7 +97,7 @@ export async function GET(
       bookIdForDiscussions = club.current_book_id || null;
     
       if(bookIdForDiscussions){
-        discussions = await prisma.clubDiscussion.findMany({
+        const rawDiscussions = await prisma.clubDiscussion.findMany({
           where: {
             club_id: id,
             book_id: bookIdForDiscussions,
@@ -112,6 +113,15 @@ export async function GET(
             },
           },
         });
+
+        // Format discussions with proper avatar URLs
+        discussions = await Promise.all(rawDiscussions.map(async (discussion) => ({
+          ...discussion,
+          user: {
+            ...discussion.user,
+            avatar_url: await getAvatarPublicUrlServer(discussion.user.avatar_url)
+          }
+        })));
       }
     }
     
@@ -176,6 +186,15 @@ export async function GET(
       }));
     }
 
+    // Format memberships with proper avatar URLs
+    const formattedMemberships = await Promise.all(club.memberships.map(async (membership) => ({
+      ...membership,
+      user: {
+        ...membership.user,
+        avatar_url: await getAvatarPublicUrlServer(membership.user.avatar_url)
+      }
+    })));
+
     // 4. Construct the full club details response
     const fullClubDetails = {
       id: club.id,
@@ -183,7 +202,7 @@ export async function GET(
       description: club.description,
       memberCount: club.memberCount,
       owner_id: club.owner_id, // Club owner's ID
-      memberships: club.memberships,
+      memberships: formattedMemberships,
 
       // Current user's relation to this club (dynamic)
       currentUserMembershipStatus: currentUserMembershipStatus,

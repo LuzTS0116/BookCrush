@@ -4,7 +4,7 @@ import EditableProfileMain from "@/components/editable-profile-main";
 
 export default function ProfilePage() {
   return (
-    <div className="min-h-screen relative w-full mt-[-11px] h-auto overflow-hidden">
+    <div className="min-h-screen pb-14 relative w-full mt-[-11px] h-auto overflow-hidden">
       <Image 
         src="/images/background.png"
         alt="Create and Manage your Book Clubs | BookCrush"

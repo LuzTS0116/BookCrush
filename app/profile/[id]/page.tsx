@@ -4,7 +4,7 @@ import ProfileDetailsClientWrapper from "@/components/profile-details-client-wra
 
 export default function ProfileDetailsPage({ params }: { params: { id: string } }) {
   return (
-  <div className="min-h-screen relative w-full h-auto overflow-hidden">
+  <div className="min-h-screen pb-14 relative w-full h-auto overflow-hidden">
     <Image 
       src="/images/background.png"
       alt="Create and Manage your Book Clubs | BookCrush"

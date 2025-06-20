@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { BookOpen, Filter, Plus, Search, Send, ThumbsDown, ThumbsUp, Grid, List, MoreVertical, Upload, ChevronDown } from "lucide-react" // Added ChevronDown for dropdown
+import { BookOpen, Filter, Plus, Search, Send, ThumbsDown, ThumbsUp, Grid, List, MoreVertical, Upload, ChevronDown, Loader2, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown, CheckCircle } from "lucide-react" // Added more icons
 import { Heart } from "@phosphor-icons/react"
 import Link from "next/link"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"; // Radix DropdownMenu
@@ -34,6 +34,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
+import { Textarea } from "@/components/ui/textarea"
 
 import { BookDetails } from "@/types/book";
 import { AddBookDialog } from "./add-book-dialog"
@@ -55,7 +56,7 @@ interface BookReactions {
   LIKE: number;
 }
 
-// Extended BookDetails interface to include creator info
+// Extended BookDetails interface to include creator info and shelf status
 interface ExtendedBookDetails extends BookDetails {
   added_by_user?: {
     id: string;
@@ -63,6 +64,211 @@ interface ExtendedBookDetails extends BookDetails {
     nickname: string | null;
     avatar_url: string | null;
   };
+  // Add shelf status information
+  user_shelf_status?: {
+    shelf: 'favorite' | 'currently_reading' | 'queue' | 'history';
+    status?: 'in_progress' | 'almost_done' | 'finished' | 'unfinished';
+  };
+  // For friends library tab - shelf status of the friend who added the book
+  friend_shelf_status?: {
+    shelf: 'favorite' | 'currently_reading' | 'queue' | 'history';
+    status?: 'in_progress' | 'almost_done' | 'finished' | 'unfinished';
+    user_name: string;
+  };
+}
+
+// Add interface for the finished book dialog
+interface FinishedBookDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  book: ExtendedBookDetails | null;
+  onSubmit: (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => void;
+  isSubmitting: boolean;
+}
+
+// Helper function to get shelf badge display info
+const getShelfBadgeInfo = (shelf: string, status?: string) => {
+  switch (shelf) {
+    case 'currently_reading':
+      if (status === 'in_progress') return { label: '📖 Reading', color: 'bg-blue-100 text-blue-700' };
+      if (status === 'almost_done') return { label: '💫 Almost Done', color: 'bg-purple-100 text-purple-700' };
+      return { label: '📖 Reading', color: 'bg-blue-100 text-blue-700' };
+    case 'queue':
+      return { label: '📚 In Queue', color: 'bg-orange-100 text-orange-700' };
+    case 'history':
+      if (status === 'finished') return { label: '✅ Finished', color: 'bg-green-100 text-green-700' };
+      if (status === 'unfinished') return { label: '😑 Unfinished', color: 'bg-gray-100 text-gray-700' };
+      return { label: '📖 Read', color: 'bg-green-100 text-green-700' };
+    case 'favorite':
+      return { label: '❤️ Favorite', color: 'bg-red-100 text-red-700' };
+    default:
+      return null;
+  }
+};
+
+// Helper component for shelf status badge
+const ShelfStatusBadge = ({ shelf, status, userName }: { shelf: string; status?: string; userName?: string }) => {
+  const badgeInfo = getShelfBadgeInfo(shelf, status);
+  
+  if (!badgeInfo) return null;
+  
+  return (
+    <div className="flex items-center gap-1">
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${badgeInfo.color}`}>
+        {badgeInfo.label}
+      </span>
+      {userName && (
+        <span className="text-xs text-muted-foreground">
+          by {userName}
+        </span>
+      )}
+    </div>
+  );
+};
+
+// Add the FinishedBookDialog component
+function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: FinishedBookDialogProps) {
+  const [reviewText, setReviewText] = useState("");
+  const [rating, setRating] = useState<"HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null>(null);
+
+  const handleSubmit = () => {
+    if (rating) {
+      onSubmit(reviewText, rating);
+    }
+  };
+
+  const handleSkip = () => {
+    onSubmit("", "HEART"); // Submit with empty review and default rating
+  };
+
+  const getRatingIcon = (ratingType: "HEART" | "THUMBS_UP" | "THUMBS_DOWN", isSelected: boolean) => {
+    const baseClasses = "h-6 w-6";
+    const selectedClasses = isSelected ? "ring-2 ring-offset-2" : "";
+    
+    switch (ratingType) {
+      case "HEART":
+        return (
+          <LucideHeart 
+            className={`${baseClasses} ${isSelected ? "text-primary fill-primary ring-primary" : "text-muted-foreground"} ${selectedClasses}`} 
+          />
+        );
+      case "THUMBS_UP":
+        return (
+          <LucideThumbsUp 
+            className={`${baseClasses} ${isSelected ? "text-accent-variant ring-accent-variant" : "text-muted-foreground"} ${selectedClasses}`} 
+          />
+        );
+      case "THUMBS_DOWN":
+        return (
+          <LucideThumbsDown 
+            className={`${baseClasses} ${isSelected ? "text-accent ring-accent" : "text-muted-foreground"} ${selectedClasses}`} 
+          />
+        );
+    }
+  };
+
+  // Reset form when dialog opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      setReviewText("");
+      setRating(null);
+    }
+  }, [isOpen]);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader className="text-center">
+          <DialogTitle className="text-2xl">🎉 Congratulations!</DialogTitle>
+          <DialogDescription>
+            You&apos;ve finished reading <span className="font-semibold">{book?.title}</span>
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="flex flex-col items-center space-y-4 py-4">
+          {book && (
+            <div className="w-24 h-32 rounded-lg overflow-hidden shadow-md">
+              <img 
+                src={book.cover_url || "/placeholder.svg"} 
+                alt={book.title}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+          
+          <div className="text-center">
+            <h3 className="font-medium">{book?.title}</h3>
+            <p className="text-sm text-muted-foreground">by {book?.author}</p>
+          </div>
+          
+          <div className="w-full space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">How did you like it?</label>
+              <div className="flex justify-center gap-3">
+                {(["HEART", "THUMBS_UP", "THUMBS_DOWN"] as const).map((ratingType) => (
+                  <button
+                    key={ratingType}
+                    type="button"
+                    onClick={() => setRating(ratingType)}
+                    className={`p-3 rounded-full transition-all hover:bg-muted ${
+                      rating === ratingType ? "bg-muted" : ""
+                    }`}
+                    disabled={isSubmitting}
+                  >
+                    {getRatingIcon(ratingType, rating === ratingType)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Share your thoughts (optional)
+              </label>
+              <Textarea
+                placeholder="What did you think about this book? (max 500 characters)"
+                value={reviewText}
+                onChange={(e) => setReviewText(e.target.value.slice(0, 500))}
+                className="min-h-[100px] resize-none"
+                disabled={isSubmitting}
+              />
+              <div className="text-xs text-muted-foreground mt-1 text-right">
+                {reviewText.length}/500
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button
+            variant="outline"
+            onClick={handleSkip}
+            disabled={isSubmitting}
+            className="w-full sm:w-auto"
+          >
+            Skip Review
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!rating || isSubmitting}
+            className="w-full sm:w-auto"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Finishing...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Mark as Finished
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export default function BooksTableContents() {
@@ -95,6 +301,11 @@ export default function BooksTableContents() {
   // State to manage per-book loading/feedback for adding to shelf
   // Key: bookId, Value: { isLoading: boolean, message: string | null }
   const [shelfActionsStatus, setShelfActionsStatus] = useState<Record<string, { isLoading: boolean, message: string | null }>>({});
+
+  // Add state for finished book dialog
+  const [finishedBookDialogOpen, setFinishedBookDialogOpen] = useState(false);
+  const [selectedBookForFinish, setSelectedBookForFinish] = useState<ExtendedBookDetails | null>(null);
+  const [isSubmittingFinishedBook, setIsSubmittingFinishedBook] = useState(false);
 
   // Calculate pagination
   const totalPages = Math.ceil(books.length / itemsPerPage)
@@ -196,10 +407,21 @@ export default function BooksTableContents() {
       return;
     }
 
+    // Special handling for finished shelf - show review dialog
+    if (shelf === 'finished') {
+      const book = books.find(b => b.id === bookId);
+      if (book) {
+        setSelectedBookForFinish(book);
+        setFinishedBookDialogOpen(true);
+      }
+      return;
+    }
+
     setShelfActionsStatus(prev => ({
       ...prev,
       [bookId]: { isLoading: true, message: null }
     }));
+    
     try {
       // Your API call to add/move the book
       const response = await fetch('/api/shelf', {
@@ -210,33 +432,107 @@ export default function BooksTableContents() {
         },
         body: JSON.stringify({ bookId, shelf, status: 'in_progress' }) // Default status for new additions
       });
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to add book to shelf');
       }
+      
       const result = await response.json();
       console.log('Book added/moved to shelf:', result);
 
-      setShelfActionsStatus(prev => ({
-        ...prev,
-        [bookId]: { isLoading: false, message: `Added to ${shelf.replace(/_/g, ' ')}!` }
-      }));
-
-      // Optionally, re-fetch or update the specific book's status in the UI if needed
-      // For a global list, just showing the message might be enough.
-      // If you want to reflect it immediately in the `books` state, you'd need more complex logic
-      // to find the book and update its shelf/status or re-fetch.
-      // For now, it just shows a success message.
-      setTimeout(() => { // Clear message after a few seconds
-        setShelfActionsStatus(prev => ({ ...prev, [bookId]: { isLoading: false, message: null } }));
-      }, 3000);
+      // Show success toast
+      const shelfDisplayName = shelf.replace(/_/g, ' ');
+      toast.success(`📚 Added to ${shelfDisplayName}!`);
 
     } catch (err: any) {
       console.error("Error adding book to shelf:", err);
+      toast.error(`Failed to add book: ${err.message}`);
+    } finally {
       setShelfActionsStatus(prev => ({
         ...prev,
-        [bookId]: { isLoading: false, message: `Error: ${err.message}` }
+        [bookId]: { isLoading: false, message: null }
       }));
+    }
+  };
+
+  // Handle finished book submission with review
+  const handleFinishedBookSubmit = async (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => {
+    if (!selectedBookForFinish || !session?.supabaseAccessToken) {
+      toast.error('Authentication required');
+      return;
+    }
+
+    try {
+      setIsSubmittingFinishedBook(true);
+
+      // First, move the book to finished shelf
+      const shelfResponse = await fetch('/api/shelf', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
+        body: JSON.stringify({ 
+          bookId: selectedBookForFinish.id, 
+          shelf: 'history', // Use 'history' for finished books
+          status: 'finished' 
+        })
+      });
+
+      if (!shelfResponse.ok) {
+        const errorData = await shelfResponse.json();
+        throw new Error(errorData.error || 'Failed to mark book as finished');
+      }
+
+      // If there's a review, submit it
+      if (reviewText.trim()) {
+        const reviewResponse = await fetch(`/api/books/${selectedBookForFinish.id}/reviews`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.supabaseAccessToken}`,
+          },
+          body: JSON.stringify({
+            content: reviewText,
+            rating: rating
+          })
+        });
+
+        if (reviewResponse.ok) {
+          const reviewResult = await reviewResponse.json();
+          console.log('Review submitted:', reviewResult);
+          
+          // Update the book's reaction counts optimistically
+          setBooks(prevBooks => 
+            prevBooks.map(book => 
+              book.id === selectedBookForFinish.id 
+                ? { 
+                    ...book, 
+                    reactions: {
+                      ...book.reactions,
+                      counts: {
+                        ...book.reactions?.counts,
+                        [rating]: (book.reactions?.counts?.[rating] || 0) + 1
+                      }
+                    }
+                  }
+                : book
+            )
+          );
+        }
+      }
+
+      // Close dialog and show success message
+      setFinishedBookDialogOpen(false);
+      setSelectedBookForFinish(null);
+      toast.success('🎉 Congratulations! Book marked as finished!');
+
+    } catch (error: any) {
+      console.error('Error finishing book:', error);
+      toast.error(`Failed to finish book: ${error.message}`);
+    } finally {
+      setIsSubmittingFinishedBook(false);
     }
   };
 
@@ -483,12 +779,6 @@ export default function BooksTableContents() {
                                         </DropdownMenu.Content>
                                       </DropdownMenu.Portal>
                                     </DropdownMenu.Root>
-                                    {/* Display action status message */}
-                                    {currentShelfStatus?.message && (
-                                      <p className="absolute top-full mb-1 right-0 text-nowrap text-xs mt-1 bg-primary/85 py-1 px-2 text-center flex-1 rounded-xl z-50" style={{ color: currentShelfStatus.message.startsWith('Error') ? 'red' : 'secondary' }}>
-                                        {currentShelfStatus.message}
-                                      </p>
-                                    )}
                                     </div>
                                   )}
                                 </div>
@@ -518,8 +808,8 @@ export default function BooksTableContents() {
                                   </div>
                               </div>
 
-                              {/* Genre Tags */}
-                              <div className="flex flex-wrap gap-1">
+                              {/* Genre Tags and Shelf Status */}
+                              <div className="flex flex-wrap gap-1 items-center">
                                 {book.genres?.slice(0, 1).map((genre: string) => (
                                   <span
                                     key={genre}
@@ -528,6 +818,20 @@ export default function BooksTableContents() {
                                     {genre}
                                   </span>
                                 ))}
+                                
+                                {/* Shelf Status Badge */}
+                                {activeTab === 'club-books' && book.friend_shelf_status ? (
+                                  <ShelfStatusBadge 
+                                    shelf={book.friend_shelf_status.shelf} 
+                                    status={book.friend_shelf_status.status}
+                                    userName={book.friend_shelf_status.user_name}
+                                  />
+                                ) : book.user_shelf_status ? (
+                                  <ShelfStatusBadge 
+                                    shelf={book.user_shelf_status.shelf} 
+                                    status={book.user_shelf_status.status}
+                                  />
+                                ) : null}
                               </div>
 
                               {/* Pages & Time */}
@@ -579,6 +883,7 @@ export default function BooksTableContents() {
                           <TableHead className="p-2">Author</TableHead>
                           <TableHead className="p-2">Pages</TableHead>
                           <TableHead className="p-2">Genre</TableHead>
+                          <TableHead className="p-2">Status</TableHead>
                           {activeTab !== 'my-books' && <TableHead className="p-2">Added By</TableHead>}
                         </TableRow>
                       </TableHeader>
@@ -600,6 +905,22 @@ export default function BooksTableContents() {
                                     {genre}
                                   </span>
                                 ))}
+                              </TableCell>
+                              <TableCell className="p-2">
+                                {activeTab === 'club-books' && book.friend_shelf_status ? (
+                                  <ShelfStatusBadge 
+                                    shelf={book.friend_shelf_status.shelf} 
+                                    status={book.friend_shelf_status.status}
+                                    userName={book.friend_shelf_status.user_name}
+                                  />
+                                ) : book.user_shelf_status ? (
+                                  <ShelfStatusBadge 
+                                    shelf={book.user_shelf_status.shelf} 
+                                    status={book.user_shelf_status.status}
+                                  />
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">-</span>
+                                )}
                               </TableCell>
                               {activeTab !== 'my-books' && (
                                 <TableCell className="p-2 text-xs text-secondary/60">
@@ -638,6 +959,16 @@ export default function BooksTableContents() {
           </Tabs>
         </div>
       </div>
+      <FinishedBookDialog
+        isOpen={finishedBookDialogOpen}
+        onClose={() => {
+          setFinishedBookDialogOpen(false);
+          setSelectedBookForFinish(null);
+        }}
+        book={selectedBookForFinish}
+        onSubmit={handleFinishedBookSubmit}
+        isSubmitting={isSubmittingFinishedBook}
+      />
     </div>
   )
 }

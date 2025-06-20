@@ -9,6 +9,8 @@ export function parseShelfType(shelf: string): shelf_type {
       return shelf_type.currently_reading;
     case 'queue':
       return shelf_type.queue;
+    case 'history':
+      return shelf_type.history;
     default:
       throw new Error(`Invalid shelf type provided: ${shelf}`);
   }

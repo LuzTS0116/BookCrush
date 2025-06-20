@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma';
-import { PrismaClient, ReactionType } from '@prisma/client' 
-
+import { ReactionType } from '@prisma/client' 
+import {getAvatarPublicUrlServer} from '@/lib/supabase-server-utils';
 
 
 // GET /api/books/[id]/reviews - Fetch reviews for a book
@@ -40,13 +40,16 @@ export async function GET(
       }
     })
 
+   
+
     // Transform the data to match the expected format
-    const formattedReviews = reviews.map((review: any) => ({
+    const formattedReviews = await Promise.all(reviews.map(async (review: any) => ({
+      
       id: review.id,
       user: {
         id: review.user.id,
         name: review.user.display_name,
-        avatar: review.user.avatar_url,
+        avatar: await getAvatarPublicUrlServer(review.user.avatar_url),
         initials: review.user.display_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
       },
       rating: review.rating,
@@ -56,7 +59,7 @@ export async function GET(
         month: 'long', 
         day: 'numeric' 
       })
-    }))
+    })))
 
     return NextResponse.json(formattedReviews, { status: 200 })
 
@@ -189,7 +192,7 @@ export async function POST(
       user: {
         id: result.user.id,
         name: result.user.display_name,
-        avatar: result.user.avatar_url,
+        avatar: await getAvatarPublicUrlServer(result.user.avatar_url),
         initials: result.user.display_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
       },
       rating: result.rating,

@@ -4,62 +4,170 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { ActivityType, ActivityTargetEntityType } from '@prisma/client';
 import { parseShelfType, parseStatusType } from '@/lib/enum'; // Import your enum parser
 import {  shelf_type, status_type  } from '@prisma/client';
-import { getToken } from 'next-auth/jwt';
-import { prisma } from '@/lib/prisma';
+import {prisma} from '@/lib/prisma'
 
-export async function POST(request: NextRequest) {
-  try {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+
+export async function POST(req: NextRequest) {
     
-    if (!token || !token.id) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  try {
+    // 1. Authenticate User
+    const cookieStore = await cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const { bookId, shelf } = await request.json();
+    const { bookId, shelf: shelfString, status: statusString, position } = await req.json();
 
-    if (!bookId || !shelf) {
-      return NextResponse.json({ error: 'Book ID and shelf are required' }, { status: 400 });
+    // 2. Validate Input
+    if (!bookId || !shelfString) {
+      return NextResponse.json({ error: "bookId and shelf are required" }, { status: 400 });
     }
 
-    // Check if the book exists
-    const book = await prisma.book.findUnique({
-      where: { id: bookId }
-    });
-
-    if (!book) {
-      return NextResponse.json({ error: 'Book not found' }, { status: 404 });
+    let shelfType: shelf_type;
+    try {
+      shelfType = parseShelfType(shelfString);
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
     }
 
-    // Check if the book is already on a shelf for this user
+    let statusType: status_type;
+    if (statusString) {
+      try {
+        statusType = parseStatusType(statusString);
+      } catch (e: any) {
+        return NextResponse.json({ error: e.message }, { status: 400 });
+      }
+    } else {
+      // Default status for a new entry
+      statusType = 'in_progress';
+    }
+
+    // 3. Handle "Move" or "Add" Logic
+    // Check if the book already exists for this user on *any* shelf
     const existingUserBook = await prisma.userBook.findFirst({
       where: {
-        user_id: token.id as string,
-        book_id: bookId
+        user_id: user.id,
+        book_id: bookId,
+      },
+      include: { 
+        book: { select: { title: true } } // Ensure title is fetched for activity log
       }
     });
 
+    let previousShelf = existingUserBook?.shelf;
+    let previousStatus = existingUserBook?.status;
+    // Use book title from existingUserBook if available, otherwise it will be fetched from userBook after upsert
+    let bookTitleForActivity = existingUserBook?.book?.title || 'A book'; 
+
     if (existingUserBook) {
-      // Update existing shelf
-      const updatedUserBook = await prisma.userBook.update({
-        where: { id: existingUserBook.id },
-        data: { shelf }
-      });
-      return NextResponse.json(updatedUserBook);
-    } else {
-      // Create new shelf entry
-      const newUserBook = await prisma.userBook.create({
-        data: {
-          user_id: token.id as string,
-          book_id: bookId,
-          shelf
-        }
-      });
-      return NextResponse.json(newUserBook);
+      // If it exists on a *different* shelf, delete the old entry
+      if (existingUserBook.shelf !== shelfType) {
+        await prisma.userBook.delete({
+          where: {
+            user_id_book_id_shelf: { // Use the unique ID from your @@id([]) composite key
+              user_id: user.id,
+              book_id: bookId,
+              shelf: existingUserBook.shelf,
+            },
+          },
+        });
+        console.log(`Moved book ${bookId} from ${existingUserBook.shelf} to ${shelfType} for user ${user.id}`);
+      } else {
+        // If it exists on the SAME shelf, we'll just update its status/position
+        console.log(`Updating book ${bookId} on ${shelfType} for user ${user.id}`);
+      }
     }
 
-  } catch (error) {
-    console.error('Error managing shelf:', error);
-    return NextResponse.json({ error: 'Failed to update shelf' }, { status: 500 });
+    // 4. Create or Update the UserBook entry
+    const userBook = await prisma.userBook.upsert({
+      where: {
+        user_id_book_id_shelf: {
+          user_id: user.id,
+          book_id: bookId,
+          shelf: shelfType, 
+        },
+      },
+      update: {
+        status: statusType,
+        position: position ?? null, 
+        added_at: new Date(), 
+        shelf: statusType === status_type.finished || statusType === status_type.unfinished ? shelf_type.history : shelfType, // Temporarily removed due to schema constraint
+        //shelf: shelfType, // Keeps the book on its current shelf even if finished
+      },
+      create: {
+        user_id: user.id,
+        book_id: bookId,
+        shelf: statusType === status_type.finished || statusType === status_type.unfinished ? shelf_type.history : shelfType, // Temporarily removed
+        status: statusType,
+        position: position ?? null,
+      },
+      include: {
+        book: true, 
+      },
+    });
+
+    // --- Create ActivityLog Entry ---
+    // Ensure bookTitle is up-to-date from the upserted record, especially if it was a new book
+    bookTitleForActivity = userBook.book?.title || bookTitleForActivity;
+
+    if (statusType === status_type.finished) {
+      if (previousStatus === status_type.in_progress || previousStatus === status_type.almost_done) {
+        await prisma.activityLog.create({
+          data: {
+            user_id: user.id,
+            activity_type: ActivityType.FINISHED_READING_BOOK,
+            target_entity_type: ActivityTargetEntityType.USER_BOOK,
+            target_entity_id: userBook.book_id,
+            details: { book_title: bookTitleForActivity, shelf_name: userBook.shelf.toString() }
+          }
+        });
+      }
+    } else if (!existingUserBook || previousShelf !== shelfType) {
+      await prisma.activityLog.create({
+        data: {
+          user_id: user.id,
+          activity_type: ActivityType.ADDED_BOOK_TO_SHELF,
+          target_entity_type: ActivityTargetEntityType.USER_BOOK,
+          target_entity_id: userBook.book_id,
+          target_entity_secondary_id: userBook.shelf.toString(), 
+          details: {
+            book_title: bookTitleForActivity,
+            shelf_name: userBook.shelf.toString(),
+            previous_shelf: previousShelf 
+          }
+        }
+      });
+    } else if (existingUserBook && previousStatus !== statusType) {
+      // Log changing status on the same shelf
+      await prisma.activityLog.create({
+        data: {
+          user_id: user.id,
+          activity_type: ActivityType.CHANGED_BOOK_STATUS,
+          target_entity_type: ActivityTargetEntityType.USER_BOOK,
+          target_entity_id: userBook.book_id,
+          target_entity_secondary_id: userBook.status.toString(), 
+          details: {
+            book_title: bookTitleForActivity,
+            shelf_name: userBook.shelf.toString(), 
+            old_status: previousStatus,
+            new_status: userBook.status.toString(),
+          }
+        }
+      });
+    }
+    // --- End ActivityLog Entry ---
+
+    return NextResponse.json(userBook, { status: 200 });
+
+  } catch (error: any) {
+    console.error("Error managing user book:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to manage book on shelf" },
+      { status: 500 }
+    );
   }
 }
 
@@ -118,40 +226,58 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+
+export async function DELETE(req: NextRequest) {
   try {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-    
-    if (!token || !token.id) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    // 1. Authenticate User
+    const cookieStore = await cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const { bookId } = await request.json();
+    const { bookId, shelf: shelfString } = await req.json();
 
-    if (!bookId) {
-      return NextResponse.json({ error: 'Book ID is required' }, { status: 400 });
+    // 2. Validate Input
+    if (!bookId || !shelfString) {
+      return NextResponse.json({ error: "bookId and shelf are required" }, { status: 400 });
     }
 
-    // Find and delete the user book entry
-    const userBook = await prisma.userBook.findFirst({
+    let shelfType;
+    try {
+      shelfType = parseShelfType(shelfString);
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
+    }
+
+    // 3. Delete the UserBook entry
+    const result = await prisma.userBook.delete({
       where: {
-        user_id: token.id as string,
-        book_id: bookId
-      }
+        user_id_book_id_shelf: { // Use the unique ID from your @@id([]) composite key
+          user_id: user.id,
+          book_id: bookId,
+          shelf: shelfType,
+        },
+      },
     });
 
-    if (!userBook) {
-      return NextResponse.json({ error: 'Book not found in your library' }, { status: 404 });
+    return NextResponse.json({ message: "Book successfully removed from shelf" }, { status: 200 });
+
+  } catch (error: any) {
+    console.error("Error deleting user book:", error);
+    // Prisma throws P2025 (RecordNotFound) if the entry doesn't exist for delete.
+    // You might want to handle this specifically for a 404 or a more descriptive message.
+    if (error.code === 'P2025') {
+      return NextResponse.json(
+        { error: "Book not found on this shelf for the current user" },
+        { status: 404 }
+      );
     }
-
-    await prisma.userBook.delete({
-      where: { id: userBook.id }
-    });
-
-    return NextResponse.json({ success: true, message: 'Book removed from shelf' });
-
-  } catch (error) {
-    console.error('Error removing from shelf:', error);
-    return NextResponse.json({ error: 'Failed to remove from shelf' }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Failed to remove book from shelf" },
+      { status: 500 }
+    );
   }
 }

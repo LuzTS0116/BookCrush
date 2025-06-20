@@ -4,7 +4,7 @@ import Link from "next/link"
 import Image from "next/image";
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { BookOpen, Home, BookMarked, Users, Calendar, Bell, Search, Shield } from "lucide-react"
+import { BookOpen, Home, BookMarked, Users, Calendar, Bell, Search, Shield, Settings } from "lucide-react"
 import { Heart, Coffee } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -44,7 +44,7 @@ export function MainNav() {
   
   // Check if the current path matches /clubs/[id], /profile/[id], or /books/[id]
   const shouldHideNav = /^\/(clubs|profile|books)\/[^/]+$/.test(pathname) ||
-  ["/","/profile", "/profile-setup", "/login", "/signup", "/home"].includes(pathname);
+  ["/","/profile", "/profile-setup", "/login", "/forgot-password", "/reset-password", "/signup", "/home", "/forgot-password"].includes(pathname);
 
   // if (status === "loading") {
   //   return <p>Loading session…</p>;
@@ -105,37 +105,28 @@ export function MainNav() {
             </Link>
           ))}
         </nav>
-        <div className="ml-auto flex items-center space-x-4">
+        <div className="ml-auto flex items-center space-x-3">
           {/* <Link href="/calendar" className="text-muted-foreground hover:text-primary">
             <Search className="h-5 w-5" />
           </Link> */}
           <Link href="/calendar" className="text-muted-foreground hover:text-primary">
             <Calendar className="h-4 w-4" />
           </Link>
-          <Link href="/#" className="text-muted-foreground hover:text-primary">
-            <Heart className="h-5 w-5 font-bold"/>
-          </Link>
+          
           <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage 
-                    src={avatarUrl} 
-                    alt="@user"
-                    className={profileLoading ? "opacity-75" : ""} 
-                  />
-                  <AvatarFallback className="bg-primary text-primary-foreground">
-                    {profileLoading ? "..." : initials}
-                  </AvatarFallback>
-                </Avatar>
+              <Button variant="ghost" className="relative h-8 w-8 rounded-full hover:bg-transparent focus:ring-transparent focus-visible:ring-none focus-visible:ring-offset-transparent">
+                <Link href="/#" className="text-muted-foreground hover:text-primary">
+                  <Settings className="h-5 w-5"/>
+                </Link>
                 {/* Optional: Show a small loading indicator */}
                 {profileLoading && (
                   <div className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-blue-500 animate-pulse" />
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-auto border-none rounded-xl bg-secondary/50 backdrop-blur-sm" align="end" forceMount>
-              <DropdownMenuLabel className="font-normal">
+            <DropdownMenuContent className="w-auto pt-0 border-none bg-transparent shadow-none" align="end" forceMount>
+              {/* <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col items-end space-y-1">
                   <p className="text-sm font-medium leading-none">
                     {displayName}
@@ -145,32 +136,43 @@ export function MainNav() {
                   </p>
                   <p className="text-xs leading-none text-muted-foreground">{email}</p>
                 </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Link href="/profile" className="flex justify-end w-full" onClick={() => setDropdownOpen(false)}>
-                  Profile
-                </Link>
-              </DropdownMenuItem>
+              </DropdownMenuLabel> */}
+              {/* <DropdownMenuSeparator /> */}
               {isSuperAdmin && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <Link href="/admin" className="flex justify-end w-full items-center gap-2" onClick={() => setDropdownOpen(false)}>
+                  <DropdownMenuItem className="bg-bookWhite mb-1 hover:bg-bookWhite focus:bg-bookWhite/85">
+                    <Link href="/admin" className="flex justify-end w-full items-center gap-2 text-secondary" onClick={() => setDropdownOpen(false)}>
                       <Shield className="h-4 w-4 text-red-600" />
                       Admin Dashboard
                     </Link>
                   </DropdownMenuItem>
                 </>
               )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="flex justify-end">
-                <Button onClick={handleSignOut} className="rounded-full">
+              <DropdownMenuItem className="flex justify-end px-0 hover:bg-transparent focus:bg-transparent">
+                <Button onClick={handleSignOut} className="rounded-sm bg-gray-600 text-bookWhite hover:bg-gray-500">
                   Sign out
                 </Button>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          <Link href="/profile" className="relative h-8 w-8 rounded-full">
+            <Avatar className="h-8 w-8">
+              <AvatarImage 
+                src={avatarUrl} 
+                alt="@user"
+                className={profileLoading ? "opacity-75" : ""} 
+              />
+              <AvatarFallback className="bg-primary text-primary-foreground">
+                {profileLoading ? "..." : initials}
+              </AvatarFallback>
+            </Avatar>
+            {/* Optional: Show a small loading indicator */}
+            {profileLoading && (
+              <div className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-blue-500 animate-pulse" />
+            )}
+          </Link>
         </div>
       </div>
     </div>

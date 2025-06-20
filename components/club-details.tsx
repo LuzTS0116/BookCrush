@@ -125,6 +125,19 @@ interface PendingInvitation {
   } | null;
 }
 
+// Interface for member book status
+interface MemberBookStatus {
+  user_id: string;
+  user: {
+    id: string;
+    display_name: string;
+    avatar_url?: string | null;
+  };
+  role: 'MEMBER' | 'ADMIN' | 'OWNER';
+  book_status: string;
+  has_book: boolean;
+}
+
 // Full Club data structure for the detail page - MUST MATCH API RESPONSE EXACTLY
 interface ClubData {
   id: string; // Club ID (UUID)
@@ -169,6 +182,10 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   const [inviteeId, setInviteeId] = useState<string | null>(null);
   const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
   const [loadingInvitations, setLoadingInvitations] = useState(false);
+
+  // Member book status state
+  const [memberBookStatuses, setMemberBookStatuses] = useState<MemberBookStatus[]>([]);
+  const [loadingMemberStatuses, setLoadingMemberStatuses] = useState(false);
 
 
   //wrap params with React.use() 
@@ -512,12 +529,45 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     }
   }, [club?.currentUserIsAdmin, id]);
 
+  // --- NEW: Function to fetch member book statuses ---
+  const fetchMemberBookStatuses = useCallback(async () => {
+    if (!club?.current_book || !id) {
+      setMemberBookStatuses([]);
+      return;
+    }
+    
+    setLoadingMemberStatuses(true);
+    try {
+      const response = await fetch(`/api/clubs/${id}/members/book-status`);
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch member book statuses");
+      }
+
+      const data = await response.json();
+      setMemberBookStatuses(data.memberStatuses || []);
+
+    } catch (err: any) {
+      console.error("Error fetching member book statuses:", err);
+      setMemberBookStatuses([]);
+    } finally {
+      setLoadingMemberStatuses(false);
+    }
+  }, [club?.current_book, id]);
+
   // Fetch pending invitations when club data loads and user is admin
   useEffect(() => {
     if (club?.currentUserIsAdmin) {
       fetchPendingInvitations();
     }
   }, [club?.currentUserIsAdmin, fetchPendingInvitations]);
+
+  // Fetch member book statuses when club data loads
+  useEffect(() => {
+    if (club) {
+      fetchMemberBookStatuses();
+    }
+  }, [club, fetchMemberBookStatuses]);
 
   // --- Loading State and Error Handling for UI ---
   if (loadingClub) {
@@ -1051,36 +1101,45 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               <div className="space-y-4">
                 {/* Dynamically display members based on club.memberCount */}
 
-                {[...Array(Math.min(6, club.memberships.length ?? 0))].map((member, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    
-                    
-                    <Avatar className="h-8 w-8">
-                      {/* For real members, you'd iterate over an array of `club.members`
-                          each with their own avatar/name properties, fetched from the backend. */}
-                      <AvatarImage src={club.memberships[i].user.avatar_url || undefined} alt={club.memberships[i].user.display_name} />
-                      <AvatarFallback
-                        className={
-                          i === 0 ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
-                        }
-                      >
-                        {String.fromCharCode(65 + i)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="text-sm font-medium">
-                        {/* These member names are hardcoded. */}
-                        {club.memberships[i].user.display_name}
-                      </p>
-                      <p className="text-xs text-secondary font-serif font-normal">
-                        {/* Member progress is hardcoded. */}
-                        {i === 0
-                          ? "Admin - Current Status"
-                          : "Current Status"}
-                      </p>
+                {[...Array(Math.min(6, club.memberships.length ?? 0))].map((member, i) => {
+                  // Find the member's book status from the API data
+                  const memberStatus = memberBookStatuses.find(
+                    status => status.user_id === club.memberships[i].user_id
+                  );
+                  
+                  // Get role display
+                  const rolePrefix = club.memberships[i].role === 'OWNER' ? 'Owner' : 
+                                   club.memberships[i].role === 'ADMIN' ? 'Admin' : '';
+                  
+                  // Get book status display
+                  const bookStatus = memberStatus?.book_status || (loadingMemberStatuses ? 'Loading...' : 'Current Book Status: Not in Library');
+                  const statusDisplay = rolePrefix ? `${rolePrefix} - Current Book Status: ${bookStatus}` : `Current Book Status: ${bookStatus}`;
+
+                  return (
+                    <div key={i} className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={club.memberships[i].user.avatar_url || undefined} alt={club.memberships[i].user.display_name} />
+                        <AvatarFallback
+                          className={
+                            club.memberships[i].role === 'OWNER' || club.memberships[i].role === 'ADMIN' 
+                              ? "bg-primary text-primary-foreground" 
+                              : "bg-secondary text-secondary-foreground"
+                          }
+                        >
+                          {club.memberships[i].user.display_name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-medium">
+                          {club.memberships[i].user.display_name}
+                        </p>
+                        <p className="text-xs text-secondary font-serif font-normal">
+                           {statusDisplay}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* Show "View All Members" button if more than 6 members */}
                 {club.memberCount > 6 && (
@@ -1118,7 +1177,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                         <div className="relative">
                           <Search className="absolute left-3 top-2 h-4 w-4 text-muted-foreground" />
                           <Input
-                            placeholder="Search users by name or email..."
+                            placeholder="Search users by name..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="pl-9 bg-bookWhite/80 font-medium"
@@ -1192,8 +1251,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                           ) : (
                             <div className="text-center py-8 text-muted-foreground">
                               <Search className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                              <p>Start typing to search for users to invite</p>
-                              <p className="text-xs mt-2">Search by name or email address</p>
+                              <p>Start typing the name of the user to send invite</p>
                             </div>
                           )}
                         </ScrollArea>
@@ -1314,7 +1372,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                         </div>
                       </div>
                       <div className="flex flex-col items-end">
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-xs text-secondary/70 bg-accent/35 border-none">
                           Pending
                         </Badge>
                       </div>

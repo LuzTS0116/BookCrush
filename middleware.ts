@@ -13,6 +13,7 @@ const globalPublicRoutes = [
   { path: '/images', exact: false },
   { path: '/favicon.ico', exact: true },
   { path: '/api/profile', exact: true },
+  { path: '/forgot-password', exact: true }, // 
   // API routes that handle their own Bearer token authentication
   { path: '/api/clubs', exact: false }, // All clubs API routes
   { path: '/api/invitations', exact: false }, // All invitations API routes
@@ -26,7 +27,8 @@ const globalPublicRoutes = [
   { path: '/api/discussions', exact: false }, // All discussions API routes
   { path: '/api/user-books', exact: false }, // All user-books API routes
   { path: '/api/files', exact: false }, // All files API routes
-  { path: '/api/profile/presign', exact: true }
+  { path: '/api/profile/presign', exact: true },
+  { path: '/api/auth/forgot-password', exact: true }, // All forgot password API routes
 ];
 
 export async function middleware(request: NextRequest) {

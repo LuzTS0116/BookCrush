@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Heart as PhosphorHeart } from "@phosphor-icons/react";
-import { Heart, ThumbsUp, ArrowLeft, ThumbsDown, Plus, Send, BookOpen, Calendar, User, Clock, ChevronLeft, MessageSquare, Loader2 } from "lucide-react"
+import { Heart, ThumbsUp, ArrowLeft, ThumbsDown, Plus, Send, BookOpen, Calendar, User, Clock, ChevronLeft, MessageSquare, Loader2, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown, CheckCircle } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { BookDetails } from "@/types/book";
 import { toast } from "sonner";
@@ -146,6 +146,160 @@ function KindleEmailDialog({
   );
 }
 
+// Add interface for the finished book dialog
+interface FinishedBookDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  book: BookData | null;
+  onSubmit: (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => void;
+  isSubmitting: boolean;
+}
+
+// Add the FinishedBookDialog component
+function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: FinishedBookDialogProps) {
+  const [reviewText, setReviewText] = useState("");
+  const [rating, setRating] = useState<"HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null>(null);
+
+  const handleSubmit = () => {
+    if (rating) {
+      onSubmit(reviewText, rating);
+    }
+  };
+
+  const handleSkip = () => {
+    onSubmit("", "HEART"); // Submit with empty review and default rating
+  };
+
+  const getRatingIcon = (ratingType: "HEART" | "THUMBS_UP" | "THUMBS_DOWN", isSelected: boolean) => {
+    const baseClasses = "h-6 w-6";
+    const selectedClasses = isSelected ? "ring-2 ring-offset-2" : "";
+    
+    switch (ratingType) {
+      case "HEART":
+        return (
+          <LucideHeart 
+            className={`${baseClasses} ${isSelected ? "text-primary fill-primary ring-primary" : "text-muted-foreground"} ${selectedClasses}`} 
+          />
+        );
+      case "THUMBS_UP":
+        return (
+          <LucideThumbsUp 
+            className={`${baseClasses} ${isSelected ? "text-accent-variant ring-accent-variant" : "text-muted-foreground"} ${selectedClasses}`} 
+          />
+        );
+      case "THUMBS_DOWN":
+        return (
+          <LucideThumbsDown 
+            className={`${baseClasses} ${isSelected ? "text-accent ring-accent" : "text-muted-foreground"} ${selectedClasses}`} 
+          />
+        );
+    }
+  };
+
+  // Reset form when dialog opens/closes
+  useEffect(() => {
+    if (isOpen) {
+      setReviewText("");
+      setRating(null);
+    }
+  }, [isOpen]);
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader className="text-center">
+          <DialogTitle className="text-2xl">🎉 Congratulations!</DialogTitle>
+          <DialogDescription>
+            You&apos;ve finished reading <span className="font-semibold">{book?.title}</span>
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="flex flex-col items-center space-y-4 py-4">
+          {book && (
+            <div className="w-24 h-32 rounded-lg overflow-hidden shadow-md">
+              <img 
+                src={book.cover || "/placeholder.svg"} 
+                alt={book.title}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+          
+          <div className="text-center">
+            <h3 className="font-medium">{book?.title}</h3>
+            <p className="text-sm text-muted-foreground">by {book?.author}</p>
+          </div>
+          
+          <div className="w-full space-y-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">How did you like it?</label>
+              <div className="flex justify-center gap-3">
+                {(["HEART", "THUMBS_UP", "THUMBS_DOWN"] as const).map((ratingType) => (
+                  <button
+                    key={ratingType}
+                    type="button"
+                    onClick={() => setRating(ratingType)}
+                    className={`p-3 rounded-full transition-all hover:bg-muted ${
+                      rating === ratingType ? "bg-muted" : ""
+                    }`}
+                    disabled={isSubmitting}
+                  >
+                    {getRatingIcon(ratingType, rating === ratingType)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div>
+              <label className="text-sm font-medium mb-2 block">
+                Share your thoughts (optional)
+              </label>
+              <Textarea
+                placeholder="What did you think about this book? (max 500 characters)"
+                value={reviewText}
+                onChange={(e) => setReviewText(e.target.value.slice(0, 500))}
+                className="min-h-[100px] resize-none"
+                disabled={isSubmitting}
+              />
+              <div className="text-xs text-muted-foreground mt-1 text-right">
+                {reviewText.length}/500
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          <Button
+            variant="outline"
+            onClick={handleSkip}
+            disabled={isSubmitting}
+            className="w-full sm:w-auto"
+          >
+            Skip Review
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!rating || isSubmitting}
+            className="w-full sm:w-auto"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Finishing...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Mark as Finished
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function BookDetailsView({ params }: { params: { id: string } }) {
   const [reviewText, setReviewText] = useState("")
   const [userRating, setUserRating] = useState<"HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null>(null)
@@ -185,6 +339,10 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
   const [friendsShelves, setFriendsShelves] = useState<FriendShelf[]>([]);
   const [isLoadingFriends, setIsLoadingFriends] = useState(false);
   const [friendsError, setFriendsError] = useState<string | null>(null);
+
+  // Add state for finished book dialog
+  const [finishedBookDialogOpen, setFinishedBookDialogOpen] = useState(false);
+  const [isSubmittingFinishedBook, setIsSubmittingFinishedBook] = useState(false);
 
   // Add a function to fetch book files
   const fetchBookFiles = async () => {
@@ -285,6 +443,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
         if (reviewsResponse.ok) {
           const reviewsData = await reviewsResponse.json()
           setReviews(reviewsData)
+          console.log(reviewsData)
         } else {
           console.error('Failed to fetch reviews')
         }
@@ -463,10 +622,17 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
 
   // Function to add/move a book to a shelf
   const handleAddToShelf = async (bookId: string, shelf: string) => {
+    // Special handling for finished shelf - show review dialog
+    if (shelf === 'finished') {
+      setFinishedBookDialogOpen(true);
+      return;
+    }
+
     setShelfActionsStatus(prev => ({
       ...prev,
       [bookId]: { isLoading: true, message: null }
     }));
+    
     try {
       // Your API call to add/move the book
       const response = await fetch('/api/shelf', {
@@ -474,29 +640,83 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bookId, shelf, status: 'in_progress' }) // Default status for new additions
       });
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to add book to shelf');
       }
+      
       const result = await response.json();
       console.log('Book added/moved to shelf:', result);
 
-      setShelfActionsStatus(prev => ({
-        ...prev,
-        [bookId]: { isLoading: false, message: `Added to ${shelf.replace(/_/g, ' ')}!` }
-      }));
-
-      // Clear message after a few seconds
-      setTimeout(() => {
-        setShelfActionsStatus(prev => ({ ...prev, [bookId]: { isLoading: false, message: null } }));
-      }, 3000);
+      // Show success toast
+      const shelfDisplayName = shelf.replace(/_/g, ' ');
+      toast.success(`📚 Added to ${shelfDisplayName}!`);
 
     } catch (err: any) {
       console.error("Error adding book to shelf:", err);
+      toast.error(`Failed to add book: ${err.message}`);
+    } finally {
       setShelfActionsStatus(prev => ({
         ...prev,
-        [bookId]: { isLoading: false, message: `Error: ${err.message}` }
+        [bookId]: { isLoading: false, message: null }
       }));
+    }
+  };
+
+  // Handle finished book submission with review
+  const handleFinishedBookSubmit = async (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => {
+    try {
+      setIsSubmittingFinishedBook(true);
+
+      // First, move the book to finished shelf
+      const shelfResponse = await fetch('/api/shelf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          bookId: id, 
+          shelf: 'history', // Use 'history' for finished books
+          status: 'finished' 
+        })
+      });
+
+      if (!shelfResponse.ok) {
+        const errorData = await shelfResponse.json();
+        throw new Error(errorData.error || 'Failed to mark book as finished');
+      }
+
+      // If there's a review, submit it
+      if (reviewText.trim()) {
+        const reviewResponse = await fetch(`/api/books/${id}/reviews`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: reviewText,
+            rating: rating
+          })
+        });
+
+        if (reviewResponse.ok) {
+          const reviewResult = await reviewResponse.json();
+          // Add the new review to the list
+          setReviews(prev => [reviewResult.review, ...prev]);
+          // Update reaction counts
+          setReactions(prev => ({
+            ...prev,
+            [rating]: prev[rating] + 1
+          }));
+        }
+      }
+
+      // Close dialog and show success message
+      setFinishedBookDialogOpen(false);
+      toast.success('🎉 Congratulations! Book marked as finished!');
+
+    } catch (error: any) {
+      console.error('Error finishing book:', error);
+      toast.error(`Failed to finish book: ${error.message}`);
+    } finally {
+      setIsSubmittingFinishedBook(false);
     }
   };
 
@@ -1394,6 +1614,13 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
       onOpenChange={setKindleEmailDialogOpen}
       selectedFileId={selectedFileId}
       onSend={handleSendToKindleWithEmail}
+    />
+    <FinishedBookDialog
+      isOpen={finishedBookDialogOpen}
+      onClose={() => setFinishedBookDialogOpen(false)}
+      book={book}
+      onSubmit={handleFinishedBookSubmit}
+      isSubmitting={isSubmittingFinishedBook}
     />
     </div>
 

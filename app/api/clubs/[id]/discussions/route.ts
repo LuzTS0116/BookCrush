@@ -3,11 +3,12 @@ import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@prisma/cl
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { getAvatarPublicUrlServer } from '@/lib/supabase-server-utils';
 
 
 
 // Helper to map user data and discussion fields
-function mapPrismaDiscussionToFrontend(discussion: any) {
+async function mapPrismaDiscussionToFrontend(discussion: any) {
   const mapped = {
     ...discussion,
     text: discussion.content,
@@ -15,10 +16,10 @@ function mapPrismaDiscussionToFrontend(discussion: any) {
     user: discussion.user ? {
       id: discussion.user.id,
       name: discussion.user.display_name || 'Anonymous',
-      avatar: discussion.user.avatar_url || null,
+      avatar: await getAvatarPublicUrlServer(discussion.user.avatar_url),
       // initials are typically derived client-side
     } : null,
-    replies: discussion.replies ? discussion.replies.map(mapPrismaDiscussionToFrontend) : [],
+    replies: discussion.replies ? await Promise.all(discussion.replies.map(mapPrismaDiscussionToFrontend)) : [],
   };
   // Remove original fields if they are not needed directly on frontend
   delete mapped.content;
@@ -81,7 +82,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       orderBy: { created_at: 'desc' },
     });
 
-    const mappedDiscussions = discussions.map(mapPrismaDiscussionToFrontend);
+    const mappedDiscussions = await Promise.all(discussions.map(mapPrismaDiscussionToFrontend));
     return NextResponse.json(mappedDiscussions, { status: 200 });
 
   } catch (error: any) {
@@ -158,7 +159,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       // Don't fail the main request if activity logging fails
     }
     
-    const mappedNewDiscussion = mapPrismaDiscussionToFrontend(newDiscussion);
+    const mappedNewDiscussion = await mapPrismaDiscussionToFrontend(newDiscussion);
     return NextResponse.json(mappedNewDiscussion, { status: 201 });
 
   } catch (error: any) {

@@ -291,7 +291,7 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    // Get books with filtering
+    // Get books with all related data in a single optimized query
     const books = await prisma.book.findMany({
       where: whereClause,
       include: {
@@ -303,6 +303,28 @@ export async function GET(req: NextRequest) {
             nickname: true,
             avatar_url: true
           }
+        },
+        // Include ALL UserBook relations for this book
+        UserBook: {
+          select: {
+            user_id: true,
+            shelf: true,
+            status: true,
+            is_favorite: true,
+            user: {
+              select: {
+                display_name: true,
+                nickname: true
+              }
+            }
+          }
+        },
+        // Include ALL reactions for this book
+        book_reactions: {
+          select: {
+            type: true,
+            user_id: true
+          }
         }
       },
       orderBy: {
@@ -313,56 +335,42 @@ export async function GET(req: NextRequest) {
 
     console.log('[API books GET] Found books:', books.length, 'with filter:', filter);
 
-    // Get reaction counts for each book and include user's reaction
-    const booksWithReactionCounts = await Promise.all(books.map(async (book) => {
-      // Get reaction counts
-      const reactionCounts = await prisma.reaction.groupBy({
-        by: ['type'],
-        where: {
-          target_type: 'BOOK',
-          target_id: book.id
-        },
-        _count: {
-          id: true
-        }
-      });
+    // Process all data in memory (much faster than multiple DB queries)
+    const booksWithReactionCounts = books.map((book) => {
+      // Process reactions in memory
+      const reactionCounts = book.book_reactions.reduce((acc, reaction) => {
+        acc[reaction.type] = (acc[reaction.type] || 0) + 1;
+        acc.total = (acc.total || 0) + 1;
+        return acc;
+      }, {} as any);
 
-      // Get user's reaction to this book
-      const userReaction = await prisma.reaction.findFirst({
-        where: {
-          user_id: user.id,
-          target_type: 'BOOK',
-          target_id: book.id
-        },
-        select: {
-          type: true
-        }
-      });
+      // Find user's reaction
+      const userReaction = book.book_reactions.find(r => r.user_id === user.id);
 
-      // Get favorite status from user_books
-      const userBook = await prisma.userBook.findFirst({
-        where: {
-          user_id: user.id,
-          book_id: book.id
-        },
-        select: {
-          is_favorite: true
+      // Find user's shelf status
+      const userBook = book.UserBook.find(ub => ub.user_id === user.id);
+
+      // For friends' books, find the friend's shelf status
+      let friendShelfStatus = null;
+      if (filter === 'friends' && book.added_by !== user.id) {
+        const friendBook = book.UserBook.find(ub => ub.user_id === book.added_by);
+        if (friendBook) {
+          friendShelfStatus = {
+            shelf: friendBook.shelf,
+            status: friendBook.status,
+            user_name: friendBook.user.nickname || friendBook.user.display_name
+          };
         }
-      });
+      }
 
       // Convert reaction counts to the format needed for the UI
       const counts = {
-        HEART: 0,
-        LIKE: 0,
-        THUMBS_UP: 0,
-        THUMBS_DOWN: 0,
-        total: 0
+        HEART: reactionCounts.HEART || 0,
+        LIKE: reactionCounts.LIKE || 0,
+        THUMBS_UP: reactionCounts.THUMBS_UP || 0,
+        THUMBS_DOWN: reactionCounts.THUMBS_DOWN || 0,
+        total: reactionCounts.total || 0
       };
-
-      reactionCounts.forEach(rc => {
-        counts[rc.type] = rc._count.id;
-        counts.total += rc._count.id;
-      });
 
       return {
         ...book,
@@ -372,9 +380,15 @@ export async function GET(req: NextRequest) {
         },
         is_favorite: userBook?.is_favorite || false,
         // Include creator info for "Added by Friends" display
-        added_by_user: book.creator
+        added_by_user: book.creator,
+        // Include shelf status information
+        user_shelf_status: userBook ? {
+          shelf: userBook.shelf,
+          status: userBook.status
+        } : null,
+        friend_shelf_status: friendShelfStatus
       };
-    }));
+    });
 
     console.log('[API books GET] Returning books with reactions:', booksWithReactionCounts.length);
     return NextResponse.json(booksWithReactionCounts);

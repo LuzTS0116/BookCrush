@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { getAvatarPublicUrlServer } from '@/lib/supabase-server-utils';
 
 
 
@@ -54,14 +55,32 @@ export async function GET(
           select: {
             id: true,
             display_name: true,
-            email: true
+            email: true,
+            avatar_url: true
           }
         }
       },
       orderBy: { created_at: 'desc' }
     });
 
-    return NextResponse.json({ invitations });
+    
+    // Format invitations with proper avatar URLs
+    const formattedInvitations = await Promise.all(invitations.map(async (invitation) => {
+      if (invitation.invitee) {
+        return {
+          ...invitation,
+          invitee: {
+            ...invitation.invitee,
+            avatar_url: await getAvatarPublicUrlServer(invitation.invitee.avatar_url)
+          }
+        };
+      }
+      return invitation;
+    }));
+
+    
+
+    return NextResponse.json({ invitations: formattedInvitations });
 
   } catch (error) {
     console.error('Error fetching club invitations:', error);

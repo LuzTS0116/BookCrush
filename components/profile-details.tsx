@@ -261,7 +261,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                           </div>
                           {/* Content */}
                           <div className="flex flex-col justify-between flex-1">
-                            <CardHeader className="pb-2 px-0 pt-0">
+                            <CardHeader className="pb-0 px-0 pt-0">
                               <Link href={`/books/${userBook.book_id}`}>
                                 <CardTitle>{userBook.book.title}</CardTitle>
                               </Link>
@@ -286,7 +286,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                                   <p className="text-secondary/80 font-sans font-normal text-sm inline-block">{userBook.book.pages} pages • {userBook.book.reading_time}</p>
                                 </div>
                               </div>
-                              <div className="flex flex-wrap gap-1 mb-2 items-center">
+                              <div className="flex flex-wrap gap-1 items-center">
                                 {/* Added On */}
                                 {userBook.added_at && (
                                   <span className="px-2 py-0.5 text-xs font-regular bg-primary-dark/50 text-secondary rounded-full">
@@ -300,13 +300,13 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                                 </div>
 
                                 <div className="flex justify-start items-end">
-                                {/* Current Status Badge */}
-                                <div className="">
-                                  <span className={`px-2 py-0.5 text-xs font-regular rounded-full ${currentStatusDisplay.color}`}>
-                                    {currentStatusDisplay.label}
-                                  </span>
-                                </div>  
-                              </div>
+                                  {/* Current Status Badge */}
+                                  <div className="">
+                                    <span className={`px-2 py-0.5 text-xs font-regular rounded-full ${currentStatusDisplay.color}`}>
+                                      {currentStatusDisplay.label}
+                                    </span>
+                                  </div>  
+                                </div>
 
                                 {/* Personal Note/Comment - Display only for friends */}
                                 {userBook.comment && (
@@ -318,8 +318,6 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                                 )}
                               </div>
                             </CardContent>
-                            <CardFooter className="pt-0 px-0">
-                            </CardFooter>
                           </div>
                         </div>
                       </Card>
