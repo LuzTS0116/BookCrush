@@ -118,23 +118,23 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: F
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] bg-bookWhite">
-        <DialogHeader>
+      <DialogContent className="w-[85vw] bg-bookWhite p-3">
+        <DialogHeader className="p-0">
           <DialogTitle className="text-xl font-bold text-secondary">
-            🎉 Congratulations on finishing "{book.book.title}"!
+            🎉 Congratulations!
           </DialogTitle>
           <DialogDescription className="text-secondary/70">
             How was your reading experience? Share your thoughts with the community.
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-6 py-4">
+        <div className="space-y-2">
           {/* Book Info */}
-          <div className="flex items-center gap-3 p-3 bg-secondary/5 rounded-lg">
+          <div className="flex items-center gap-2 p-3 bg-secondary/5 rounded-lg">
             <img
               src={book.book.cover_url || "/placeholder.svg"}
               alt={book.book.title}
-              className="w-16 h-24 object-cover rounded shadow-sm"
+              className="w-auto h-28 object-cover rounded shadow-sm"
             />
             <div>
               <h3 className="font-semibold text-secondary">{book.book.title}</h3>
@@ -145,14 +145,14 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: F
           {/* Rating Selection */}
           <div className="space-y-3">
             <div>
-              <h4 className="text-sm font-medium text-secondary mb-3">Rate this book:</h4>
+              <h4 className="text-sm font-medium text-secondary mb-0.5">Rate this book:</h4>
               <div className="flex justify-center gap-6">
                 <button
                   onClick={() => setRating("HEART")}
-                  className={`p-3 rounded-full transition-all ${
+                  className={`p-1 rounded-full transition-colors ${
                     rating === "HEART" 
-                      ? "bg-primary/20 scale-110" 
-                      : "hover:bg-secondary/10 hover:scale-105"
+                      ? "bg-primary/30" 
+                      : "hover:bg-secondary/20"
                   }`}
                   disabled={isSubmitting}
                 >
@@ -160,7 +160,7 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: F
                 </button>
                 <button
                   onClick={() => setRating("THUMBS_UP")}
-                  className={`p-3 rounded-full transition-all ${
+                  className={`p-1 rounded-full transition-all ${
                     rating === "THUMBS_UP" 
                       ? "bg-accent-variant/20 scale-110" 
                       : "hover:bg-secondary/10 hover:scale-105"
@@ -171,7 +171,7 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: F
                 </button>
                 <button
                   onClick={() => setRating("THUMBS_DOWN")}
-                  className={`p-3 rounded-full transition-all ${
+                  className={`p-1 rounded-full transition-all ${
                     rating === "THUMBS_DOWN" 
                       ? "bg-accent/20 scale-110" 
                       : "hover:bg-secondary/10 hover:scale-105"
@@ -853,7 +853,7 @@ export default function DashboardReading() {
   return (
     <div className="container pb-6 mx-auto px-4">
       <div className="space-y-8">
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="grid gap-6">
           {/* Tabs component: controlled by activeTab state */}
           <Tabs 
             value={activeTab} 
@@ -1100,7 +1100,7 @@ export default function DashboardReading() {
                                     <span className="truncate">
                                       {userBook.comment ? `"${userBook.comment}"` : "Add a thought..."}
                                     </span>
-                                    <Edit3 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                                    <Edit3 className="h-3 w-3 opacity-75 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                                   </div>
                                 )}
                               </div>

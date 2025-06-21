@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { BookOpen, Filter, Plus, Search, Send, ThumbsDown, ThumbsUp, Grid, List, MoreVertical, Upload, ChevronDown, Loader2, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown, CheckCircle } from "lucide-react" // Added more icons
+import { BookOpen, Filter, Plus, Search, Send, ThumbsDown, ThumbsUp, Grid, List, MoreVertical, Upload, ChevronDown, Loader2, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown, CheckCircle, X } from "lucide-react" // Added more icons
 import { Heart } from "@phosphor-icons/react"
 import Link from "next/link"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"; // Radix DropdownMenu
@@ -276,7 +276,12 @@ export default function BooksTableContents() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedGenre, setSelectedGenre] = useState("all") // This doesn't seem used in the current JSX
   const [viewMode, setViewMode] = useState<"card" | "table">("card")
-  const [activeTab, setActiveTab] = useState("all") // Track active tab
+  const [activeTab, setActiveTab] = useState("explore") // Track active tab
+  
+  // Friends Library filters
+  const [selectedFriend, setSelectedFriend] = useState("all") // Filter by specific friend
+  const [selectedShelfStatus, setSelectedShelfStatus] = useState("all") // Filter by shelf status
+  const [friendsList, setFriendsList] = useState<Array<{id: string, name: string}>>([]) // List of friends for filter dropdown
   //reactions
   const [reactions, setReactions] = useState<BookReactions>({ HEART: 0, THUMBS_UP: 0, THUMBS_DOWN: 0, LIKE: 0 })
   /* pagination */
@@ -307,14 +312,73 @@ export default function BooksTableContents() {
   const [selectedBookForFinish, setSelectedBookForFinish] = useState<ExtendedBookDetails | null>(null);
   const [isSubmittingFinishedBook, setIsSubmittingFinishedBook] = useState(false);
 
-  // Calculate pagination
-  const totalPages = Math.ceil(books.length / itemsPerPage)
+  // Filter books based on search query
+  const filteredBooks = books.filter((book) => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase();
+    const titleMatch = book.title?.toLowerCase().includes(query);
+    const authorMatch = book.author?.toLowerCase().includes(query);
+    const genreMatch = book.genres?.some(genre => genre.toLowerCase().includes(query));
+    const creatorMatch = book.added_by_user?.display_name?.toLowerCase().includes(query) ||
+                        book.added_by_user?.nickname?.toLowerCase().includes(query);
+    
+    return titleMatch || authorMatch || genreMatch || creatorMatch;
+  });
+
+  // Calculate pagination based on filtered results
+  const totalPages = Math.ceil(filteredBooks.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
-  const currentBooks = books.slice(startIndex, endIndex)
+  const currentBooks = filteredBooks.slice(startIndex, endIndex)
+
+  // Function to fetch user's friends for the filter dropdown
+  const fetchFriends = async () => {
+    if (status !== 'authenticated') {
+      console.log('[BooksTable] Not authenticated, skipping friends fetch');
+      return;
+    }
+
+    console.log('[BooksTable] Fetching friends for user:', session?.user?.id);
+    
+    try {
+      const response = await fetch('/api/friends?type=friends', {
+        credentials: 'include', // Use cookie-based auth since this API uses cookies
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const friendshipsData = await response.json();
+        console.log('[BooksTable] Friendships data:', friendshipsData);
+        
+        // Extract friends from friendship relationships
+        const formattedFriends = friendshipsData.map((friendship: any) => {
+          // Determine which user is the friend (not the current user)
+          const friend = friendship.user_one?.id === session?.user?.id 
+            ? friendship.user_two 
+            : friendship.user_one;
+          
+          return {
+            id: friend?.id || '',
+            name: friend?.nickname || friend?.display_name || 'Unknown'
+          };
+        }).filter((friend: any) => friend.id); // Filter out any invalid entries
+        
+        console.log('[BooksTable] Formatted friends:', formattedFriends);
+        setFriendsList(formattedFriends);
+      } else {
+        const errorData = await response.text();
+        console.error('[BooksTable] Failed to fetch friends:', response.status, errorData);
+      }
+    } catch (error) {
+      console.error('Error fetching friends:', error);
+    }
+  };
 
   // Function to fetch all books from your API - Updated for Bearer token auth and filtering
-  const fetchBooks = async (filter: string = 'all') => {
+  const fetchBooks = async (filter: string = 'all', friendFilter: string = 'all', shelfFilter: string = 'all') => {
     if (status !== 'authenticated' || !session?.supabaseAccessToken) {
       setIsLoading(false);
       setError('Authentication required to fetch books');
@@ -324,8 +388,13 @@ export default function BooksTableContents() {
     setIsLoading(true);
     setError(null);
     try {
-      console.log('[BooksTable] Fetching books with Bearer token, filter:', filter);
-      const response = await fetch(`/api/books?filter=${filter}`, {
+      // Build query parameters
+      const params = new URLSearchParams({ filter });
+      if (friendFilter !== 'all') params.append('friendFilter', friendFilter);
+      if (shelfFilter !== 'all') params.append('shelfFilter', shelfFilter);
+      
+      console.log('[BooksTable] Fetching books with Bearer token, filter:', filter, 'friendFilter:', friendFilter, 'shelfFilter:', shelfFilter);
+      const response = await fetch(`/api/books?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${session.supabaseAccessToken}`,
           'Content-Type': 'application/json',
@@ -359,25 +428,47 @@ export default function BooksTableContents() {
     activeTab
   });
 
-  // Fetch books when session becomes available or tab changes
+  // Fetch books when session becomes available or tab/filters change
   useEffect(() => {
     if (status === 'authenticated' && session?.supabaseAccessToken) {
       // Map tab values to API filter values
       const filterMap: Record<string, string> = {
-        'all': 'all',
-        'my-books': 'my-books',
-        'club-books': 'friends' // "Added by Friends" maps to 'friends' filter
+        'explore': 'all',
+        'my-library': 'my-books',
+        'friends-library': 'friends'
       };
-      fetchBooks(filterMap[activeTab] || 'all');
+      fetchBooks(filterMap[activeTab] || 'all', selectedFriend, selectedShelfStatus);
+      
+      // Fetch friends list when switching to friends library tab
+      if (activeTab === 'friends-library' && friendsList.length === 0) {
+        fetchFriends();
+      }
     } else if (status === 'unauthenticated') {
       setIsLoading(false);
       setError('Please log in to view books');
     }
-  }, [status, session?.supabaseAccessToken, activeTab]);
+  }, [status, session?.supabaseAccessToken, activeTab, selectedFriend, selectedShelfStatus]);
+
+  // Fetch friends list when user is authenticated
+  useEffect(() => {
+    if (status === 'authenticated' && friendsList.length === 0) {
+      fetchFriends();
+    }
+  }, [status]);
+
+  // Reset pagination when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   // Handle tab change
   const handleTabChange = (value: string) => {
     setActiveTab(value);
+    // Reset filters when switching tabs
+    if (value !== 'friends-library') {
+      setSelectedFriend('all');
+      setSelectedShelfStatus('all');
+    }
     // fetchBooks will be called by the useEffect above
   };
 
@@ -385,11 +476,11 @@ export default function BooksTableContents() {
   const handleBookAdded = (newBook: BookDetails) => {
     // When a new book is added, refresh the current tab
     const filterMap: Record<string, string> = {
-      'all': 'all',
-      'my-books': 'my-books', 
-      'club-books': 'friends'
+      'explore': 'all',
+      'my-library': 'my-books', 
+      'friends-library': 'friends'
     };
-    fetchBooks(filterMap[activeTab] || 'all');
+    fetchBooks(filterMap[activeTab] || 'all', selectedFriend, selectedShelfStatus);
   };
 
   function formatDate(timestamp: string) {
@@ -622,73 +713,125 @@ export default function BooksTableContents() {
   return (
     <div className="container mx-auto px-4 py-6 pb-20">
       <div className="space-y-5">
-        <div className="flex justify-center">
-          <AddBookDialog
-            open={open}
-            onOpenChange={setOpen}
-            books={books}
-            setBooks={setBooks}
-            onBookAdded={handleBookAdded}
-          />
-        </div>
-        <div className="grid grid-cols-8 gap-x-2">
-          {/* Search Input */}
-          <div className="relative col-span-6">
-            <Search className="absolute left-3 top-1/3 pt-1 -translate-y-1/2 h-4 w-4 text-secondary" />
-            <Input
-              placeholder="Search books and more"
-              className="pl-10 rounded-full bg-bookWhite/90"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          {/* View Toggle Buttons */}
-          <div className="col-span-2 flex items-center justify-end gap-2">
-            <div className="flex items-center space-x-2">
-              <Button
-                variant={viewMode === "card" ? "default" : "outline"}
-                size="icon"
-                onClick={() => setViewMode("card")}
-                className={viewMode === "card" ? "bg-primary text-primary-foreground" : ""}
-              >
-                <Grid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === "table" ? "default" : "outline"}
-                size="icon"
-                onClick={() => setViewMode("table")}
-                className={viewMode === "table" ? "bg-primary text-primary-foreground" : ""} // Fix: assuming table class
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-
         <div className="">
           <Tabs value={activeTab} onValueChange={handleTabChange} className="">
             <div className="flex justify-center">
-              <TabsList className="bg-secondary-light text-primary rounded-full mb-2">
+              <TabsList className="bg-secondary-light text-primary rounded-full mb-4">
                 <TabsTrigger
-                  value="all"
+                  value="explore"
                   className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full"
                 >
                   Explore
                 </TabsTrigger>
                 <TabsTrigger
-                  value="my-books"
+                  value="my-library"
                   className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full"
                 >
                   My Library
                 </TabsTrigger>
                 <TabsTrigger
-                  value="club-books"
+                  value="friends-library"
                   className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full"
                 >
                   Friends Library
                 </TabsTrigger>
               </TabsList>
             </div>
+
+            {/* Search and View Controls - Moved below tabs */}
+            <div className="grid grid-cols-8 gap-x-2 mb-4">
+              {/* Search Input */}
+              <div className="relative col-span-6">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-secondary" />
+                <Input
+                  placeholder="Search books, authors, genres..."
+                  className="pl-10 rounded-full bg-bookWhite/90 text-secondary/85"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              {/* View Toggle Buttons */}
+              <div className="col-span-2 flex items-center justify-end gap-2">
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant={viewMode === "card" ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => setViewMode("card")}
+                    className={viewMode === "card" ? "bg-primary text-primary-foreground" : ""}
+                  >
+                    <Grid className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === "table" ? "default" : "outline"}
+                    size="icon"
+                    onClick={() => setViewMode("table")}
+                    className={viewMode === "table" ? "bg-primary text-primary-foreground" : ""}
+                  >
+                    <List className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Friends Library Filters */}
+            {activeTab === 'friends-library' && (
+              <div className="flex flex-row gap-2 justify-evenly mb-4">
+                <div className="flex items-center gap-2 w-36">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Filter by:</span>
+                </div>
+                
+                {/* Friend Filter */}
+                 <Select value={selectedFriend} onValueChange={setSelectedFriend}>
+                   <SelectTrigger className="w-40 h-8 text-xs">
+                     <SelectValue placeholder="All friends" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="all">All friends</SelectItem>
+                     {friendsList.length === 0 ? (
+                       <SelectItem value="no-friends" disabled>
+                         No friends found
+                       </SelectItem>
+                     ) : (
+                       friendsList.map((friend) => (
+                         <SelectItem key={friend.id} value={friend.id}>
+                           {friend.name}
+                         </SelectItem>
+                       ))
+                     )}
+                   </SelectContent>
+                 </Select>
+
+                {/* Shelf Status Filter */}
+                <Select value={selectedShelfStatus} onValueChange={setSelectedShelfStatus}>
+                  <SelectTrigger className="w-40 h-8 text-xs">
+                    <SelectValue placeholder="All shelves" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All shelves</SelectItem>
+                    <SelectItem value="currently_reading">📖 Currently Reading</SelectItem>
+                    <SelectItem value="queue">📚 In Queue</SelectItem>
+                    <SelectItem value="history">📖 Finished</SelectItem>
+                    <SelectItem value="favorite">❤️ Favorites</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Clear Filters Button */}
+                {(selectedFriend !== 'all' || selectedShelfStatus !== 'all') && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedFriend('all');
+                      setSelectedShelfStatus('all');
+                    }}
+                    className="h-8 text-xs p-1.5"
+                  >
+                    Clear
+                  </Button>
+                )}
+              </div>
+            )}
 
             {isLoading ? (
               <p className="text-center text-muted-foreground mt-8">Loading books...</p>
@@ -697,23 +840,44 @@ export default function BooksTableContents() {
                 <p className="text-red-500 mb-4">Error: {error}</p>
                 <Button onClick={() => {
                   const filterMap: Record<string, string> = {
-                    'all': 'all',
-                    'my-books': 'my-books',
-                    'club-books': 'friends'
+                    'explore': 'all',
+                    'my-library': 'my-books',
+                    'friends-library': 'friends'
                   };
-                  fetchBooks(filterMap[activeTab] || 'all');
+                  fetchBooks(filterMap[activeTab] || 'all', selectedFriend, selectedShelfStatus);
                 }} variant="outline">
                   Retry
                 </Button>
               </div>
             ) : books.length === 0 ? (
               <div className="text-center text-muted-foreground mt-8">
-                {activeTab === 'my-books' ? (
-                  <p>No books added by you yet. Click &ldquo;Add Book&rdquo; to get started.</p>
-                ) : activeTab === 'club-books' ? (
-                  <p>No books added by your friends yet. Connect with friends who love reading!</p>
+                {activeTab === 'my-library' ? (
+                  <p>You haven&apos;t added any books to your library yet. Click &ldquo;Add Book&rdquo; to get started.</p>
+                ) : activeTab === 'friends-library' ? (
+                  <p>Your friends haven&apos;t added any books to their libraries yet. Connect with more friends who love reading!</p>
                 ) : (
-                  <p>No books yet. Click &ldquo;Add Book&rdquo; to get started or connect with friends.</p>
+                  <p>No books available yet. Click &ldquo;Add Book&rdquo; to get started or connect with friends.</p>
+                )}
+              </div>
+            ) : filteredBooks.length === 0 ? (
+              <div className="text-center text-muted-foreground mt-8">
+                <p>No books found matching &ldquo;{searchQuery}&rdquo;</p>
+                <p className="text-sm mb-4">
+                  {activeTab === 'explore' && 'Add the book and contribute to the community!'}
+                  {activeTab === 'my-library' && 'Try a different search term or add more books to your library.'}
+                  {activeTab === 'friends-library' && 'Your friends haven&apos;t added books matching this search yet.'}
+                </p>
+                {activeTab === 'explore' && (
+                  <div className="flex justify-center">
+                    <AddBookDialog
+                      open={open}
+                      onOpenChange={setOpen}
+                      books={books}
+                      setBooks={setBooks}
+                      onBookAdded={handleBookAdded}
+                      initialSearchQuery={searchQuery}
+                    />
+                  </div>
                 )}
               </div>
             ) : (
@@ -820,7 +984,7 @@ export default function BooksTableContents() {
                                 ))}
                                 
                                 {/* Shelf Status Badge */}
-                                {activeTab === 'club-books' && book.friend_shelf_status ? (
+                                {activeTab === 'friends-library' && book.friend_shelf_status ? (
                                   <ShelfStatusBadge 
                                     shelf={book.friend_shelf_status.shelf} 
                                     status={book.friend_shelf_status.status}
@@ -842,10 +1006,10 @@ export default function BooksTableContents() {
                               {/* Meta Info */}
                               <div className="flex flex-row justify-between items-end gap-2 text-sm">
                                 <div>
-                                  {/* Show who added the book for non-my-books tabs */}
-                                  {activeTab !== 'my-books' && book.added_by_user && (
+                                  {/* Show who added the book for non-my-library tabs */}
+                                  {activeTab !== 'my-library' && book.added_by_user && (
                                     <p className="text-xs leading-none text-secondary/60">
-                                      Added by {book.added_by_user.nickname || book.added_by_user.display_name}
+                                      {activeTab === 'explore' ? 'Added by' : 'From'} {book.added_by_user.nickname || book.added_by_user.display_name}
                                     </p>
                                   )}
                                   <p className="text-secondary/60 text-xs font-serif font-medium">
@@ -884,7 +1048,7 @@ export default function BooksTableContents() {
                           <TableHead className="p-2">Pages</TableHead>
                           <TableHead className="p-2">Genre</TableHead>
                           <TableHead className="p-2">Status</TableHead>
-                          {activeTab !== 'my-books' && <TableHead className="p-2">Added By</TableHead>}
+                          {activeTab !== 'my-library' && <TableHead className="p-2">Added By</TableHead>}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -907,7 +1071,7 @@ export default function BooksTableContents() {
                                 ))}
                               </TableCell>
                               <TableCell className="p-2">
-                                {activeTab === 'club-books' && book.friend_shelf_status ? (
+                                {activeTab === 'friends-library' && book.friend_shelf_status ? (
                                   <ShelfStatusBadge 
                                     shelf={book.friend_shelf_status.shelf} 
                                     status={book.friend_shelf_status.status}
@@ -922,7 +1086,7 @@ export default function BooksTableContents() {
                                   <span className="text-xs text-muted-foreground">-</span>
                                 )}
                               </TableCell>
-                              {activeTab !== 'my-books' && (
+                              {activeTab !== 'my-library' && (
                                 <TableCell className="p-2 text-xs text-secondary/60">
                                   {book.added_by_user && book.added_by_user.id !== session?.user?.id
                                     ? (book.added_by_user.nickname || book.added_by_user.display_name)
@@ -969,6 +1133,20 @@ export default function BooksTableContents() {
         onSubmit={handleFinishedBookSubmit}
         isSubmitting={isSubmittingFinishedBook}
       />
+      
+      {/* Hidden AddBookDialog for state management - only shows when triggered */}
+      {(activeTab !== 'explore' || filteredBooks.length > 0) && (
+        <div style={{ display: 'none' }}>
+          <AddBookDialog
+            open={open}
+            onOpenChange={setOpen}
+            books={books}
+            setBooks={setBooks}
+            onBookAdded={handleBookAdded}
+            initialSearchQuery=""
+          />
+        </div>
+      )}
     </div>
   )
 }

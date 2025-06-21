@@ -14,7 +14,7 @@ import { Separator } from "@/components/ui/separator"
 import { handleSignIn } from '@/lib/auth';
 import { useEffect } from "react";
 import { useSession } from 'next-auth/react';
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 // import { createClient } from "@/lib/supabaseClient";
 import { createClient } from '@/lib/supabaseClient';
@@ -23,10 +23,88 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState("");
   const supabase = createClient();
   const { status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Check if we're in the middle of an OAuth callback
+  const [isOAuthCallback, setIsOAuthCallback] = useState(false);
+  
+  useEffect(() => {
+    const hasCallbackParams = searchParams.get('callbackUrl') || 
+                             searchParams.get('error') || 
+                             searchParams.get('code') ||
+                             searchParams.get('state') ||
+                             searchParams.get('session_state') ||
+                             window.location.href.includes('?code=') ||
+                             window.location.href.includes('&code=');
+    
+    // Check if Google sign-in was in progress (persisted in localStorage)
+    const googleSignInInProgress = localStorage.getItem('googleSignInInProgress');
+    
+    setIsOAuthCallback(hasCallbackParams);
+    
+    if (googleSignInInProgress === 'true') {
+      console.log('Google sign-in in progress detected from localStorage');
+      setIsGoogleLoading(true);
+    }
+    
+    // Debug logging
+    if (hasCallbackParams) {
+      console.log('OAuth callback detected:', {
+        callbackUrl: searchParams.get('callbackUrl'),
+        error: searchParams.get('error'),
+        code: searchParams.get('code'),
+        state: searchParams.get('state'),
+        session_state: searchParams.get('session_state'),
+        href: window.location.href
+      });
+    }
+  }, [searchParams]);
+  
+  // Check for OAuth errors and display them
+  useEffect(() => {
+    const oauthError = searchParams.get('error');
+    if (oauthError) {
+      let errorMessage = "Authentication failed";
+      switch (oauthError) {
+        case 'OAuthSignin':
+          errorMessage = "Error in constructing an authorization URL";
+          break;
+        case 'OAuthCallback':
+          errorMessage = "Error in handling the response from an OAuth provider";
+          break;
+        case 'OAuthCreateAccount':
+          errorMessage = "Could not create OAuth account in the database";
+          break;
+        case 'EmailCreateAccount':
+          errorMessage = "Could not create email account in the database";
+          break;
+        case 'Callback':
+          errorMessage = "Error in the OAuth callback handler route";
+          break;
+        case 'OAuthAccountNotLinked':
+          errorMessage = "This email is already associated with another account";
+          break;
+        case 'EmailSignin':
+          errorMessage = "Failed to send the email with the verification token";
+          break;
+        case 'CredentialsSignin':
+          errorMessage = "Authorization failed. Check your credentials.";
+          break;
+        case 'SessionRequired':
+          errorMessage = "Session required for this action";
+          break;
+        default:
+          errorMessage = `Authentication error: ${oauthError}`;
+      }
+      setError(errorMessage);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,30 +160,69 @@ export default function LoginPage() {
     }
   };
 
-  // 1. Session + router hooks
-   
-  
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    setError("");
+    
+    // Store in localStorage to persist across redirects
+    localStorage.setItem('googleSignInInProgress', 'true');
+    
+    try {
+      await handleSignIn();
+    } catch (err) {
+      setError("Failed to sign in with Google");
+      setIsGoogleLoading(false);
+      localStorage.removeItem('googleSignInInProgress');
+    }
+  };
 
-  console.log(status);
-
-  /* -------------------------------------------------------------------------
-   * 3. While NextAuth is still checking, you can return a spinner / skeleton
-   * ----------------------------------------------------------------------- */
-  if (status === "loading" ) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="text-bookBlack">Checking session…</span>
-      </div>
-    );
-  }
+  // Handle session status changes
+  useEffect(() => {
+    console.log('Session status changed:', status);
+    if (status === "authenticated") {
+      console.log('User authenticated, setting redirecting state');
+      setIsRedirecting(true);
+      setIsGoogleLoading(false);
+      // Clean up localStorage when authentication succeeds
+      localStorage.removeItem('googleSignInInProgress');
+    } else if (status === "unauthenticated") {
+      setIsGoogleLoading(false);
+      setIsRedirecting(false);
+      // Clean up localStorage if authentication fails
+      localStorage.removeItem('googleSignInInProgress');
+    }
+  }, [status]);
 
   // 2. Redirect when a valid session is detected
   useEffect(() => {
     if (status === "authenticated") {
-      // We use replace so the landing page doesn’t stay in the history stack
+      // We use replace so the landing page doesn't stay in the history stack
       router.replace("/dashboard");
     }
   }, [status, router]);
+
+  console.log(status);
+
+  /* -------------------------------------------------------------------------
+   * While NextAuth is still checking or we're in OAuth callback, show loading
+   * ----------------------------------------------------------------------- */
+  if (status === "loading" || isOAuthCallback || isRedirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <span className="text-bookWhite">
+            {isRedirecting 
+              ? "Redirecting to dashboard..." 
+              : isOAuthCallback 
+                ? "Completing sign in..." 
+                : "Checking session..."
+            }
+          </span>
+        </div>
+      </div>
+    );
+  }
 
 
   return (
@@ -133,6 +250,11 @@ export default function LoginPage() {
             <CardDescription className="text-center font-serif text-bookWhite">Enter your credentials to access your account</CardDescription>
           </CardHeader>
           <CardContent>
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                {error}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-bookWhite">Email</Label>
@@ -168,8 +290,8 @@ export default function LoginPage() {
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full bg-primary hover:bg-primary-light" disabled={isLoading}>
-                {isLoading ? "Loggin in..." : "Log in"}
+              <Button type="submit" className="w-full bg-primary hover:bg-primary-light" disabled={isLoading || isGoogleLoading}>
+                {isLoading ? "Logging in..." : "Log in"}
               </Button>
             </form>
 
@@ -180,9 +302,23 @@ export default function LoginPage() {
               </span>
             </div>
 
-            <Button variant="outline" className="w-full text-bookWhite" onClick={handleSignIn}>
-              <Image src="/images/g.webp=s48-fcrop64=1,00000000ffffffff-rw" alt="Google" width={20} height={20} className="mr-2 h-4 w-4" />
-              Google
+            <Button 
+              variant="outline" 
+              className="w-full text-bookWhite" 
+              onClick={handleGoogleSignIn}
+              disabled={isLoading || isGoogleLoading}
+            >
+              {isGoogleLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                  Loging in...
+                </>
+              ) : (
+                <>
+                  <Image src="/images/g.webp=s48-fcrop64=1,00000000ffffffff-rw" alt="Google" width={20} height={20} className="mr-2 h-4 w-4" />
+                  Google
+                </>
+              )}
             </Button>
           </CardContent>
           <CardFooter className="flex justify-center">

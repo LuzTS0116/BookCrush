@@ -81,7 +81,26 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4. Create or Update the UserBook entry
+    // 4. Auto-assign position if not provided and this is a new entry for the queue
+    let finalPosition = position;
+    if (!finalPosition && !existingUserBook && shelfType === shelf_type.queue) {
+      // Get the highest position for this user's queue and add 1
+      const maxPositionBook = await prisma.userBook.findFirst({
+        where: {
+          user_id: user.id,
+          shelf: shelf_type.queue,
+        },
+        orderBy: {
+          position: 'desc',
+        },
+        select: {
+          position: true,
+        },
+      });
+      finalPosition = (maxPositionBook?.position || 0) + 1;
+    }
+
+    // 5. Create or Update the UserBook entry
     const userBook = await prisma.userBook.upsert({
       where: {
         user_id_book_id_shelf: {
@@ -92,17 +111,16 @@ export async function POST(req: NextRequest) {
       },
       update: {
         status: statusType,
-        position: position ?? null, 
+        position: finalPosition ?? null, 
         added_at: new Date(), 
-        shelf: statusType === status_type.finished || statusType === status_type.unfinished ? shelf_type.history : shelfType, // Temporarily removed due to schema constraint
-        //shelf: shelfType, // Keeps the book on its current shelf even if finished
+        shelf: statusType === status_type.finished || statusType === status_type.unfinished ? shelf_type.history : shelfType,
       },
       create: {
         user_id: user.id,
         book_id: bookId,
-        shelf: statusType === status_type.finished || statusType === status_type.unfinished ? shelf_type.history : shelfType, // Temporarily removed
+        shelf: statusType === status_type.finished || statusType === status_type.unfinished ? shelf_type.history : shelfType,
         status: statusType,
-        position: position ?? null,
+        position: finalPosition ?? null,
       },
       include: {
         book: true, 
@@ -210,9 +228,12 @@ export async function GET(req: NextRequest) {
           }
         },
       },
-      orderBy: {
-        added_at: 'desc', // Or by position, or title, etc.
-      },
+      orderBy: shelfType === shelf_type.queue 
+        ? [
+            { position: 'asc' }, // Order by position for queue (nulls last)
+            { added_at: 'desc' }, // Then by added_at for items without position
+          ]
+        : { added_at: 'desc' }, // Default ordering for other shelves
     });
 
     return NextResponse.json(userBooks, { status: 200 });

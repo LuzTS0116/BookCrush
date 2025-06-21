@@ -34,10 +34,14 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Book not found in your library' }, { status: 404 });
     }
 
-    // Update the comment
+    // Update the comment using the compound unique key
     const updatedUserBook = await prisma.userBook.update({
       where: {
-        id: userBook.id
+        user_id_book_id_shelf: {
+          user_id: token.id as string,
+          book_id: bookId,
+          shelf: userBook.shelf
+        }
       },
       data: {
         comment: comment || null

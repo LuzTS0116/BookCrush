@@ -205,7 +205,7 @@ export const authOptions: NextAuthOptions = {
   session: { strategy: 'jwt' },
   pages: {
     signIn: '/login', // Custom sign-in page
-    error: '/auth/error', // Error page
+    error: '/login', // Redirect errors back to login page
   },
   callbacks: {
     async jwt({ token, user, account }) {

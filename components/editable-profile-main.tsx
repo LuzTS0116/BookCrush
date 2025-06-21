@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { BookMarked, ArrowLeft, Mail, Send, Pencil, Save, X, Users, CircleCheckBig, CircleAlert, Loader2, Star, Smartphone, BookOpen, Headphones, ChevronDown, Sparkles, EllipsisVertical, Edit3, Check, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown } from "lucide-react"
+import { BookMarked, ArrowLeft, Mail, Send, Pencil, Save, X, Users, CircleCheckBig, CircleAlert, Loader2, Star, Smartphone, BookOpen, Headphones, ChevronDown, Sparkles, EllipsisVertical, Edit3, Check, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown, GripVertical } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { FavoriteBookDialog } from "./favorite-book-dialog"
 import { ContributionBookDialog } from "./contribution-book-dialog"
@@ -29,6 +29,25 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner"
 import { useSession } from 'next-auth/react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // Helper constants and functions from profile-details.tsx
 const statuses: StatusDisplay[] = [
@@ -58,6 +77,152 @@ const getMediaTypeDisplay = (mediaType: UserBook['media_type']) => {
 const SHELF_OPTIONS = [
   { label: "Move to Reading Queue", value: "queue" },
 ];
+
+// Sortable Queue Book Item Component using @dnd-kit
+interface SortableQueueBookProps {
+  userBook: UserBook;
+  onStartReading: (bookId: string) => void;
+  onRemove: (bookId: string, title: string) => void;
+}
+
+function SortableQueueBook({ 
+  userBook, 
+  onStartReading, 
+  onRemove
+}: SortableQueueBookProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: userBook.book_id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <Card 
+      ref={setNodeRef}
+      style={style}
+      className={`relative overflow-hidden bg-bookWhite py-3 transition-all ${
+        isDragging ? 'opacity-50 z-50' : ''
+      }`}
+    >
+      <div className="flex flex-row pl-0 pr-3">
+        {/* Drag Handle */}
+        <div 
+          {...attributes}
+          {...listeners}
+          className="p-1 hover:bg-gray-100 flex flex-col justify-center rounded cursor-grab active:cursor-grabbing touch-none"
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </div>
+        {/* Book Image */}
+        <div className="w-[100px] flex-shrink-0 mr-2">
+          <Link href={`/books/${userBook.book_id}`}>
+            <img
+              src={userBook.book.cover_url || "/placeholder.svg"}
+              alt={userBook.book.title || "Book cover"}
+              className="h-full w-full shadow-md rounded object-cover"
+            />
+          </Link>
+        </div>
+        {/* Content */}
+        <div className="flex flex-col flex-1">
+          <CardHeader className="pb-0 px-0 pt-0">
+            <div className="flex flex-row justify-between items-start">
+              <Link href={`/books/${userBook.book_id}`}>
+                <CardTitle className="leading-5">{userBook.book.title}</CardTitle>
+              </Link>
+              <div className="flex items-center gap-1">
+                {/* Drag Handle
+                <div 
+                  {...attributes}
+                  {...listeners}
+                  className="p-1 hover:bg-gray-100 rounded cursor-grab active:cursor-grabbing touch-none"
+                >
+                  <GripVertical className="h-4 w-4 text-muted-foreground" />
+                </div> */}
+                
+                {/* Queue Management Dropdown */}
+                <div className="flex items-start relative">
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none hover:bg-transparent"
+                      >
+                        <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
+                      </Button>
+                    </DropdownMenu.Trigger>
+
+                    <DropdownMenu.Portal>
+                      <DropdownMenu.Content
+                        className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                        sideOffset={5}
+                      >
+                        <DropdownMenu.Item
+                          onSelect={() => onRemove(userBook.book_id, userBook.book.title)}
+                          className="px-3 py-2 text-xs text-center bg-red-700/90 my-2 rounded-md cursor-pointer hover:bg-red-800 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
+                        >
+                          Remove from Shelf
+                        </DropdownMenu.Item>
+                      </DropdownMenu.Content>
+                    </DropdownMenu.Portal>
+                  </DropdownMenu.Root>
+                </div>
+              </div>
+            </div>
+            <CardDescription className="text-xs">{userBook.book.author}</CardDescription>
+          </CardHeader>
+          <CardContent className="pb-0 pt-1 px-0">
+            <div className="flex flex-wrap gap-1.5 mb-0 items-center">
+              {/* Added On */}
+              {userBook.added_at && (
+                <span className="px-2 py-0.5 text-xs font-regular bg-primary-dark/50 text-secondary rounded-full">
+                  Added to Queue: {new Date(userBook.added_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </span>
+              )}
+
+              {/* Genre Tags */}
+              <div className="flex flex-wrap gap-1">
+                {userBook.book.genres?.slice(0, 2).map((genre: string) => (
+                  <span
+                    key={genre}
+                    className="bg-accent/30 text-secondary/40 text-xs/3 font-medium px-2 py-1 rounded-full"
+                  >
+                    {genre}
+                  </span>
+                ))}
+              </div>
+            </div>
+            {/* Pages & Time */}
+            <div className="flex-1">
+              <p className="text-secondary/80 font-sans font-normal text-sm inline-block">{userBook.book.pages} pages • {userBook.book.reading_time}</p>
+            </div>
+            {/* Move to currently reading */}
+            <div className="flex items-end justify-start mt-0.5">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="rounded-full text-accent-variant h-6 border-accent-variant bg-accent-variant/5 text-xs font-serif"
+                onClick={() => onStartReading(userBook.book_id)}
+              >
+                Start Reading
+                <Sparkles className="h-3 w-3"/>
+              </Button>
+            </div>
+          </CardContent>
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 // Add interface for the finished book dialog
 interface FinishedBookDialogProps {
@@ -283,6 +448,14 @@ export default function EditableProfileMain() {
     shelf: null
   })
 
+  // @dnd-kit sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
   // Book state variables
   const [currentlyReadingBooks, setCurrentlyReadingBooks] = useState<UserBook[]>([])
   const [queueBooks, setQueueBooks] = useState<UserBook[]>([])
@@ -366,8 +539,12 @@ export default function EditableProfileMain() {
         if (profileData.userBooks) {
           const currentlyReading = profileData.userBooks.filter((book: UserBook) => book.shelf === 'currently_reading')
           const queue = profileData.userBooks.filter((book: UserBook) => book.shelf === 'queue')
-          const history = profileData.userBooks.filter((book: UserBook) => book.shelf === 'history')
-          const favorites = profileData.userBooks.filter((book: UserBook) => book.is_favorite === true)
+          const history = profileData.userBooks
+            .filter((book: UserBook) => book.shelf === 'history')
+            .sort((a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime())
+          const favorites = profileData.userBooks
+            .filter((book: UserBook) => book.is_favorite === true)
+            .sort((a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime())
           
           setCurrentlyReadingBooks(currentlyReading)
           setQueueBooks(queue)
@@ -375,8 +552,11 @@ export default function EditableProfileMain() {
           setFavoriteBooks(favorites)
         }
 
-        if (profileData.addedBooks) {          
-          setAddedBooks(profileData.addedBooks)
+        if (profileData.addedBooks) {
+          const sortedAddedBooks = profileData.addedBooks.sort((a: any, b: any) => 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          )
+          setAddedBooks(sortedAddedBooks)
         }
 
       } catch (err) {
@@ -1029,6 +1209,57 @@ export default function EditableProfileMain() {
     }
   };
 
+  // Drag and drop handlers
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) {
+      return;
+    }
+
+    const oldIndex = queueBooks.findIndex((book) => book.book_id === active.id);
+    const newIndex = queueBooks.findIndex((book) => book.book_id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) {
+      return;
+    }
+
+    // Reorder the array using @dnd-kit's arrayMove utility
+    const newOrder = arrayMove(queueBooks, oldIndex, newIndex);
+    
+    // Optimistically update the UI
+    setQueueBooks(newOrder);
+
+    try {
+      // Update positions in the database
+      const updates = newOrder.map((book: UserBook, index: number) => ({
+        bookId: book.book_id,
+        position: index + 1 // 1-based position
+      }));
+
+      const response = await fetch('/api/shelf/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates, shelf: 'queue' })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update book order');
+      }
+
+      toast.success('Reading queue reordered!');
+    } catch (error: any) {
+      console.error('Error updating book order:', error);
+      toast.error('Failed to save new order');
+      // Revert to original order on error
+      const originalResponse = await fetch('/api/shelf?shelf=queue');
+      if (originalResponse.ok) {
+        const originalBooks = await originalResponse.json();
+        setQueueBooks(originalBooks);
+      }
+    }
+  };
+
   // Functions to handle confirmation dialogs
   const showRemoveConfirmation = (bookId: string, bookTitle: string, shelf: 'currently_reading' | 'queue') => {
     setConfirmRemoval({
@@ -1356,7 +1587,7 @@ export default function EditableProfileMain() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                   {currentlyReadingBooks.map((userBook) => {
                     const currentStatusDisplay = getStatusDisplay(userBook.status);
                     const bookId = userBook.book_id || '';
@@ -1587,104 +1818,32 @@ export default function EditableProfileMain() {
                   </CardContent>
                 </Card>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {queueBooks.map((userBook) => (
-                    <Card key={userBook.book_id} className="relative overflow-hidden bg-bookWhite py-3">
-                      <div className="flex flex-row gap-3 px-4">
-                        {/* Book Image */}
-                        <div className="w-[100px] flex-shrink-0">
-                          <Link href={`/books/${userBook.book_id}`}>
-                            <img
-                              src={userBook.book.cover_url || "/placeholder.svg"}
-                              alt={userBook.book.title || "Book cover"}
-                              className="h-auto w-full shadow-md rounded object-cover"
-                            />
-                          </Link>
-                        </div>
-                        {/* Content */}
-                        <div className="flex flex-col flex-1">
-                          <CardHeader className="pb-2 px-0 pt-0">
-                            <div className="flex flex-row justify-between items-start">
-                              <Link href={`/books/${userBook.book_id}`}>
-                                <CardTitle className="leading-5">{userBook.book.title}</CardTitle>
-                              </Link>
-                              <div>
-                                {/* Queue Management Dropdown */}
-                                {userBook.book_id && (
-                                <div className="flex items-start relative">
-                                  <DropdownMenu.Root>
-                                    <DropdownMenu.Trigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none hover:bg-transparent"
-                                      >
-                                        <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
-                                      </Button>
-                                    </DropdownMenu.Trigger>
-
-                                    <DropdownMenu.Portal>
-                                      <DropdownMenu.Content
-                                        className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
-                                        sideOffset={5}
-                                      >
-                                        <DropdownMenu.Item
-                                          onSelect={() => showRemoveConfirmation(userBook.book_id, userBook.book.title, 'queue')}
-                                          className="px-3 py-2 text-xs text-center bg-red-700/90 my-2 rounded-md cursor-pointer hover:bg-red-800 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
-                                        >
-                                          Remove from Shelf
-                                        </DropdownMenu.Item>
-                                      </DropdownMenu.Content>
-                                    </DropdownMenu.Portal>
-                                  </DropdownMenu.Root>
-                                </div>
-                                )}
-                              </div>
-                            </div>
-                            <CardDescription className="text-xs">{userBook.book.author}</CardDescription>
-                          </CardHeader>
-                          <CardContent className="pb-0 pt-1 px-0">
-                            <div className="flex flex-wrap gap-1.5 mb-1 items-center">
-                              {/* Added On */}
-                              {userBook.added_at && (
-                                <span className="px-2 py-0.5 text-xs font-regular bg-primary-dark/50 text-secondary rounded-full">
-                                  Added to Queue: {new Date(userBook.added_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                </span>
-                              )}
-
-                              {/* Genre Tags */}
-                              <div className="flex flex-wrap gap-1">
-                                {userBook.book.genres?.slice(0, 3).map((genre: string) => (
-                                  <span
-                                    key={genre}
-                                    className="bg-accent/30 text-secondary/40 text-xs/3 font-medium px-2 py-1 rounded-full"
-                                  >
-                                    {genre}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                            {/* Pages & Time */}
-                            <div className="flex-1">
-                              <p className="text-secondary/80 font-sans font-normal text-sm inline-block">{userBook.book.pages} pages • {userBook.book.reading_time}</p>
-                            </div>
-                            {/* Move to currently reading */}
-                            <div className="flex items-end justify-start mt-1">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="rounded-full text-accent-variant h-6 border-accent-variant bg-accent-variant/5 text-xs font-serif"
-                                onClick={() => handleStartReading(userBook.book_id)}
-                              >
-                                Start Reading
-                                <Sparkles className="h-3 w-3"/>
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </div>
+                <div className="space-y-2">
+                  <div className="text-center text-sm text-muted-foreground mb-2">
+                    <GripVertical className="h-4 w-4 inline mr-1" />
+                    Drag books to reorder your reading queue
+                  </div>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={queueBooks.map(book => book.book_id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                        {queueBooks.map((userBook) => (
+                          <SortableQueueBook
+                            key={userBook.book_id}
+                            userBook={userBook}
+                            onStartReading={handleStartReading}
+                            onRemove={(bookId: string, title: string) => showRemoveConfirmation(bookId, title, 'queue')}
+                          />
+                        ))}
                       </div>
-                    </Card>
-                  ))}
+                    </SortableContext>
+                  </DndContext>
                 </div>
               )}
             </TabsContent>

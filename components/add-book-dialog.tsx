@@ -45,10 +45,11 @@ interface AddBookDialogProps {
   onOpenChange: (open: boolean) => void;
   books: BookDetails[];
   setBooks: (books: BookDetails[]|[])=> void;
-  onBookAdded: (newBook: BookDetails) => void; 
+  onBookAdded: (newBook: BookDetails) => void;
+  initialSearchQuery?: string;
 }
 
-export const AddBookDialog: React.FC<AddBookDialogProps> = ({ open, onOpenChange, books, setBooks, onBookAdded }) => {
+export const AddBookDialog: React.FC<AddBookDialogProps> = ({ open, onOpenChange, books, setBooks, onBookAdded, initialSearchQuery }) => {
   const { data: session, status } = useSession();
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
@@ -64,12 +65,18 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({ open, onOpenChange
   useEffect(() => {
     if (open) {
       setValidationError(null); // Clear error when dialog is opened
+      // Set initial search query if provided and trigger search
+      if (initialSearchQuery) {
+        setTitle(initialSearchQuery);
+        // Trigger search for the initial query
+        fetchSuggestions(initialSearchQuery);
+      }
     }
     // Also clear error if selectedBook changes, implying a new search/selection
     if (selectedBook) {
       setValidationError(null);
     }
-  }, [open, selectedBook]);
+  }, [open, selectedBook, initialSearchQuery]);
 
   const fetchSuggestions = async (query: string) => {
     const res = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(query)}&limit=50`);

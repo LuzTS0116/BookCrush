@@ -232,8 +232,10 @@ export async function GET(req: NextRequest) {
     const limit = url.searchParams.get('limit');
     const latest = url.searchParams.get('latest') === 'true'; // New parameter for dashboard
     const filter = url.searchParams.get('filter') || 'all'; // New parameter for filtering: 'all', 'my-books', 'friends'
+    const friendFilter = url.searchParams.get('friendFilter'); // Filter by specific friend
+    const shelfFilter = url.searchParams.get('shelfFilter'); // Filter by shelf status
 
-    console.log('[API books GET] Filter parameter:', filter);
+    console.log('[API books GET] Filter parameters:', { filter, friendFilter, shelfFilter });
 
     // Get user's friends first
     const friendships = await prisma.friendship.findMany({
@@ -252,43 +254,55 @@ export async function GET(req: NextRequest) {
 
     console.log('[API books GET] User friends:', friendIds.length);
 
-    // Build the where clause based on filter
+    // Build the where clause based on filter - now filtering by UserBook presence
     let whereClause: any = {};
 
     switch (filter) {
       case 'my-books':
+        // Only books that the current user has on their shelves
+        let myUserBookFilter: any = {
+          user_id: user.id
+        };
+        
+        // Add shelf filter if specified
+        if (shelfFilter) {
+          myUserBookFilter.shelf = shelfFilter;
+        }
+        
         whereClause = {
-          added_by: user.id
+          UserBook: {
+            some: myUserBookFilter
+          }
         };
         break;
       case 'friends':
+        // Only books that friends have on their shelves
+        if (friendIds.length === 0) {
+          console.log('[API books GET] No friends found, returning empty array for friends filter');
+          return NextResponse.json([]);
+        }
+        
+        // Build the UserBook filter for friends
+        let friendUserBookFilter: any = {
+          user_id: friendFilter ? friendFilter : { in: friendIds }
+        };
+        
+        // Add shelf filter if specified
+        if (shelfFilter) {
+          friendUserBookFilter.shelf = shelfFilter;
+        }
+        
         whereClause = {
-          added_by: {
-            in: friendIds
+          UserBook: {
+            some: friendUserBookFilter
           }
         };
         break;
       case 'all':
       default:
-        whereClause = {
-          added_by: {
-            in: [user.id, ...friendIds]
-          }
-        };
+        // All books in the database (regardless of shelf status) - for explore tab
+        whereClause = {};
         break;
-    }
-
-    // If no friends and filter is 'friends', return empty array
-    if (filter === 'friends' && friendIds.length === 0) {
-      console.log('[API books GET] No friends found, returning empty array for friends filter');
-      return NextResponse.json([]);
-    }
-
-    // If no friends and filter is 'all', just show user's books
-    if (filter === 'all' && friendIds.length === 0) {
-      whereClause = {
-        added_by: user.id
-      };
     }
 
     // Get books with all related data in a single optimized query
@@ -352,8 +366,9 @@ export async function GET(req: NextRequest) {
 
       // For friends' books, find the friend's shelf status
       let friendShelfStatus = null;
-      if (filter === 'friends' && book.added_by !== user.id) {
-        const friendBook = book.UserBook.find(ub => ub.user_id === book.added_by);
+      if (filter === 'friends') {
+        // Find any friend who has this book on their shelf
+        const friendBook = book.UserBook.find(ub => friendIds.includes(ub.user_id));
         if (friendBook) {
           friendShelfStatus = {
             shelf: friendBook.shelf,
