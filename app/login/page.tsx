@@ -35,13 +35,13 @@ export default function LoginPage() {
   const [isOAuthCallback, setIsOAuthCallback] = useState(false);
   
   useEffect(() => {
-    const hasCallbackParams = searchParams.get('callbackUrl') || 
-                             searchParams.get('error') || 
-                             searchParams.get('code') ||
-                             searchParams.get('state') ||
-                             searchParams.get('session_state') ||
-                             window.location.href.includes('?code=') ||
-                             window.location.href.includes('&code=');
+    const hasCallbackParams = !!(searchParams.get('callbackUrl') || 
+                               searchParams.get('error') || 
+                               searchParams.get('code') ||
+                               searchParams.get('state') ||
+                               searchParams.get('session_state') ||
+                               window.location.href.includes('?code=') ||
+                               window.location.href.includes('&code='));
     
     // Check if Google sign-in was in progress (persisted in localStorage)
     const googleSignInInProgress = localStorage.getItem('googleSignInInProgress');
@@ -99,10 +99,19 @@ export default function LoginPage() {
         case 'SessionRequired':
           errorMessage = "Session required for this action";
           break;
+        case 'missing_supabase_token':
+          errorMessage = "Authentication session expired. Please try signing in again.";
+          break;
         default:
           errorMessage = `Authentication error: ${oauthError}`;
       }
       setError(errorMessage);
+      
+      // Clear loading states when there's an error
+      setIsGoogleLoading(false);
+      setIsRedirecting(false);
+      setIsOAuthCallback(false);
+      localStorage.removeItem('googleSignInInProgress');
     }
   }, [searchParams]);
 

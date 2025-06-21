@@ -12,6 +12,7 @@ import { BookMarked, ArrowLeft, Mail, Send, Pencil, Save, X, Users, CircleCheckB
 import { Badge } from "@/components/ui/badge"
 import { FavoriteBookDialog } from "./favorite-book-dialog"
 import { ContributionBookDialog } from "./contribution-book-dialog"
+import { HistoryBookDialog } from "./history-book-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Heart, Books, Bookmark, CheckCircle } from "@phosphor-icons/react"
 import { getDisplayAvatarUrl } from "@/lib/supabase-utils"
@@ -111,13 +112,15 @@ function SortableQueueBook({
       className={`relative overflow-hidden bg-bookWhite py-3 transition-all ${
         isDragging ? 'opacity-50 z-50' : ''
       }`}
+      data-testid="sortable-queue-book"
     >
       <div className="flex flex-row pl-0 pr-3">
         {/* Drag Handle */}
         <div 
           {...attributes}
           {...listeners}
-          className="p-1 hover:bg-gray-100 flex flex-col justify-center rounded cursor-grab active:cursor-grabbing touch-none"
+          className="p-1 hover:bg-gray-100 flex flex-col justify-center rounded cursor-grab active:cursor-grabbing touch-none select-none"
+          style={{ touchAction: 'none' }}
         >
           <GripVertical className="h-4 w-4 text-muted-foreground" />
         </div>
@@ -448,9 +451,13 @@ export default function EditableProfileMain() {
     shelf: null
   })
 
-  // @dnd-kit sensors
+  // @dnd-kit sensors with optimized touch handling
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Minimum distance before drag starts
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -1823,16 +1830,26 @@ export default function EditableProfileMain() {
                     <GripVertical className="h-4 w-4 inline mr-1" />
                     Drag books to reorder your reading queue
                   </div>
+                  <style jsx>{`
+                    .sortable-container {
+                      -webkit-transform: translateZ(0);
+                      transform: translateZ(0);
+                      -webkit-backface-visibility: hidden;
+                      backface-visibility: hidden;
+                      will-change: transform;
+                    }
+                  `}</style>
                   <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
                     onDragEnd={handleDragEnd}
+                    autoScroll={{ enabled: false }}
                   >
                     <SortableContext
                       items={queueBooks.map(book => book.book_id)}
                       strategy={verticalListSortingStrategy}
                     >
-                      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 sortable-container">
                         {queueBooks.map((userBook) => (
                           <SortableQueueBook
                             key={userBook.book_id}
@@ -1859,14 +1876,7 @@ export default function EditableProfileMain() {
                     <div className="grid grid-cols-4 gap-1">
                       {historyBooks.map((userBook) => (
                         <div key={userBook.book_id} className="relative w-auto">
-                          <Link href={`/books/${userBook.book_id}`}>
-                            <img
-                              src={userBook.book.cover_url || "/placeholder.svg"}
-                              alt={userBook.book.title || "Book cover"}
-                              className="h-full w-full shadow-md rounded object-cover"
-                            />
-                          </Link>
-                          
+                          <HistoryBookDialog historyBooks={userBook} />
                           {userBook.status === 'finished' && (
                             <span className="absolute bottom-1 right-1 bg-green-600/50 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
                               <CircleCheckBig className="h-4 w-4" />
@@ -1878,6 +1888,26 @@ export default function EditableProfileMain() {
                             </span>
                           )}
                         </div>
+                        // <div key={userBook.book_id} className="relative w-auto">
+                        //   <Link href={`/books/${userBook.book_id}`}>
+                        //     <img
+                        //       src={userBook.book.cover_url || "/placeholder.svg"}
+                        //       alt={userBook.book.title || "Book cover"}
+                        //       className="h-full w-full shadow-md rounded object-cover"
+                        //     />
+                        //   </Link>
+                          
+                        //   {userBook.status === 'finished' && (
+                        //     <span className="absolute bottom-1 right-1 bg-green-600/50 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
+                        //       <CircleCheckBig className="h-4 w-4" />
+                        //     </span>
+                        //   )}
+                        //   {userBook.status === 'unfinished' && (
+                        //     <span className="absolute bottom-1 right-1 bg-accent/70 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
+                        //       <CircleAlert className="h-4 w-4" />
+                        //     </span>
+                        //   )}
+                        // </div>
                       ))}
                     </div>
                   )}

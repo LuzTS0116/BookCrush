@@ -391,7 +391,7 @@ const handleClickShare = async () => {
               onClick={() => setShowOverlay((prev) => !prev)}
               className="relative group h-full col-span-2"
             >
-              <div ref={quoteImageRef} className="h-full flex flex-col justify-between bg-[url('/images/quote-img1.png')] bg-cover rounded-br-3xl">
+              <div ref={quoteImageRef} className="h-full flex flex-col justify-between bg-[url('/images/quote-img1.png')] bg-cover rounded-t-lg rounded-bl-lg rounded-br-3xl">
                 <div className="flex-1 flex flex-col justify-center pt-4 px-3">
                   <blockquote className="text-[13px]/4 text-center font-semibold text-bookBlack">
                     {quote}
