@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from "framer-motion"; // Retaining these if y
 import { BookDetails, BookFile, UserBook, StatusDisplay, TabDisplay } from "@/types/book";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react"; // Add session management
+import Image from "next/image";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -118,94 +119,88 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: F
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[85vw] bg-bookWhite p-3">
-        <DialogHeader className="p-0">
-          <DialogTitle className="text-xl font-bold text-secondary">
-            🎉 Congratulations!
-          </DialogTitle>
-          <DialogDescription className="text-secondary/70">
-            How was your reading experience? Share your thoughts with the community.
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="space-y-2">
-          {/* Book Info */}
-          <div className="flex items-center gap-2 p-3 bg-secondary/5 rounded-lg">
-            <img
-              src={book.book.cover_url || "/placeholder.svg"}
-              alt={book.book.title}
-              className="w-auto h-28 object-cover rounded shadow-sm"
-            />
-            <div>
-              <h3 className="font-semibold text-secondary">{book.book.title}</h3>
-              <p className="text-sm text-secondary/70">{book.book.author}</p>
-            </div>
-          </div>
-
-          {/* Rating Selection */}
-          <div className="space-y-3">
-            <div>
-              <h4 className="text-sm font-medium text-secondary mb-0.5">Rate this book:</h4>
-              <div className="flex justify-center gap-6">
-                <button
-                  onClick={() => setRating("HEART")}
-                  className={`p-1 rounded-full transition-colors ${
-                    rating === "HEART" 
-                      ? "bg-primary/30" 
-                      : "hover:bg-secondary/20"
-                  }`}
-                  disabled={isSubmitting}
-                >
-                  {getRatingIcon("HEART", rating === "HEART")}
-                </button>
-                <button
-                  onClick={() => setRating("THUMBS_UP")}
-                  className={`p-1 rounded-full transition-all ${
-                    rating === "THUMBS_UP" 
-                      ? "bg-accent-variant/20 scale-110" 
-                      : "hover:bg-secondary/10 hover:scale-105"
-                  }`}
-                  disabled={isSubmitting}
-                >
-                  {getRatingIcon("THUMBS_UP", rating === "THUMBS_UP")}
-                </button>
-                <button
-                  onClick={() => setRating("THUMBS_DOWN")}
-                  className={`p-1 rounded-full transition-all ${
-                    rating === "THUMBS_DOWN" 
-                      ? "bg-accent/20 scale-110" 
-                      : "hover:bg-secondary/10 hover:scale-105"
-                  }`}
-                  disabled={isSubmitting}
-                >
-                  {getRatingIcon("THUMBS_DOWN", rating === "THUMBS_DOWN")}
-                </button>
+      <DialogContent className="w-[85vw] bg-bookWhite p-3 text-secondary">
+        <Image 
+          src="/images/quote-bg.png"
+          alt="Create and Manage your Book Clubs | BookCrush"
+          width={1622}
+          height={2871}
+          className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+        />
+        <DialogHeader className="p-0 pt-5">
+          <DialogTitle className="text-secondary-light">
+            <p className="py-2 px-8 bg-accent/25 rounded-lg mt-3 mb-4 text-xl">🎉 Congratulations 🎉</p>
+            <div className="flex flex-row gap-3">
+              <div className="flex justify-center mb-1">
+                <img
+                  src={book.book.cover_url || "/placeholder.svg"}
+                  alt={book.book.title}
+                  className="w-42 h-auto object-cover rounded shadow-sm"
+                />
+              </div>
+              <div className="flex flex-col">
+                <p className="text-lg font-light text-left leading-5">You've finished <span className="font-bold">{book.book.title}</span>!</p>
+                <p className="text-secondary-light/80 text-sm font-light text-left leading-4 mt-3">Your journey with this book just ended. Share your thoughts with your reading community.</p>
+                <div className="flex justify-start gap-3 mt-3">
+                  <button
+                    onClick={() => setRating("HEART")}
+                    className={`p-1 rounded-full transition-colors ${
+                      rating === "HEART" 
+                        ? "bg-primary/30" 
+                        : "hover:bg-secondary/20"
+                    }`}
+                    disabled={isSubmitting}
+                  >
+                    {getRatingIcon("HEART", rating === "HEART")}
+                  </button>
+                  <button
+                    onClick={() => setRating("THUMBS_UP")}
+                    className={`p-1 rounded-full transition-all ${
+                      rating === "THUMBS_UP" 
+                        ? "bg-accent-variant/20 scale-110" 
+                        : "hover:bg-secondary/10 hover:scale-105"
+                    }`}
+                    disabled={isSubmitting}
+                  >
+                    {getRatingIcon("THUMBS_UP", rating === "THUMBS_UP")}
+                  </button>
+                  <button
+                    onClick={() => setRating("THUMBS_DOWN")}
+                    className={`p-1 rounded-full transition-all ${
+                      rating === "THUMBS_DOWN" 
+                        ? "bg-accent/20 scale-110" 
+                        : "hover:bg-secondary/10 hover:scale-105"
+                    }`}
+                    disabled={isSubmitting}
+                  >
+                    {getRatingIcon("THUMBS_DOWN", rating === "THUMBS_DOWN")}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-
-          {/* Review Text */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium text-secondary">Share your thoughts (optional):</h4>
-            <Textarea
-              placeholder="What did you think about this book? Share your experience..."
-              value={reviewText}
-              onChange={(e) => setReviewText(e.target.value)}
-              className="min-h-[100px] bg-secondary/5 border-secondary/20 text-secondary placeholder:text-secondary/50"
-              disabled={isSubmitting}
-            />
-            <p className="text-xs text-secondary/50 text-right">
-              {reviewText.length}/500 characters
-            </p>
-          </div>
+          </DialogTitle>
+        </DialogHeader>
+        
+        {/* Review Text */}
+        <div className="space-y-1">
+          <Textarea
+            placeholder="Book Review - Any thoughts you’d like to share? What will you remember most about this book? (optional)"
+            value={reviewText}
+            onChange={(e) => setReviewText(e.target.value)}
+            className="min-h-[80px] bg-[#FAF9F6]/60 border-secondary-light/30 text-secondary placeholder:text-secondary/50 placeholder:text-sm placeholder:leading-4 placeholder:italic"
+            disabled={isSubmitting}
+          />
+          <p className="text-xs text-secondary/50 text-right">
+            {reviewText.length}/500 characters
+          </p>
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-1">
           <Button
             variant="outline"
             onClick={onClose}
             disabled={isSubmitting}
-            className="rounded-full"
+            className="rounded-full text-bookWhite bg-secondary-light"
           >
             Skip Review
           </Button>
@@ -1017,40 +1012,32 @@ export default function DashboardReading() {
                                 </div>
 
                                 <div className="flex justify-start items-end">
-                                {/* Current Status Badge */}
-                                <div className="">
-                                  <span className={`px-2 py-0.5 text-xs font-regular rounded-full ${currentStatusDisplay.color}`}>
-                                    {currentStatusDisplay.label}
-                                  </span>
-                                </div>  
+                                {/* Unified Status Badge with Dropdown */}
                                 <DropdownMenu.Root>
-                                <DropdownMenu.Trigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="text-xs flex items-center rounded-full h-5 px-1 ml-1.5 gap-1 bg-bookWhite shadow-sm hover:bg-muted"
-                                  >
-                                    Book Status <ChevronDown className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenu.Trigger>
+                                  <DropdownMenu.Trigger asChild>
+                                    <button className={`px-2 py-0.5 text-xs font-regular rounded-full cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1 ${currentStatusDisplay.color}`}>
+                                      {currentStatusDisplay.label}
+                                      <ChevronDown className="h-3 w-3" />
+                                    </button>
+                                  </DropdownMenu.Trigger>
 
-                                <DropdownMenu.Portal>
-                                  <DropdownMenu.Content
-                                    className="min-w-[160px] rounded-2xl bg-secondary-light shadow-xl p-1 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
-                                    sideOffset={5}
-                                  >
-                                    {statuses.map((s) => (
-                                      <DropdownMenu.Item
-                                        key={s.value}
-                                        onSelect={() => handleStatusChange(userBook.book_id, userBook.shelf, s.value)}
-                                        className="px-3 py-2 text-sm rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
-                                      >
-                                        {s.label}
-                                      </DropdownMenu.Item>
-                                    ))}
-                                  </DropdownMenu.Content>
-                                </DropdownMenu.Portal>
-                              </DropdownMenu.Root>
+                                  <DropdownMenu.Portal>
+                                    <DropdownMenu.Content
+                                      className="min-w-[160px] rounded-2xl bg-secondary-light shadow-xl p-1 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                                      sideOffset={5}
+                                    >
+                                      {statuses.map((s) => (
+                                        <DropdownMenu.Item
+                                          key={s.value}
+                                          onSelect={() => handleStatusChange(userBook.book_id, userBook.shelf, s.value)}
+                                          className="px-3 py-2 text-sm rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
+                                        >
+                                          {s.label}
+                                        </DropdownMenu.Item>
+                                      ))}
+                                    </DropdownMenu.Content>
+                                  </DropdownMenu.Portal>
+                                </DropdownMenu.Root>
                               </div>
 
                                 {/* Personal Note - Interactive editing */}

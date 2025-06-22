@@ -89,6 +89,17 @@ export async function GET(req: NextRequest) {
 
     const currentUserId = authUser.id;
 
+    // Parse pagination parameters
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '10', 10);
+    const skip = (page - 1) * limit;
+
+    // Validate pagination parameters
+    if (page < 1 || limit < 1 || limit > 50) {
+      return NextResponse.json({ error: 'Invalid pagination parameters' }, { status: 400 });
+    }
+
     // 1. Get current user's friends
     const friendships = await prisma.friendship.findMany({
       where: {
@@ -106,11 +117,13 @@ export async function GET(req: NextRequest) {
     const friendIds = friendships.map(f => f.userId1 === currentUserId ? f.userId2 : f.userId1);
 
     if (friendIds.length === 0) {
-      return NextResponse.json([], { status: 200 }); // No friends, so no activity feed
+      return NextResponse.json({ 
+        activities: [], 
+        pagination: { page, limit, total: 0, hasMore: false } 
+      }, { status: 200 }); // No friends, so no activity feed
     }
 
     // 2. Fetch activities from these friends
-    // TODO: Implement pagination (e.g., using URL search params for page/limit or cursor)
     const activities = await prisma.activityLog.findMany({
       where: {
         user_id: { in: friendIds },
@@ -123,7 +136,8 @@ export async function GET(req: NextRequest) {
       orderBy: {
         created_at: 'desc',
       },
-      take: 20, // Example: limit to 20 activities for now
+      skip,
+      take: limit,
     });
 
     //Fetch activities where the current user is the related_user
@@ -141,7 +155,8 @@ export async function GET(req: NextRequest) {
       orderBy: {
         created_at: 'desc',
       },
-      take: 20, // Example: limit to 20 activities for now
+      skip,
+      take: limit,
     });
 
     //append requests_activities to activities if requests_activities is not empty
@@ -149,12 +164,42 @@ export async function GET(req: NextRequest) {
       activities.push(...requests_activities);
     }
 
+    // Sort combined activities by created_at desc
+    const allActivities = activities.sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    // Get total count for pagination (this is an approximation for combined queries)
+    const totalFriendActivities = await prisma.activityLog.count({
+      where: {
+        user_id: { in: friendIds },
+      },
+    });
+
+    const totalRequestActivities = await prisma.activityLog.count({
+      where: {
+        related_user_id: authUser.id,
+        activity_type: ActivityType.SENT_FRIEND_REQUEST,
+      },
+    });
+
+    const totalActivities = totalFriendActivities + totalRequestActivities;
+    const hasMore = skip + allActivities.length < totalActivities;
+
     // 3. Enrich activities with more details needed for frontend display
-    const enrichedActivities = await Promise.all(activities.map(activity => 
+    const enrichedActivities = await Promise.all(allActivities.map(activity => 
         enrichActivity(activity as ActivityLog & { user: Profile } ) // Cast because user is included
     ));
 
-    return NextResponse.json(enrichedActivities, { status: 200 });
+    return NextResponse.json({
+      activities: enrichedActivities,
+      pagination: {
+        page,
+        limit,
+        total: totalActivities,
+        hasMore
+      }
+    }, { status: 200 });
 
   } catch (error: any) {
     console.error("Error fetching activity feed:", error);

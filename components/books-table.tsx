@@ -739,10 +739,10 @@ export default function BooksTableContents() {
             </div>
 
             {/* Search and View Controls - Moved below tabs */}
-            <div className="grid grid-cols-8 gap-x-2 mb-4">
+            <div className="flex flex-row gap-2 items-center mb-4">
               {/* Search Input */}
-              <div className="relative col-span-6">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-secondary" />
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-4 -translate-y-1/2 h-4 w-4 text-secondary" />
                 <Input
                   placeholder="Search books, authors, genres..."
                   className="pl-10 rounded-full bg-bookWhite/90 text-secondary/85"
@@ -751,7 +751,7 @@ export default function BooksTableContents() {
                 />
               </div>
               {/* View Toggle Buttons */}
-              <div className="col-span-2 flex items-center justify-end gap-2">
+              <div className="flex items-center justify-end gap-2">
                 <div className="flex items-center space-x-2">
                   <Button
                     variant={viewMode === "card" ? "default" : "outline"}
@@ -772,6 +772,23 @@ export default function BooksTableContents() {
                 </div>
               </div>
             </div>
+
+            {/* Add Book Button - Show when there are search results in Explore tab */}
+            {activeTab === 'explore' && searchQuery.trim() && filteredBooks.length > 0 && (
+              <div className="flex justify-center mb-2 py-0">
+                <div className="flex flex-col items-center gap-1 bg-secondary/5 rounded-full px-4 pt-0 pb-2">
+                  <span className="text-sm text-bookWhite/70">Don't find what you're looking for?</span>
+                  <AddBookDialog
+                    open={open}
+                    onOpenChange={setOpen}
+                    books={books}
+                    setBooks={setBooks}
+                    onBookAdded={handleBookAdded}
+                    initialSearchQuery={searchQuery}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Friends Library Filters */}
             {activeTab === 'friends-library' && (
@@ -1134,19 +1151,7 @@ export default function BooksTableContents() {
         isSubmitting={isSubmittingFinishedBook}
       />
       
-      {/* Hidden AddBookDialog for state management - only shows when triggered */}
-      {(activeTab !== 'explore' || filteredBooks.length > 0) && (
-        <div style={{ display: 'none' }}>
-          <AddBookDialog
-            open={open}
-            onOpenChange={setOpen}
-            books={books}
-            setBooks={setBooks}
-            onBookAdded={handleBookAdded}
-            initialSearchQuery=""
-          />
-        </div>
-      )}
+
     </div>
   )
 }

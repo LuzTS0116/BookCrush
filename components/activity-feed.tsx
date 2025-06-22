@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, User, ArrowRight } from 'lucide-react';
+import { Loader2, User, ArrowDown } from 'lucide-react';
 import { ActivityType, ActivityTargetEntityType } from '@prisma/client';
 import { UserProfileMinimal } from '@/types/social';
 import { useSession } from 'next-auth/react';
@@ -315,37 +315,74 @@ interface ActivityFeedProps {
   maxItems?: number;
   showHeader?: boolean;
   onViewMore?: () => void;
+  showLoadMore?: boolean;
 }
 
-export function ActivityFeed({ compact = false, maxItems, showHeader = false, onViewMore }: ActivityFeedProps) {
+interface ActivityFeedResponse {
+  activities: EnrichedActivity[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    hasMore: boolean;
+  };
+}
+
+export function ActivityFeed({ compact = false, maxItems, showHeader = false, onViewMore, showLoadMore = true }: ActivityFeedProps) {
   
   const { data: session, status: sessionStatus } = useSession();
   const [activityFeed, setActivityFeed] = useState<EnrichedActivity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    hasMore: false
+  });
 
-  const fetchActivityFeed = async () => {
-    setIsLoading(true);
+  const fetchActivityFeed = async (page: number = 1, append: boolean = false) => {
+    if (page === 1) {
+      setIsLoading(true);
+    } else {
+      setIsLoadingMore(true);
+    }
+    
     try {
-      const response = await fetch('/api/social/activity');
+      const response = await fetch(`/api/social/activity?page=${page}&limit=${pagination.limit}`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Failed to fetch activity feed: ${response.statusText}`);
       }
-      const data: EnrichedActivity[] = await response.json();
-      setActivityFeed(data);
+      const data: ActivityFeedResponse = await response.json();
+      
+      if (append) {
+        setActivityFeed(prev => [...prev, ...data.activities]);
+      } else {
+        setActivityFeed(data.activities);
+      }
+      
+      setPagination(data.pagination);
       
     } catch (err: any) {
       console.error("Error fetching activity feed:", err);
       setError(err.message);
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (pagination.hasMore && !isLoadingMore) {
+      fetchActivityFeed(pagination.page + 1, true);
     }
   };
 
   useEffect(() => {
     if (sessionStatus === 'authenticated') {
-      fetchActivityFeed();
+      fetchActivityFeed(1, false);
     } else if (sessionStatus === 'unauthenticated') {
       setIsLoading(false);
     }
@@ -381,7 +418,7 @@ export function ActivityFeed({ compact = false, maxItems, showHeader = false, on
     return (
       <div className="text-center py-4 text-red-500">
         <p>Error loading activities: {error}</p>
-        <Button onClick={fetchActivityFeed} className="mt-2" size="sm">
+        <Button onClick={() => fetchActivityFeed(1, false)} className="mt-2" size="sm">
           Retry
         </Button>
       </div>
@@ -422,6 +459,30 @@ export function ActivityFeed({ compact = false, maxItems, showHeader = false, on
           {displayedActivities.map((activity, index) => (
             <ActivityItemCard key={index} activity={activity} compact={false} />
           ))}
+          
+          {/* Load More Button */}
+          {showLoadMore && pagination.hasMore && !compact && (
+            <div className="w-full flex justify-center mt-4">
+              <Button
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+                variant="outline"
+                className="rounded-full bg-bookWhite/10 text-bookWhite border-bookWhite/30 hover:bg-bookWhite/20"
+              >
+                {isLoadingMore ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Loading more...
+                  </>
+                ) : (
+                  <>
+                    View More
+                    <ArrowDown className="h-4 w-4 ml-2" />
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       )}
       

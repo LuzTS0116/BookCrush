@@ -8,11 +8,13 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { BookMarked, ArrowLeft, Mail, Send, Pencil, Save, X, Users, CircleCheckBig, CircleAlert, Loader2, Star, Smartphone, BookOpen, Headphones, ChevronDown, Sparkles, EllipsisVertical, Edit3, Check, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown, GripVertical } from "lucide-react"
+import { BookMarked, ArrowLeft, Mail, Send, Pencil, Save, X, Users, CircleCheckBig, CircleAlert, Loader2, Star, Smartphone, BookOpen, Headphones, ChevronDown, Sparkles, EllipsisVertical, Edit3, Check, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown, GripVertical, MessageSquare } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { FavoriteBookDialog } from "./favorite-book-dialog"
 import { ContributionBookDialog } from "./contribution-book-dialog"
 import { HistoryBookDialog } from "./history-book-dialog"
+import MyFeedback from "./my-feedback"
+import { useFeedbackNotifications } from "@/hooks/use-feedback-notifications"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Heart, Books, Bookmark, CheckCircle } from "@phosphor-icons/react"
 import { getDisplayAvatarUrl } from "@/lib/supabase-utils"
@@ -78,6 +80,43 @@ const getMediaTypeDisplay = (mediaType: UserBook['media_type']) => {
 const SHELF_OPTIONS = [
   { label: "Move to Reading Queue", value: "queue" },
 ];
+
+// Define shelf options for history books
+const HISTORY_SHELF_OPTIONS = [
+  { label: "Move to Currently Reading", value: "currently_reading" },
+  { label: "Move to Reading Queue", value: "queue" },
+];
+
+// History Book Item Component - simplified without external menu
+interface HistoryBookItemProps {
+  userBook: UserBook;
+  onMoveToShelf: (bookId: string, shelf: string, title: string) => void;
+  onRemoveFromShelf: (bookId: string, title: string) => void;
+}
+
+function HistoryBookItem({ userBook, onMoveToShelf, onRemoveFromShelf }: HistoryBookItemProps) {
+  return (
+    <div className="relative w-auto">
+      <HistoryBookDialog 
+        historyBooks={userBook} 
+        onMoveToShelf={onMoveToShelf}
+        onRemoveFromShelf={onRemoveFromShelf}
+      />
+      
+      {/* Status indicators */}
+      {userBook.status === 'finished' && (
+        <span className="absolute bottom-1 right-1 bg-green-600/50 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
+          <CircleCheckBig className="h-4 w-4" />
+        </span>
+      )}
+      {userBook.status === 'unfinished' && (
+        <span className="absolute bottom-1 right-1 bg-accent/70 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
+          <CircleAlert className="h-4 w-4" />
+        </span>
+      )}
+    </div>
+  );
+}
 
 // Sortable Queue Book Item Component using @dnd-kit
 interface SortableQueueBookProps {
@@ -444,12 +483,21 @@ export default function EditableProfileMain() {
   const [confirmRemoval, setConfirmRemoval] = useState<{
     bookId: string | null;
     bookTitle: string | null;
-    shelf: 'currently_reading' | 'queue' | null;
+    shelf: 'currently_reading' | 'queue' | 'history' | null;
   }>({
     bookId: null,
     bookTitle: null,
     shelf: null
   })
+
+  // State for removal loading
+  const [isRemoving, setIsRemoving] = useState(false)
+
+  // State for feedback dialog
+  const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false)
+
+  // Check for feedback notifications
+  const { hasUnreadReplies, unreadCount } = useFeedbackNotifications();
 
   // @dnd-kit sensors with optimized touch handling
   const sensors = useSensors(
@@ -1268,7 +1316,7 @@ export default function EditableProfileMain() {
   };
 
   // Functions to handle confirmation dialogs
-  const showRemoveConfirmation = (bookId: string, bookTitle: string, shelf: 'currently_reading' | 'queue') => {
+  const showRemoveConfirmation = (bookId: string, bookTitle: string, shelf: 'currently_reading' | 'queue' | 'history') => {
     setConfirmRemoval({
       bookId,
       bookTitle,
@@ -1287,14 +1335,25 @@ export default function EditableProfileMain() {
   const confirmRemovalAction = async () => {
     if (!confirmRemoval.bookId || !confirmRemoval.shelf) return;
 
-    if (confirmRemoval.shelf === 'currently_reading') {
-      await handleRemoveFromCurrentlyReading(confirmRemoval.bookId);
-    } else if (confirmRemoval.shelf === 'queue') {
-      await handleRemoveFromQueue(confirmRemoval.bookId);
-    }
+    setIsRemoving(true);
 
-    // Close confirmation dialog
-    cancelRemoval();
+    try {
+      if (confirmRemoval.shelf === 'currently_reading') {
+        await handleRemoveFromCurrentlyReading(confirmRemoval.bookId);
+      } else if (confirmRemoval.shelf === 'queue') {
+        await handleRemoveFromQueue(confirmRemoval.bookId);
+      } else if (confirmRemoval.shelf === 'history') {
+        await handleRemoveFromHistory(confirmRemoval.bookId, confirmRemoval.bookTitle || 'Unknown Book');
+      }
+
+      // Close confirmation dialog
+      cancelRemoval();
+    } catch (error) {
+      // Error handling is already done in the individual functions
+      console.error('Error in confirmRemovalAction:', error);
+    } finally {
+      setIsRemoving(false);
+    }
   };
 
   // Handle favorite change from FavoriteBookDialog
@@ -1307,6 +1366,123 @@ export default function EditableProfileMain() {
     // but since this is called from FavoriteBookDialog which only shows books
     // that are already favorited, we only handle the unfavorite case
   };
+
+  // Function to handle moving books from history to other shelves
+  const handleMoveFromHistory = async (bookId: string, targetShelf: string, bookTitle: string) => {
+    try {
+      // Optimistically remove from history
+      setHistoryBooks(prevBooks => 
+        prevBooks.filter(userBook => userBook.book_id !== bookId)
+      );
+
+      // Call API to move book to target shelf
+      const response = await fetch('/api/shelf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          bookId, 
+          shelf: targetShelf, 
+          status: targetShelf === 'currently_reading' ? 'in_progress' : 'in_progress'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to move book');
+      }
+
+      // Show success message
+      const shelfName = targetShelf === 'currently_reading' ? 'Currently Reading' : 'Reading Queue';
+      toast.success(`"${bookTitle}" moved to ${shelfName}!`);
+
+      // Refresh the target shelf to show the newly moved book
+      if (targetShelf === 'currently_reading') {
+        const updatedResponse = await fetch('/api/shelf?shelf=currently_reading');
+        if (updatedResponse.ok) {
+          const updatedBooks = await updatedResponse.json();
+          setCurrentlyReadingBooks(updatedBooks);
+        }
+      } else if (targetShelf === 'queue') {
+        const updatedResponse = await fetch('/api/shelf?shelf=queue');
+        if (updatedResponse.ok) {
+          const updatedBooks = await updatedResponse.json();
+          setQueueBooks(updatedBooks);
+        }
+      }
+
+    } catch (err: any) {
+      console.error("Error moving book from history:", err);
+      toast.error(`Failed to move book: ${err.message}`);
+      
+      // Rollback optimistic update on error
+      const rollbackResponse = await fetch('/api/shelf?shelf=history');
+      if (rollbackResponse.ok) {
+        const rollbackBooks = await rollbackResponse.json();
+        setHistoryBooks(rollbackBooks.sort((a: UserBook, b: UserBook) => 
+          new Date(b.added_at).getTime() - new Date(a.added_at).getTime()
+        ));
+      }
+    }
+  };
+
+  // Function to handle removing books from history shelf
+  const handleRemoveFromHistory = async (bookId: string, bookTitle: string) => {
+    try {
+      // Optimistically remove from history
+      setHistoryBooks(prevBooks => 
+        prevBooks.filter(userBook => userBook.book_id !== bookId)
+      );
+
+      // Call API to remove book from history shelf
+      const response = await fetch('/api/shelf', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          bookId, 
+          shelf: 'history'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to remove book from history');
+      }
+
+      // Show success message
+      toast.success(`"${bookTitle}" removed from reading history.`);
+
+    } catch (err: any) {
+      console.error("Error removing book from history:", err);
+      toast.error(`Failed to remove book: ${err.message}`);
+      
+      // Rollback optimistic update on error
+      const rollbackResponse = await fetch('/api/shelf?shelf=history');
+      if (rollbackResponse.ok) {
+        const rollbackBooks = await rollbackResponse.json();
+        setHistoryBooks(rollbackBooks.sort((a: UserBook, b: UserBook) => 
+          new Date(b.added_at).getTime() - new Date(a.added_at).getTime()
+        ));
+      }
+    }
+  };
+
+  // Function to show confirmation for history book removal
+  const showHistoryRemoveConfirmation = (bookId: string, bookTitle: string) => {
+    showRemoveConfirmation(bookId, bookTitle, 'history');
+  };
+
+  // Function to handle feedback icon click
+  const handleFeedbackIconClick = () => {
+    setIsFeedbackDialogOpen(true);
+  };
+
+  // Effect to mark feedback as viewed when dialog opens
+  useEffect(() => {
+    if (isFeedbackDialogOpen) {
+      // Trigger the MyFeedback component to mark feedback as viewed
+      window.dispatchEvent(new CustomEvent('markFeedbackAsViewed'));
+    }
+  }, [isFeedbackDialogOpen]);
 
   if (isLoading) {
     return (
@@ -1371,14 +1547,34 @@ export default function EditableProfileMain() {
                   <ArrowLeft className="h-5 w-5 text-secondary" />
                 </button>
 
-                {/* Edit Button */}
+                {/* Feedback and Edit Buttons */}
                 {!isEditing && (
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="absolute top-3 right-3 p-2 rounded-full bg-bookWhite/80 backdrop-blur-sm hover:bg-bookWhite shadow-md"
-                  >
-                    <Pencil className="h-5 w-5 text-secondary" />
-                  </button>
+                  <div className="absolute top-3 right-3 flex gap-2">
+                    {/* Feedback Button */}
+                    <button
+                      onClick={handleFeedbackIconClick}
+                      className="relative p-2 rounded-full bg-bookWhite/80 backdrop-blur-sm hover:bg-bookWhite shadow-md"
+                      title={hasUnreadReplies ? `You have ${unreadCount} new feedback ${unreadCount === 1 ? 'reply' : 'replies'}` : 'View my feedback'}
+                    >
+                      <MessageSquare className="h-5 w-5 text-secondary" />
+                      {/* Feedback notification badge */}
+                      {hasUnreadReplies && (
+                        <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 flex items-center justify-center border-2 border-bookWhite">
+                          <span className="text-xs font-bold text-white">
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                    
+                    {/* Edit Button */}
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="p-2 rounded-full bg-bookWhite/80 backdrop-blur-sm hover:bg-bookWhite shadow-md"
+                    >
+                      <Pencil className="h-5 w-5 text-secondary" />
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -1721,20 +1917,13 @@ export default function EditableProfileMain() {
                                 </div>
 
                                 <div className="flex justify-start items-end">
-                                  <div className="">
-                                    <span className={`px-2 py-0.5 text-xs font-regular rounded-full ${currentStatusDisplay.color}`}>
-                                      {currentStatusDisplay.label}
-                                    </span>
-                                  </div>  
+                                  {/* Unified Status Badge with Dropdown */}
                                   <DropdownMenu.Root>
                                     <DropdownMenu.Trigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-xs flex items-center rounded-full h-5 px-1 ml-1.5 gap-1 bg-bookWhite shadow-sm hover:bg-muted"
-                                      >
-                                        Book Status <ChevronDown className="h-4 w-4" />
-                                      </Button>
+                                      <button className={`px-2 py-0.5 text-xs font-regular rounded-full cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1 ${currentStatusDisplay.color}`}>
+                                        {currentStatusDisplay.label}
+                                        <ChevronDown className="h-3 w-3" />
+                                      </button>
                                     </DropdownMenu.Trigger>
 
                                     <DropdownMenu.Portal>
@@ -1875,39 +2064,12 @@ export default function EditableProfileMain() {
                   ) : (
                     <div className="grid grid-cols-4 gap-1">
                       {historyBooks.map((userBook) => (
-                        <div key={userBook.book_id} className="relative w-auto">
-                          <HistoryBookDialog historyBooks={userBook} />
-                          {userBook.status === 'finished' && (
-                            <span className="absolute bottom-1 right-1 bg-green-600/50 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
-                              <CircleCheckBig className="h-4 w-4" />
-                            </span>
-                          )}
-                          {userBook.status === 'unfinished' && (
-                            <span className="absolute bottom-1 right-1 bg-accent/70 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
-                              <CircleAlert className="h-4 w-4" />
-                            </span>
-                          )}
-                        </div>
-                        // <div key={userBook.book_id} className="relative w-auto">
-                        //   <Link href={`/books/${userBook.book_id}`}>
-                        //     <img
-                        //       src={userBook.book.cover_url || "/placeholder.svg"}
-                        //       alt={userBook.book.title || "Book cover"}
-                        //       className="h-full w-full shadow-md rounded object-cover"
-                        //     />
-                        //   </Link>
-                          
-                        //   {userBook.status === 'finished' && (
-                        //     <span className="absolute bottom-1 right-1 bg-green-600/50 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
-                        //       <CircleCheckBig className="h-4 w-4" />
-                        //     </span>
-                        //   )}
-                        //   {userBook.status === 'unfinished' && (
-                        //     <span className="absolute bottom-1 right-1 bg-accent/70 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
-                        //       <CircleAlert className="h-4 w-4" />
-                        //     </span>
-                        //   )}
-                        // </div>
+                        <HistoryBookItem
+                          key={userBook.book_id}
+                          userBook={userBook}
+                          onMoveToShelf={handleMoveFromHistory}
+                          onRemoveFromShelf={showHistoryRemoveConfirmation}
+                        />
                       ))}
                     </div>
                   )}
@@ -1956,6 +2118,8 @@ export default function EditableProfileMain() {
                 </CardContent>
               </Card>
             </TabsContent>
+
+
           </Tabs>
         </div>
       </div>
@@ -1969,29 +2133,63 @@ export default function EditableProfileMain() {
         isSubmitting={isSubmittingFinishedReview}
       />
 
+      {/* Feedback Dialog */}
+      <Dialog open={isFeedbackDialogOpen} onOpenChange={setIsFeedbackDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden bg-bookWhite">
+          <DialogHeader>
+            <DialogTitle className="text-secondary">My Feedback</DialogTitle>
+            <DialogDescription>
+              View your submitted feedback and admin responses
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto max-h-[60vh] pr-2">
+            <MyFeedback />
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Confirmation Modal */}
       {confirmRemoval.bookId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-bookWhite/95 w-[80vw] rounded-2xl p-4 max-w-md mx-4 shadow-xl">
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] pointer-events-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div 
+            className="bg-bookWhite/95 w-[80vw] rounded-2xl p-4 max-w-md mx-4 shadow-xl pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <p className="text-secondary/70 text-center leading-5">
-              Are you sure you want to remove "{confirmRemoval.bookTitle}" from your {confirmRemoval.shelf === 'currently_reading' ? 'currently reading shelf' : 'reading queue'}?
+              Are you sure you want to remove "{confirmRemoval.bookTitle}" from your {
+                confirmRemoval.shelf === 'currently_reading' ? 'currently reading shelf' : 
+                confirmRemoval.shelf === 'queue' ? 'reading queue' : 
+                'reading history'
+              }?
             </p>
             <p className="text-secondary/70 text-center leading-5 mb-3">This action cannot be undone.</p>
-            <div className="flex gap-3 justify-center">
-              <Button
-                variant="outline"
-                onClick={cancelRemoval}
-                className="rounded-full"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={confirmRemovalAction}
-                className="rounded-full bg-red-700 hover:bg-red-800 text-bookWhite"
-              >
-                Remove Book
-              </Button>
-            </div>
+                          <div className="flex gap-3 justify-center">
+                <Button
+                  variant="outline"
+                  onClick={cancelRemoval}
+                  disabled={isRemoving}
+                  className="rounded-full"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={confirmRemovalAction}
+                  disabled={isRemoving}
+                  className="rounded-full bg-red-700 hover:bg-red-800 text-bookWhite"
+                >
+                  {isRemoving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Removing...
+                    </>
+                  ) : (
+                    'Remove Book'
+                  )}
+                </Button>
+              </div>
           </div>
         </div>
       )}

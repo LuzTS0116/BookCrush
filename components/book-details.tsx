@@ -847,7 +847,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
             </div>
             <div className="flex flex-row justify-normal gap-2 p-3 pb-2 w-full">
               <div className="flex flex-col">
-                <div className="w-36 h-56 bg-muted/30 rounded-md flex items-center justify-center overflow-hidden">
+                <div className="w-36 h-auto bg-muted/30 rounded-md flex items-center justify-center overflow-hidden">
                   <img src={book.cover || "/placeholder.svg"} alt={book.title} className="max-h-full" />
                 </div>
               </div>
@@ -856,17 +856,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                   <div className="flex-1 min-w-0">
                     <h1 className="text-base/5 break-words font-bold text-secondary-light">{book.title}</h1>
                   </div>
-                  <div className="flex items-start">
-                    <button
-                      onClick={() => handleFavorite(book.id)}
-                      className={`py-0 pl-0 pr-3 -mt-0.5`}
-                    >
-                      <PhosphorHeart
-                        className="h-5 w-5"
-                        color="#C51104"
-                        weight={userFavorite[book.id] ? "fill" : "regular"}
-                      />
-                    </button>
+                  
                   <DropdownMenu.Root>
                     <DropdownMenu.Trigger asChild>
                       <Button
@@ -895,7 +885,19 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                       </DropdownMenu.Content>
                     </DropdownMenu.Portal>
                   </DropdownMenu.Root>
-                  </div>
+                  
+                  <div className="flex items-start">
+                    <button
+                      onClick={() => handleFavorite(book.id)}
+                      className={`py-0 pl-3 pr-0 -mt-0.5`}
+                    >
+                      <PhosphorHeart
+                        className="h-5 w-5"
+                        color="#C51104"
+                        weight={userFavorite[book.id] ? "fill" : "regular"}
+                      />
+                    </button>
+                  </div>  
                 </div>
                 <p className="text-sm text-secondary font-serif">by {book.author}</p>
                 <span className="text-xs/3 text-secondary/50 font-serif">published: {book.published}</span>
@@ -930,7 +932,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
 
                 <div className="mt-2">
                   {/* Quick Reaction Section */}
-                  <div className="flex flex-col items-start gap-2">
+                  {/* <div className="flex flex-col items-start gap-2">
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleQuickReaction("HEART")}
@@ -975,14 +977,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                         }`} />
                       </button>
                     </div>
-                  </div>
-                  {/* <div className="flex flex-col ml-0">
-                    <span className="text-xs/3 text-secondary-light font-semibold">OpenLibrary</span>
-                    <div className="flex-1">
-                      <span className="font-medium text-xs/3 text-secondary-light bg-secondary/5 rounded-full px-2 py-0.5">⭐ {book.isbn}</span>
-                    </div>
                   </div> */}
-                  
                 </div>
 
                 {/* <div className="flex items-center justify-center gap-6 mb-6">

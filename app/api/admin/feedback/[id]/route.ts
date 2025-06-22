@@ -22,12 +22,21 @@ export async function PUT(
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
+    // Prepare update data
+    const updateData: any = {
+      status: status,
+      admin_notes: admin_notes || null,
+      user_notified: false, // Reset notification status when admin updates
+    };
+
+    // Set admin_replied_at timestamp if admin_notes is provided
+    if (admin_notes && admin_notes.trim()) {
+      updateData.admin_replied_at = new Date();
+    }
+
     const updatedFeedback = await prisma.feedback.update({
       where: { id: params.id },
-      data: {
-        status: status,
-        admin_notes: admin_notes || null,
-      },
+      data: updateData,
       include: {
         user: {
           select: {

@@ -533,14 +533,16 @@ enum FeedbackStatus {
 }
 
 model Feedback {
-  id          String         @id @default(uuid()) @db.Uuid
-  user_id     String         @db.Uuid
-  type        FeedbackType
-  content     String         @db.Text
-  status      FeedbackStatus @default(PENDING)
-  admin_notes String?        @db.Text
-  created_at  DateTime       @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime       @updatedAt @db.Timestamptz(6)
+  id              String         @id @default(uuid()) @db.Uuid
+  user_id         String         @db.Uuid
+  type            FeedbackType
+  content         String         @db.Text
+  status          FeedbackStatus @default(PENDING)
+  admin_notes     String?        @db.Text
+  admin_replied_at DateTime?      @db.Timestamptz(6) // When admin replied
+  user_notified   Boolean        @default(false)     // Whether user has been notified of reply
+  created_at      DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime       @updatedAt @db.Timestamptz(6)
 
   user Profile @relation("UserFeedback", fields: [user_id], references: [id])
 

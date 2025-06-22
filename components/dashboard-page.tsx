@@ -137,12 +137,12 @@ const formatTimeAgo = (dateString: string): string => {
   const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
   
   if (diffDays > 0) {
-    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    return `${diffDays}d ago`;
   } else if (diffHours > 0) {
     return `${diffHours}h ago`;
   } else {
     const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    return `${diffMinutes}min${diffMinutes > 1 ? 's' : ''} ago`;
+    return `${diffMinutes}m ago`;
   }
 };
 

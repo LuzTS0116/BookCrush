@@ -61,10 +61,19 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({ open, onOpenChange
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null); 
   const [isLoading, setIsLoading] = useState(false);
+  const [showBookNotFoundForm, setShowBookNotFoundForm] = useState(false);
+  const [bookNotFoundData, setBookNotFoundData] = useState({
+    title: '',
+    author: '',
+    additionalInfo: ''
+  });
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
 
   useEffect(() => {
     if (open) {
       setValidationError(null); // Clear error when dialog is opened
+      setShowBookNotFoundForm(false); // Reset book not found form
+      setBookNotFoundData({ title: '', author: '', additionalInfo: '' }); // Reset form data
       // Set initial search query if provided and trigger search
       if (initialSearchQuery) {
         setTitle(initialSearchQuery);
@@ -383,6 +392,71 @@ const handleSelect = async (suggestion: BookSuggestion) => {
     return await associateResponse.json();
   };
 
+  const handleBookNotFoundSubmit = async () => {
+    if (!session?.supabaseAccessToken) {
+      toast.error("Please log in to submit feedback");
+      return;
+    }
+
+    if (!bookNotFoundData.title.trim() || !bookNotFoundData.author.trim()) {
+      setValidationError("Please provide both title and author for the missing book.");
+      return;
+    }
+
+    setIsSubmittingFeedback(true);
+    setValidationError(null);
+
+    try {
+      const feedbackContent = `Book Not Found Request:
+Title: ${bookNotFoundData.title.trim()}
+Author: ${bookNotFoundData.author.trim()}
+${bookNotFoundData.additionalInfo.trim() ? `Additional Info: ${bookNotFoundData.additionalInfo.trim()}` : ''}
+
+User was searching for this book but couldn't find it in our database.`;
+
+      const response = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
+        body: JSON.stringify({
+          type: 'FEATURE_REQUEST',
+          content: feedbackContent
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to submit feedback' }));
+        throw new Error(errorData.error || 'Failed to submit feedback');
+      }
+
+      toast.success('Thank you! We\'ll look into adding this book to our collection.');
+      
+      // Reset form and close dialog
+      setShowBookNotFoundForm(false);
+      setBookNotFoundData({ title: '', author: '', additionalInfo: '' });
+      setTitle("");
+      onOpenChange(false);
+
+    } catch (error: unknown) {
+      console.error("Error submitting book not found feedback:", error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to submit feedback';
+      setValidationError(errorMessage);
+      toast.error(`Failed to submit feedback: ${errorMessage}`);
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
+  };
+
+  const handleShowBookNotFoundForm = () => {
+    setShowBookNotFoundForm(true);
+    // Pre-fill with current search if available
+    if (title.trim()) {
+      setBookNotFoundData(prev => ({ ...prev, title: title.trim() }));
+    }
+  };
+
   // Show authentication required message if not authenticated
   if (status === 'unauthenticated') {
     return (
@@ -423,7 +497,7 @@ const handleSelect = async (suggestion: BookSuggestion) => {
           height={2871}
           className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
         />
-        {!selectedBook ? (
+        {!selectedBook && !showBookNotFoundForm ? (
           <div>
           <DialogHeader>
             <DialogTitle className="mt-7">Add New Book</DialogTitle>
@@ -469,10 +543,104 @@ const handleSelect = async (suggestion: BookSuggestion) => {
                     )}
                 </div>
               )}
+              
+              {/* Show "Book Not Found" option when there are no suggestions and user has typed something */}
+              {title.trim().length > 2 && suggestions.length === 0 && (
+                <div className="border rounded-xl p-4 bg-bookWhite/80 shadow">
+                  <p className="text-secondary text-sm mb-3">
+                    Can't find the book you're looking for?
+                  </p>
+                  <Button
+                    onClick={handleShowBookNotFoundForm}
+                    variant="outline"
+                    className="w-full rounded-full text-secondary border-secondary/30 hover:bg-secondary/10"
+                    disabled={isLoading}
+                  >
+                    Report Missing Book
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
           </div>
-        ) : (
+        ) : showBookNotFoundForm ? (
+          <div>
+            {/* Back Button */}
+            <button
+              onClick={() => setShowBookNotFoundForm(false)}
+              className="absolute left-4 top-4 flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+              disabled={isSubmittingFeedback}
+            >
+              <ChevronLeft className="w-4 h-4 mr-1" />
+              Back
+            </button>
+
+            <DialogHeader>
+              <DialogTitle className="mt-7">Report Missing Book</DialogTitle>
+              <DialogDescription>
+                Help us improve our collection by telling us about the book you're looking for.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="missing-title" className="text-secondary font-medium">
+                  Book Title *
+                </Label>
+                <Input
+                  id="missing-title"
+                  className="bg-bookWhite text-secondary"
+                  placeholder="Enter the book title"
+                  value={bookNotFoundData.title}
+                  onChange={e => setBookNotFoundData(prev => ({ ...prev, title: e.target.value }))}
+                  disabled={isSubmittingFeedback}
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="missing-author" className="text-secondary font-medium">
+                  Author *
+                </Label>
+                <Input
+                  id="missing-author"
+                  className="bg-bookWhite text-secondary"
+                  placeholder="Enter the author's name"
+                  value={bookNotFoundData.author}
+                  onChange={e => setBookNotFoundData(prev => ({ ...prev, author: e.target.value }))}
+                  disabled={isSubmittingFeedback}
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="additional-info" className="text-secondary font-medium">
+                  Additional Information (Optional)
+                </Label>
+                <Input
+                  id="additional-info"
+                  className="bg-bookWhite text-secondary"
+                  placeholder="ISBN, publication year, series name, etc."
+                  value={bookNotFoundData.additionalInfo}
+                  onChange={e => setBookNotFoundData(prev => ({ ...prev, additionalInfo: e.target.value }))}
+                  disabled={isSubmittingFeedback}
+                />
+              </div>
+              
+              {validationError && (
+                <p className="text-red-500 text-sm">{validationError}</p>
+              )}
+              
+              <DialogFooter className="justify-end">
+                <Button
+                  onClick={handleBookNotFoundSubmit}
+                  disabled={isSubmittingFeedback || !bookNotFoundData.title.trim() || !bookNotFoundData.author.trim()}
+                  className="rounded-full bg-accent px-6"
+                >
+                  {isSubmittingFeedback ? "Submitting..." : "Submit Request"}
+                </Button>
+              </DialogFooter>
+            </div>
+          </div>
+        ) : selectedBook ? (
           <>
           {/* 🔙 Back Button */}
           <button
@@ -554,7 +722,7 @@ const handleSelect = async (suggestion: BookSuggestion) => {
           </DialogFooter>
           </div>
           </>
-        )}
+        ) : null}
 
       </DialogContent>
     </Dialog>

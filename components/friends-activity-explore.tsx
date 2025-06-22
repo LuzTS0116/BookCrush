@@ -148,7 +148,7 @@ export default function FriendsActivityExplore() {
         </div>
 
         <TabsContent value="activity" className="space-y-4">
-          <ActivityFeed compact={false} />
+          <ActivityFeed compact={false} showLoadMore={true} />
         </TabsContent>
 
         <TabsContent value="explore" className="space-y-4">

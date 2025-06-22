@@ -121,14 +121,26 @@ export const validateContent = (
   return { isValid: true };
 };
 
-// Content sanitization
+// Content sanitization for HTML text content (preserves quotes for readability)
 export const sanitizeContent = (content: string): string => {
   return content
+    .replace(/&/g, '&amp;')    // Must be first to avoid double-encoding
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    // Keep quotes as-is for better readability in book titles/descriptions
+    // Quotes are not dangerous in HTML text content and are common in literary works
+    // Only encode quotes when used in HTML attributes (handled separately)
+    .trim();
+};
+
+// Content sanitization for HTML attributes (encodes quotes for safety)
+export const sanitizeForAttribute = (content: string): string => {
+  return content
+    .replace(/&/g, '&amp;')    // Must be first to avoid double-encoding
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#x27;')
-    .replace(/&/g, '&amp;')
     .trim();
 };
 

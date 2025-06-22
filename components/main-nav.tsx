@@ -16,11 +16,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 import { useSession } from "next-auth/react";
 import { handleSignOut } from '@/lib/auth';
 import { useProfile } from "@/hooks/use-profile"
 import { useUserRole } from "@/hooks/useUserRole"
+import { useFeedbackNotifications } from "@/hooks/use-feedback-notifications"
 import React, { useState } from "react";
 
 export function MainNav() {
@@ -38,6 +45,9 @@ export function MainNav() {
     isLoading: profileLoading,
     error: profileError 
   } = useProfile()
+
+  // Check for feedback notifications
+  const { hasUnreadReplies, unreadCount } = useFeedbackNotifications();
 
   const pathname = usePathname()
 
@@ -157,22 +167,46 @@ export function MainNav() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Link href="/profile" className="relative h-8 w-8 rounded-full">
-            <Avatar className="h-8 w-8">
-              <AvatarImage 
-                src={avatarUrl} 
-                alt="@user"
-                className={profileLoading ? "opacity-75" : ""} 
-              />
-              <AvatarFallback className="bg-primary text-primary-foreground">
-                {profileLoading ? "..." : initials}
-              </AvatarFallback>
-            </Avatar>
-            {/* Optional: Show a small loading indicator */}
-            {profileLoading && (
-              <div className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-blue-500 animate-pulse" />
-            )}
-          </Link>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link href="/profile" className="relative h-8 w-8 rounded-full">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage 
+                      src={avatarUrl} 
+                      alt="@user"
+                      className={profileLoading ? "opacity-75" : ""} 
+                    />
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      {profileLoading ? "..." : initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  
+                  {/* Feedback notification badge */}
+                  {hasUnreadReplies && (
+                    <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 flex items-center justify-center border-2 border-secondary-light">
+                      <span className="text-xs font-bold text-white">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Optional: Show a small loading indicator */}
+                  {profileLoading && !hasUnreadReplies && (
+                    <div className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-blue-500 animate-pulse" />
+                  )}
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>
+                  {hasUnreadReplies 
+                    ? `You have ${unreadCount} new feedback ${unreadCount === 1 ? 'reply' : 'replies'}` 
+                    : 'Go to Profile'
+                  }
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
     </div>
