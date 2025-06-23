@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react"; // Added useEffect, useMemo
+import { useState, useEffect, useRef, useMemo } from "react"; // Added useEffect, useMemo
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,6 +13,8 @@ import { BookDetails, BookFile, UserBook, StatusDisplay, TabDisplay } from "@/ty
 import { toast } from "sonner";
 import { useSession } from "next-auth/react"; // Add session management
 import Image from "next/image";
+import html2canvas from "html2canvas";
+import { ShareAchievementDialog } from "./ShareAchievementDialog";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -64,12 +66,18 @@ interface FinishedBookDialogProps {
   book: UserBook | null;
   onSubmit: (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => void;
   isSubmitting: boolean;
+  shareDialogCallback : () => void;
 }
 
 // Add the FinishedBookDialog component
-function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: FinishedBookDialogProps) {
+function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting, shareDialogCallback }: FinishedBookDialogProps) {
   const [reviewText, setReviewText] = useState("");
   const [rating, setRating] = useState<"HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [downloadedImageUrl, setDownloadedImageUrl] = useState<string | null>(null);
+  const [loadingImage, setLoadingImage] = useState(false);
+
+  const imageRef = useRef(null);
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -79,35 +87,35 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: F
     }
   }, [isOpen]);
 
-  const handleSubmit = () => {
-    if (!rating) {
-      toast.error('Please select a rating');
-      return;
-    }
-    onSubmit(reviewText, rating);
-  };
+  // const handleSubmit = () => {
+  //   if (!rating) {
+  //     toast.error('Please select a rating');
+  //     return;
+  //   }
+  //   onSubmit(reviewText, rating);
+  // };
 
   const getRatingIcon = (ratingType: "HEART" | "THUMBS_UP" | "THUMBS_DOWN", isSelected: boolean) => {
-    const baseClasses = "h-6 w-6";
-    const selectedClasses = isSelected ? "ring-2 ring-offset-2" : "";
+    const baseClasses = "h-5 w-5";
+    const selectedClasses = isSelected ? "" : "";
     
     switch (ratingType) {
       case "HEART":
         return (
           <LucideHeart 
-            className={`${baseClasses} ${isSelected ? "text-primary fill-primary ring-primary" : "text-muted-foreground"} ${selectedClasses}`} 
+            className={`${baseClasses} ${isSelected ? "text-primary fill-primary rounded-full" : "text-muted-foreground"} ${selectedClasses}`} 
           />
         );
       case "THUMBS_UP":
         return (
           <LucideThumbsUp 
-            className={`${baseClasses} ${isSelected ? "text-accent-variant ring-accent-variant" : "text-muted-foreground"} ${selectedClasses}`} 
+            className={`${baseClasses} ${isSelected ? "text-accent-variant rounded-full" : "text-muted-foreground"} ${selectedClasses}`} 
           />
         );
       case "THUMBS_DOWN":
         return (
           <LucideThumbsDown 
-            className={`${baseClasses} ${isSelected ? "text-accent ring-accent" : "text-muted-foreground"} ${selectedClasses}`} 
+            className={`${baseClasses} ${isSelected ? "text-accent rounded-full" : "text-muted-foreground"} ${selectedClasses}`} 
           />
         );
       default:
@@ -115,9 +123,46 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: F
     }
   };
 
+  const generateAndOpenShareDialog = async (book: UserBook | null) => {
+    const element = document.getElementById("share-image-preview");
+
+    if (!element) {
+      console.error("Could not find preview image element")
+      return;
+    }
+
+    try {
+      const canvas = await html2canvas(element);
+      const dataUrl = canvas.toDataURL("image/png");
+      setDownloadedImageUrl(dataUrl);
+      setShareDialogOpen(true); // Open the Share dialog
+    } catch (err) {
+      console.error("Failed to generate share image:", err);
+      setDownloadedImageUrl(null);
+      setShareDialogOpen(true); // Still open dialog to show error
+    }
+  };
+
+  const handleSubmit = async () => {
+  if (!rating) {
+    toast.error("Please select a rating");
+    return;
+  }
+
+  try {
+    onSubmit(reviewText, rating); // Wait for review to be submitted
+    generateAndOpenShareDialog(book);   // Then open share dialog
+    //shareDialogCallback();
+  } catch (err) {
+    console.error("Error submitting review:", err);
+    toast.error("Something went wrong.");
+  }
+};
+
   if (!book) return null;
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-[85vw] bg-bookWhite p-3 text-secondary">
         <Image 
@@ -144,7 +189,7 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: F
                 <div className="flex justify-start gap-3 mt-3">
                   <button
                     onClick={() => setRating("HEART")}
-                    className={`p-1 rounded-full transition-colors ${
+                    className={`p-2 rounded-full transition-colors ${
                       rating === "HEART" 
                         ? "bg-primary/30" 
                         : "hover:bg-secondary/20"
@@ -155,10 +200,10 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: F
                   </button>
                   <button
                     onClick={() => setRating("THUMBS_UP")}
-                    className={`p-1 rounded-full transition-all ${
+                    className={`p-2 rounded-full transition-all ${
                       rating === "THUMBS_UP" 
-                        ? "bg-accent-variant/20 scale-110" 
-                        : "hover:bg-secondary/10 hover:scale-105"
+                        ? "bg-accent-variant/20" 
+                        : "hover:bg-secondary/10"
                     }`}
                     disabled={isSubmitting}
                   >
@@ -166,10 +211,10 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: F
                   </button>
                   <button
                     onClick={() => setRating("THUMBS_DOWN")}
-                    className={`p-1 rounded-full transition-all ${
+                    className={`p-2 rounded-full transition-all ${
                       rating === "THUMBS_DOWN" 
-                        ? "bg-accent/20 scale-110" 
-                        : "hover:bg-secondary/10 hover:scale-105"
+                        ? "bg-accent/25" 
+                        : "hover:bg-secondary/10"
                     }`}
                     disabled={isSubmitting}
                   >
@@ -224,6 +269,30 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: F
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {/* Share Dialog */}
+      <ShareAchievementDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        downloadedImageUrl={downloadedImageUrl}
+        loading={loadingImage}
+      />
+
+      {/* Hidden image for generation */}
+      <div id="share-image-preview" ref={imageRef} className="absolute -top-[9999px] left-0" aria-hidden="true">
+        <div className="w-[1080px] h-[1920px] bg-[url('/images/quote-bg.png')] flex flex-col justify-center items-center px-12 py-8 text-center text-secondary-light">
+          <img src={book.book.cover_url || "/placeholder.svg"} alt="Book cover" className="w-[200px] h-auto mb-6 rounded shadow-lg" />
+          <p className="text-[40px] leading-[1.2] font-serif">I just finished reading:</p>
+          <p className="text-[48px] font-bold mt-2">{book.book.title}</p>
+          {rating && (
+            <p className="text-[30px] mt-6">
+              {rating === "HEART" ? "💖 Loved it!" : rating === "THUMBS_UP" ? "👍 Enjoyed it!" : "👎 Not for me"}
+            </p>
+          )}
+        </div>
+      </div>
+    </>
+
   );
 }
 
@@ -424,6 +493,11 @@ export default function DashboardReading() {
     }
   };
 
+  const shareDialogCallback = () => {
+
+    setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
+  }
+
   // Function to handle finished book review submission
   const handleFinishedBookReview = async (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => {
     if (!finishedBookDialog.bookId || !finishedBookDialog.currentShelf) return;
@@ -486,7 +560,9 @@ export default function DashboardReading() {
       );
 
       // Close dialog and show success message
-      setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
+      //setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
+      
+
       toast.success('Book marked as finished! Thanks for sharing your thoughts.');
 
     } catch (err: any) {
@@ -496,6 +572,8 @@ export default function DashboardReading() {
       setIsSubmittingFinishedReview(false);
     }
   };
+
+  
 
   // Function to close the finished book dialog
   const closeFinishedBookDialog = () => {
@@ -1353,6 +1431,7 @@ export default function DashboardReading() {
         book={finishedBookDialog.book}
         onSubmit={handleFinishedBookReview}
         isSubmitting={isSubmittingFinishedReview}
+        shareDialogCallback = {shareDialogCallback}
       />
     </div>
   );

@@ -6,7 +6,7 @@ import { formatProfileWithAvatarUrlServer } from '@/lib/supabase-server-utils'
 import { prisma } from '@/lib/prisma';
 
 export async function GET(req: NextRequest) {
-  const cookieStore = cookies()
+  const cookieStore = await cookies()
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
   const { data: { user } } = await supabase.auth.getUser();
 

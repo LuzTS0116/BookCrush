@@ -65,7 +65,7 @@ export default function FriendsActivityExplore() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
-    if (sessionStatus !== 'authenticated' || !currentUserId) {
+    if (sessionStatus !== 'authenticated' || !currentUserId || !session?.supabaseAccessToken) {
       setIsLoading(false);
       return;
     }
@@ -73,7 +73,7 @@ export default function FriendsActivityExplore() {
     setIsLoading(true);
     setError(null);
     try {
-      const fetchedExploreUsers = await getExploreUsers();
+      const fetchedExploreUsers = await getExploreUsers(session.supabaseAccessToken);
       setExploreUsers(fetchedExploreUsers);
 
     } catch (err: any) {
@@ -93,8 +93,8 @@ export default function FriendsActivityExplore() {
   }, [sessionStatus, currentUserId]);
 
   const handleFriendRequestSent = () => {
-    if (sessionStatus === 'authenticated' && currentUserId) {
-        getExploreUsers().then(setExploreUsers).catch(err => console.error("Error refetching explore users", err));
+    if (sessionStatus === 'authenticated' && currentUserId && session?.supabaseAccessToken) {
+        getExploreUsers(session.supabaseAccessToken).then(setExploreUsers).catch(err => console.error("Error refetching explore users", err));
     }
   };
 

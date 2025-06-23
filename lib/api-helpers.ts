@@ -55,10 +55,11 @@ export async function getFriendsAndRequests(
 }
 
 
-export async function getExploreUsers(): Promise<ExplorableUser[]> {
+export async function getExploreUsers(accessToken: string): Promise<ExplorableUser[]> {
   const response = await fetch('/api/social/explore-users', {
     method: 'GET',
     headers: {
+      'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
   });

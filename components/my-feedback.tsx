@@ -123,15 +123,17 @@ export default function MyFeedback() {
       } else {
         setFeedback(data.feedback);
       }
-
+      
       setPagination(data.pagination);
       setError(null);
+      
 
     } catch (err: any) {
       console.error('Error fetching feedback:', err);
       setError(err.message || 'Failed to load feedback');
       toast.error('Failed to load feedback');
     } finally {
+      
       setIsLoading(false);
       setIsLoadingMore(false);
     }
@@ -145,6 +147,7 @@ export default function MyFeedback() {
 
   // Function to mark feedback as viewed (called externally)
   const markFeedbackAsViewed = async () => {
+    console.log("markFeedbackAsViewed function called",  feedback.length)
     if (!session?.supabaseAccessToken || feedback.length === 0) return;
 
     // Find feedback with unread admin replies
@@ -154,6 +157,7 @@ export default function MyFeedback() {
 
     try {
       // Mark each unread feedback as viewed
+      console.log("triggering markFeedbackAsViewed PATCH")
       const markPromises = unreadFeedback.map(async (feedbackItem) => {
         const response = await fetch('/api/feedback/my-feedback', {
           method: 'PATCH',
@@ -169,6 +173,7 @@ export default function MyFeedback() {
       await Promise.all(markPromises);
       
       // Notify other components that feedback was viewed
+      console.log("marking feedback as viewed")
       window.dispatchEvent(new CustomEvent('feedbackViewed'));
     } catch (error) {
       console.error('Error marking feedback as viewed:', error);
@@ -180,12 +185,17 @@ export default function MyFeedback() {
     const handleMarkAsViewed = () => {
       markFeedbackAsViewed();
     };
-
-    window.addEventListener('markFeedbackAsViewed', handleMarkAsViewed);
-    return () => {
-      window.removeEventListener('markFeedbackAsViewed', handleMarkAsViewed);
-    };
-  }, [feedback, session?.supabaseAccessToken]);
+    console.log("feedback.length inside useEffect", feedback.length)
+    if (feedback.length > 0 && feedback.filter(f => f.admin_notes && f.admin_notes.trim() && !f.user_notified).length > 0) {
+      console.log("marking feedback as viewed inside useEffect")
+      handleMarkAsViewed();
+      // window.addEventListener('markFeedbackAsViewed', handleMarkAsViewed);
+    }
+    
+    // return () => {
+    //   window.removeEventListener('markFeedbackAsViewed', handleMarkAsViewed);
+    // };
+  }, [feedback]);
 
   const handleLoadMore = () => {
     if (pagination.hasMore && !isLoadingMore) {

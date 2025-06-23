@@ -1480,6 +1480,7 @@ export default function EditableProfileMain() {
   useEffect(() => {
     if (isFeedbackDialogOpen) {
       // Trigger the MyFeedback component to mark feedback as viewed
+      console.log("marking feedback as viewed")
       window.dispatchEvent(new CustomEvent('markFeedbackAsViewed'));
     }
   }, [isFeedbackDialogOpen]);
@@ -1516,8 +1517,7 @@ export default function EditableProfileMain() {
   const currentAvatar = avatarPreview || profile?.avatar_url
   const displayGenres = isEditing ? favoriteGenres : (profile?.favorite_genres || [])
   const currentFriends = friendships_as_user1 + friendships_as_user2;
-  console.log("currentAvatar", currentAvatar)
-  console.log(profile?.addedBooks)
+  
 
   return (
     <div className="container mx-auto px-2 py-2">
@@ -1559,8 +1559,8 @@ export default function EditableProfileMain() {
                       <MessageSquare className="h-5 w-5 text-secondary" />
                       {/* Feedback notification badge */}
                       {hasUnreadReplies && (
-                        <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 flex items-center justify-center border-2 border-bookWhite">
-                          <span className="text-xs font-bold text-white">
+                        <div className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-red-500 flex items-center justify-center border-2 border-secondary">
+                          <span className="text-[7px] font-thin text-white">
                             {unreadCount > 9 ? '9+' : unreadCount}
                           </span>
                         </div>

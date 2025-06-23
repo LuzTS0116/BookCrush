@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import { Profile, ActivityLog, ActivityType} from '@prisma/client' ;
 import { getAvatarPublicUrlServer } from '@/lib/supabase-server-utils';
 import { prisma } from '@/lib/prisma';
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing for activity API.");
+}
+
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 
 
@@ -79,14 +88,29 @@ async function enrichActivity(activity: ActivityLog & { user: Profile }): Promis
 }
 
 export async function GET(req: NextRequest) {
-  try {
-    const supabase = createRouteHandlerClient({ cookies });
-    const { data: { user: authUser } } = await supabase.auth.getUser();
+  // console.log('[API activity GET] Request received');
 
-    if (!authUser) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+  }
+
+  try {
+    // Bearer token authentication (consistent with other APIs)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      // console.error('[API activity GET] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
     }
 
+    const token = authHeader.split(' ')[1];
+    const { data: { user: authUser }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !authUser) {
+      // console.error('[API activity GET] Auth error:', userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
+    }
+
+    // console.log('[API activity GET] User authenticated:', authUser.id);
     const currentUserId = authUser.id;
 
     // Parse pagination parameters
@@ -202,7 +226,7 @@ export async function GET(req: NextRequest) {
     }, { status: 200 });
 
   } catch (error: any) {
-    console.error("Error fetching activity feed:", error);
+    // console.error("Error fetching activity feed:", error);
     return NextResponse.json({ error: error.message || 'Failed to fetch activity feed' }, { status: 500 });
   }
 } 

@@ -65,7 +65,7 @@ export default function FriendsMain() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
-    if (sessionStatus !== 'authenticated' || !currentUserId) {
+    if (sessionStatus !== 'authenticated' || !currentUserId || !session?.supabaseAccessToken) {
       setIsLoading(false);
       return;
     }
@@ -115,7 +115,7 @@ export default function FriendsMain() {
       setSentRequests(fetchedSent);
 
       // --- Fetch Explorable Users ---
-      const fetchedExploreUsers = await getExploreUsers();
+      const fetchedExploreUsers = await getExploreUsers(session.supabaseAccessToken);
       setExploreUsers(fetchedExploreUsers);
 
     } catch (err: any) {

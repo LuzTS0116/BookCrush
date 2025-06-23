@@ -10,15 +10,36 @@ interface FeedbackNotifications {
 }
 
 export function useFeedbackNotifications(): FeedbackNotifications {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [hasUnreadReplies, setHasUnreadReplies] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
 
   const checkForUpdates = async () => {
-    if (!session?.user || !(session as any).supabaseAccessToken) return;
+    // Comprehensive session validation - bail early if any condition fails
+    if (!session) {
+      // console.log('checkForUpdates: session is null, skipping');
+      return;
+    }
 
+    if (sessionStatus !== 'authenticated') {
+      // console.log('checkForUpdates: session not ready, status:', sessionStatus);
+      return;
+    }
+    
+    if (!session?.user || !(session as any).supabaseAccessToken) {
+      // console.log('checkForUpdates: missing user or token');
+      return;
+    }
+
+    // Prevent multiple concurrent API calls
+    if (isCheckingForUpdates) {
+      return;
+    }
+
+    setIsCheckingForUpdates(true);
     setIsLoading(true);
     setError(null);
 
@@ -48,32 +69,52 @@ export function useFeedbackNotifications(): FeedbackNotifications {
       setError(err.message || 'Failed to check notifications');
     } finally {
       setIsLoading(false);
+      setIsCheckingForUpdates(false);
     }
   };
 
   useEffect(() => {
-    if (session?.user && (session as any).supabaseAccessToken) {
+    // Add additional null check before proceeding
+    if (!session) {
+      return;
+    }
+
+    // Only check for updates when session is authenticated and tokens are available
+    if (sessionStatus === 'authenticated' && session?.user && (session as any).supabaseAccessToken) {
       checkForUpdates();
     }
-  }, [session?.user, (session as any).supabaseAccessToken]);
+    
+    // Reset state when user is not authenticated
+    if (sessionStatus === 'unauthenticated') {
+      setHasUnreadReplies(false);
+      setUnreadCount(0);
+      setError(null);
+      setIsLoading(false);
+      setIsCheckingForUpdates(false);
+    }
+  }, [sessionStatus, session, (session as any)?.supabaseAccessToken]);
 
   // Listen for feedback viewed events to refresh notifications
   useEffect(() => {
     const handleFeedbackViewed = () => {
-      checkForUpdates();
+      // console.log("feedbackViewed event triggered")
+      // Only call checkForUpdates if session is ready and authenticated
+      if (sessionStatus === 'authenticated' && session?.user && (session as any)?.supabaseAccessToken) {
+        checkForUpdates();
+      }
     };
 
     window.addEventListener('feedbackViewed', handleFeedbackViewed);
     return () => {
       window.removeEventListener('feedbackViewed', handleFeedbackViewed);
     };
-  }, []);
+  }, [sessionStatus, session]);
 
   return {
-    hasUnreadReplies,
-    unreadCount,
-    isLoading,
-    error,
+    hasUnreadReplies: sessionStatus === 'authenticated' ? hasUnreadReplies : false,
+    unreadCount: sessionStatus === 'authenticated' ? unreadCount : 0,
+    isLoading: sessionStatus === 'loading' ? true : isLoading,
+    error: sessionStatus === 'authenticated' ? error : null,
     checkForUpdates,
   };
 } 

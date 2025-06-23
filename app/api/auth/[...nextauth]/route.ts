@@ -209,24 +209,24 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user, account }) {
-      console.log('[Auth JWT Callback] Starting with:', {
-        hasUser: !!user,
-        hasAccount: !!account,
-        accountProvider: account?.provider,
-        tokenId: token.id,
-        hasSupaInToken: !!token.supa
-      });
+      // console.log('[Auth JWT Callback] Starting with:', {
+      //   hasUser: !!user,
+      //   hasAccount: !!account,
+      //   accountProvider: account?.provider,
+      //   tokenId: token.id,
+      //   hasSupaInToken: !!token.supa
+      // });
 
       // Handle credential authentication (including client-side tokens)
       if (user?.supa) {
-        console.log('[Auth JWT Callback] Setting supa tokens from user');
+        // console.log('[Auth JWT Callback] Setting supa tokens from user');
         token.id = user.id;
         token.supa = user.supa;
       }
       
       // Handle Google authentication
       if (account?.provider === 'google' && account.id_token) {
-        console.log('[Auth JWT Callback] Processing Google authentication');
+        // console.log('[Auth JWT Callback] Processing Google authentication');
         
         const { data, error } = await supabaseAdmin.auth
           .signInWithIdToken({
@@ -235,14 +235,14 @@ export const authOptions: NextAuthOptions = {
           });
           
         if (!error && data.session && data.user) {
-          console.log('[Auth JWT Callback] Google auth successful, setting tokens');
+          // console.log('[Auth JWT Callback] Google auth successful, setting tokens');
           token.id = data.user.id;
           token.supa = {
             access_token: data.session.access_token,
             refresh_token: data.session.refresh_token,
           };
         } else {
-          console.error('[Auth JWT Callback] Supabase signInWithIdToken failed for Google:', error?.message || 'No session returned');
+          // console.error('[Auth JWT Callback] Supabase signInWithIdToken failed for Google:', error?.message || 'No session returned');
         }
       }
       
@@ -256,7 +256,7 @@ export const authOptions: NextAuthOptions = {
           
           // If token is expired or about to expire (within 30 minutes)
           if (expTimeInSeconds - currentTimeInSeconds < 1800) {
-            console.log('[Auth JWT Callback] Token expiring soon, refreshing...');
+            // console.log('[Auth JWT Callback] Token expiring soon, refreshing...');
             
             const { data, error } = await supabaseAdmin.auth.refreshSession({
               refresh_token: token.supa.refresh_token,
@@ -265,7 +265,7 @@ export const authOptions: NextAuthOptions = {
             if (error) throw error;
             
             if (data.session) {
-              console.log('[Auth JWT Callback] Token refreshed successfully');
+              // console.log('[Auth JWT Callback] Token refreshed successfully');
               token.supa = {
                 access_token: data.session.access_token,
                 refresh_token: data.session.refresh_token,
@@ -273,26 +273,26 @@ export const authOptions: NextAuthOptions = {
             }
           }
         } catch (error) {
-          console.error('[Auth JWT Callback] Failed to refresh token:', error);
+          // console.error('[Auth JWT Callback] Failed to refresh token:', error);
           // Token refresh failed, clear the token
           delete token.supa;
         }
       }
 
-      console.log('[Auth JWT Callback] Final token state:', {
-        id: token.id,
-        hasSupaToken: !!token.supa?.access_token,
-        supaTokenLength: token.supa?.access_token?.length || 0
-      });
+      // console.log('[Auth JWT Callback] Final token state:', {
+      //   id: token.id,
+      //   hasSupaToken: !!token.supa?.access_token,
+      //   supaTokenLength: token.supa?.access_token?.length || 0
+      // });
 
       return token;
     },
     
     async session({ session, token }) {
-      console.log('[Auth Session Callback] Creating session with token:', {
-        tokenId: token.id,
-        hasSupaToken: !!token.supa?.access_token
-      });
+      // console.log('[Auth Session Callback] Creating session with token:', {
+      //   tokenId: token.id,
+      //   hasSupaToken: !!token.supa?.access_token
+      // });
 
       if (session.user) {
         session.user.id = token.id as string;
@@ -307,7 +307,7 @@ export const authOptions: NextAuthOptions = {
               session.user.name = userData.user.user_metadata.nickname;
             }
           } catch (error) {
-            console.warn('[Auth Session Callback] Could not fetch user metadata:', error);
+            // console.warn('[Auth Session Callback] Could not fetch user metadata:', error);
           }
         }
       }

@@ -33,7 +33,7 @@ const globalPublicRoutes = [
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  console.log('[Main Middleware] Start for path:', pathname);
+  // console.log('[Main Middleware] Start for path:', pathname);
 
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
   
@@ -42,39 +42,39 @@ export async function middleware(request: NextRequest) {
   );
 
   if (isGloballyPublic) {
-    console.log('[Main Middleware] Path is globally public, allowing.');
+    // console.log('[Main Middleware] Path is globally public, allowing.');
     return NextResponse.next();
   }
 
   if (!token) {
-    console.log('[Main Middleware] No user token found, redirecting to login.');
+    // console.log('[Main Middleware] No user token found, redirecting to login.');
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirectedFrom', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  console.log('[Main Middleware] Token found:', {
-    id: token.id,
-    email: token.email,
-    hasSupaToken: !!token.supa?.access_token,
-    supaTokenLength: token.supa?.access_token?.length || 0
-  });
+  // console.log('[Main Middleware] Token found:', {
+  //   id: token.id,
+  //   email: token.email,
+  //   hasSupaToken: !!token.supa?.access_token,
+  //   supaTokenLength: token.supa?.access_token?.length || 0
+  // });
 
   if (pathname.startsWith('/profile-setup')) {
-    console.log('[Main Middleware] Already on /profile-setup, allowing.');
+    // console.log('[Main Middleware] Already on /profile-setup, allowing.');
     return NextResponse.next();
   }
 
   // Check if we have the required token data
   if (!token.id) {
-    console.warn('[Main Middleware] Token found but missing user ID');
+    // console.warn('[Main Middleware] Token found but missing user ID');
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('error', 'missing_user_id');
     return NextResponse.redirect(loginUrl);
   }
 
   if (!token.supa?.access_token) {
-    console.warn('[Main Middleware] Token found but missing Supabase access token');
+    // console.warn('[Main Middleware] Token found but missing Supabase access token');
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('error', 'missing_supabase_token');
     return NextResponse.redirect(loginUrl);
@@ -90,15 +90,15 @@ export async function middleware(request: NextRequest) {
       },
     });
 
-    console.log('[Main Middleware] Profile status response:', profileResponse.status);
+    // console.log('[Main Middleware] Profile status response:', profileResponse.status);
 
     if (!profileResponse.ok) {
       const errorData = await profileResponse.json().catch(() => ({ error: 'Failed to parse profile status error' }));
-      console.error('[Main Middleware] Profile status check failed:', profileResponse.status, errorData.error);
+      // console.error('[Main Middleware] Profile status check failed:', profileResponse.status, errorData.error);
       
       // If it's a 401, the token might be expired
       if (profileResponse.status === 401) {
-        console.log('[Main Middleware] Unauthorized - token might be expired, redirecting to login');
+        // console.log('[Main Middleware] Unauthorized - token might be expired, redirecting to login');
         const loginUrl = new URL('/login', request.url);
         loginUrl.searchParams.set('error', 'token_expired');
         return NextResponse.redirect(loginUrl);
@@ -111,20 +111,20 @@ export async function middleware(request: NextRequest) {
     }
 
     const { hasProfile } = await profileResponse.json();
-    console.log('[Main Middleware] Profile status:', { hasProfile });
+    // console.log('[Main Middleware] Profile status:', { hasProfile });
 
     if (!hasProfile) {
-      console.log('[Main Middleware] No profile found, redirecting to /profile-setup.');
+      // console.log('[Main Middleware] No profile found, redirecting to /profile-setup.');
       const redirectUrl = new URL('/profile-setup', request.url);
       redirectUrl.searchParams.set('redirectedFrom', pathname);
       return NextResponse.redirect(redirectUrl);
     }
     
-    console.log('[Main Middleware] Profile found, allowing access to:', pathname);
+    // console.log('[Main Middleware] Profile found, allowing access to:', pathname);
     return NextResponse.next();
     
   } catch (error: any) {
-    console.error('[Main Middleware] Error calling profile status API:', error.message);
+    // console.error('[Main Middleware] Error calling profile status API:', error.message);
     const errorRedirectUrl = new URL('/login', request.url);
     errorRedirectUrl.searchParams.set('error', 'profile_api_fetch_error');
     return NextResponse.redirect(errorRedirectUrl);

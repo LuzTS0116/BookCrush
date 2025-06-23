@@ -1,23 +1,45 @@
 // app/api/social/explore-users/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
- // Adjust path if necessary
+import { createClient } from '@supabase/supabase-js';
 import { formatProfileWithAvatarUrlServer } from '@/lib/supabase-server-utils';
 import { prisma } from '@/lib/prisma';
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing for explore-users API.");
+}
+
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 
 
 export async function GET(req: NextRequest) {
-  try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    const { data: { user } } = await supabase.auth.getUser();
+  // console.log('[API explore-users GET] Request received');
 
-    if (!user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+  }
+
+  try {
+    // Bearer token authentication (consistent with other APIs)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      // console.error('[API explore-users GET] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
     }
 
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      // console.error('[API explore-users GET] Auth error:', userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
+    }
+
+    // console.log('[API explore-users GET] User authenticated:', user.id);
     const currentUserId = user.id;
     
     // 1. Get IDs of existing friends and the current user
@@ -87,9 +109,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(formattedUsers, { status: 200 });
 
   } catch (error: any) {
-    console.error("Error fetching explorable users:", error);
+    // console.error("Error fetching explorable users:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch explorable users" }, { status: 500 });
-  } finally {
-     // Ensure Prisma client is disconnected
   }
 }

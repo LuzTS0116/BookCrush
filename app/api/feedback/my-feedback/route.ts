@@ -61,18 +61,7 @@ export async function GET(req: NextRequest) {
       })
     ]);
 
-    // Mark feedback as notified if there are admin replies the user hasn't seen
-    const unnotifiedFeedback = feedback.filter(f => f.admin_notes && !f.user_notified);
-    if (unnotifiedFeedback.length > 0) {
-      await prisma.feedback.updateMany({
-        where: {
-          id: { in: unnotifiedFeedback.map(f => f.id) }
-        },
-        data: {
-          user_notified: true
-        }
-      });
-    }
+    // DO NOT automatically mark as viewed on GET - this should only happen when explicitly requested
 
     const hasMore = offset + feedback.length < totalCount;
 

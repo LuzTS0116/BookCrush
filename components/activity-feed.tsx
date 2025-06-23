@@ -78,150 +78,150 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
     switch (activity.type) {
       case ActivityType.ADDED_BOOK_TO_SHELF:
         return (
-          <>
-            <span className='font-medium'>
+          <div className='font-light'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
             added{' '}
-            <span className='font-medium'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/books/${activity.target_entity_id}`}>
                 {activity.details?.book_title || 'a book'}
               </Link>
             </span>{' '}
             to their shelf.
-          </>
+          </div>
         );
       case ActivityType.CHANGED_BOOK_STATUS:
         return (
           <>
-            <span className='font-medium'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
             changed the status of{' '}
-            <span className='font-medium'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/books/${activity.target_entity_id}`}>
                 {activity.details?.book_title || 'a book'}
               </Link>
             </span>{' '}
-            to <span className='font-normal italic'>{newStatusFormatted}</span>.
+            to <span className={compact ? 'font-medium' : 'text-bookWhite font-normal italic'}>{newStatusFormatted}</span>.
           </>
         );
       case ActivityType.FINISHED_READING_BOOK:
         return (
-          <>
-            <span className='font-medium'>
+          <div className='font-light'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
             finished reading{' '}
-            <span className='font-medium'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/books/${activity.target_entity_id}`}>
                 {activity.details?.book_title || 'a book'}
               </Link>
             </span>.
-          </>
+          </div>
         );
       case ActivityType.CREATED_CLUB:
         return (
-          <>
-            <span className='font-medium'>
+          <div className='font-thin'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
-            created the{' '}
-            <span className='font-medium'>
+            created{' '}
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/clubs/${activity.target_entity_id}`}>
                 {targetName || activity.details?.club_name || 'a new club'}
               </Link>
             </span>{' '}
             book club.
-          </>
+          </div>
         );
       case ActivityType.ACCEPTED_FRIEND_REQUEST:
         return (
-          <>
-            <span className='font-medium'>
+          <div className='font-thin'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
             accepted your friend request.
-          </>
+          </div>
         );
       case ActivityType.ADDED_BOOK_TO_LIBRARY:
         return (
-          <>
-            <span className='font-medium'>
+          <div className='font-thin'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
             added{' '}
-            <span className='font-medium'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/books/${activity.target_entity_id}`}>
                 {activity.details?.book_title || 'a new book'}
               </Link>
             </span>{' '}
-            to the library.
-          </>
+            to the shared library.
+          </div>
         );
       case ActivityType.REVIEWED_BOOK:
         return (
-          <>
-            <span className='font-medium'>
+          <div className='font-thin'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
             reviewed{' '}
-            <span className='font-medium'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/books/${activity.target_entity_id}`}>
                 {activity.details?.book_title || 'a book'}
               </Link>
             </span>
             {activity.details?.rating && (
-              <span className='font-normal italic'>
-                {' '}with a {activity.details.rating === 'HEART' ? '❤️' : 
+              <span className='font-thin'>
+                {' '}and gave it a {activity.details.rating === 'HEART' ? '💖' : 
                           activity.details.rating === 'THUMBS_UP' ? '👍' : 
-                          activity.details.rating === 'THUMBS_DOWN' ? '👎' : '⭐'} rating
+                          activity.details.rating === 'THUMBS_DOWN' ? '👎' : '⭐'}
               </span>
             )}.
-          </>
+          </div>
         );
       case ActivityType.JOINED_CLUB:
         return (
-          <>
-            <span className='font-medium'>
+          <div className='font-thin'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
-            joined the{' '}
-            <span className='font-medium'>
+            joined{' '}
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/clubs/${activity.details?.club_id}`}>
                 {targetName || activity.details?.club_name}
               </Link>
             </span>{' '}
             book club.
-          </>
+          </div>
         );
       case ActivityType.CLUB_NEW_MEMBER:
         return (
-          <>
-            <span className='font-medium'>
+          <div className='font-thin'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.display_name}`}>{activity.user.display_name}</Link>
             </span>{' '}
             accepted{' '}
-            <span className='font-medium'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
                 {activity.details?.new_member_id === (session?.user as any)?.id ? 'you' : activity.details?.new_member_name}
             </span>{' '}
             into{' '}
-            <span className='font-medium'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/clubs/${activity.details?.club_id}`}>
                 {targetName || activity.details?.club_name}
               </Link>
             </span>{' '}
             book club.
-          </>
+          </div>
         );
       case ActivityType.POSTED_CLUB_DISCUSSION:
         return (
-          <>
-            <span className='font-medium'>
+          <div className='font-thin'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
             posted a comment in{' '}
-            <span className='font-medium'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/clubs/${activity.target_entity_secondary_id}`}>
                 {activity.details?.club_name || 'a club'}
               </Link>
@@ -229,22 +229,22 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
             {activity.details?.book_title && (
               <>
                 {' '}about{' '}
-                <span className='font-medium italic'>
+                <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
                   {activity.details.book_title}.
                 </span>
               </>
             )}
-          </>
+          </div>
         );
       default:
         return (
-          <>
+          <div className='font-thin'>
             An interesting activity involving{' '}
-            <span className='font-medium'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
             occurred.
-          </>
+          </div>
         );
     }
   };
@@ -258,8 +258,8 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
     : "w-10 h-10";
 
   const textClasses = compact 
-    ? "text-sm text-secondary font-medium" 
-    : "text-bookWhite text-sm leading-snug";
+    ? "text-sm text-secondary font-thin" 
+    : "text-bookWhite/70 text-sm font-thin leading-snug";
 
   if (compact) {
     return (
@@ -276,10 +276,10 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
           )}
         </div>
         <div className="space-y-1 flex-1 min-w-0">
-          <p className={textClasses}>
+          <div className={textClasses}>
             {renderActivityText()}
             <span className='text-xs text-secondary/50 font-serif font-medium'> {timeSince(activity.timestamp)}</span>
-          </p>
+          </div>
         </div>
       </div>
     );
@@ -350,7 +350,18 @@ export function ActivityFeed({ compact = false, maxItems, showHeader = false, on
     }
     
     try {
-      const response = await fetch(`/api/social/activity?page=${page}&limit=${pagination.limit}`);
+      // Check if we have the required session token
+      if (!session?.supabaseAccessToken) {
+        throw new Error('Authentication required');
+      }
+
+      const response = await fetch(`/api/social/activity?page=${page}&limit=${pagination.limit}`, {
+        headers: {
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Failed to fetch activity feed: ${response.statusText}`);
@@ -381,12 +392,12 @@ export function ActivityFeed({ compact = false, maxItems, showHeader = false, on
   };
 
   useEffect(() => {
-    if (sessionStatus === 'authenticated') {
+    if (sessionStatus === 'authenticated' && session?.supabaseAccessToken) {
       fetchActivityFeed(1, false);
     } else if (sessionStatus === 'unauthenticated') {
       setIsLoading(false);
     }
-  }, [sessionStatus]);
+  }, [sessionStatus, session?.supabaseAccessToken]);
 
   if (sessionStatus === 'loading') {
     return (
@@ -434,7 +445,7 @@ export function ActivityFeed({ compact = false, maxItems, showHeader = false, on
       </div>
     );
   }
-  console.log(displayedActivities)
+
   return (
     <div className="space-y-2">
       {showHeader && (

@@ -184,8 +184,8 @@ export function MainNav() {
                   
                   {/* Feedback notification badge */}
                   {hasUnreadReplies && (
-                    <div className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 flex items-center justify-center border-2 border-secondary-light">
-                      <span className="text-xs font-bold text-white">
+                    <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 flex items-center justify-center border-2 border-secondary-light">
+                      <span className="text-[6px] font-thin text-white">
                         {unreadCount > 9 ? '9+' : unreadCount}
                       </span>
                     </div>
