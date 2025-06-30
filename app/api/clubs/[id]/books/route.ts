@@ -46,6 +46,7 @@ export async function GET(
           id,
           title,
           author,
+          genres,
           cover_url,
           description
         )

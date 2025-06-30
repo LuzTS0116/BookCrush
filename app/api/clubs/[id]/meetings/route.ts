@@ -8,8 +8,10 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    const {id} = await params;
   try {
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
@@ -19,7 +21,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const clubId = params.id;
+    const clubId = id;
 
     // Check if user is a member of the club
     const membership = await prisma.clubMembership.findUnique({
@@ -93,8 +95,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    const {id} = await params;
   try {
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
@@ -104,7 +108,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const clubId = params.id;
+    const clubId = id;
     const body = await request.json();
 
     // Check if user is an admin or owner of the club

@@ -4,50 +4,63 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { getAvatarPublicUrlServer } from '@/lib/supabase-server-utils';
+import { createClient } from '@supabase/supabase-js';
 
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing for club discussions API.");
+}
+
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 // Helper to map user data and discussion fields
 async function mapPrismaDiscussionToFrontend(discussion: any) {
   const mapped = {
-    ...discussion,
-    text: discussion.content,
-    timestamp: discussion.created_at,
+    id: discussion.id,
+    content: discussion.content, // Keep as content, not text
+    created_at: discussion.created_at, // Keep as created_at, not timestamp
+    updated_at: discussion.updated_at,
+    parent_discussion_id: discussion.parent_discussion_id,
     user: discussion.user ? {
       id: discussion.user.id,
-      name: discussion.user.display_name || 'Anonymous',
-      avatar: await getAvatarPublicUrlServer(discussion.user.avatar_url),
-      // initials are typically derived client-side
+      display_name: discussion.user.display_name || 'Anonymous',
+      avatar_url: await getAvatarPublicUrlServer(supabase!, discussion.user.avatar_url),
     } : null,
-    replies: discussion.replies ? await Promise.all(discussion.replies.map(mapPrismaDiscussionToFrontend)) : [],
+    replies: discussion.replies ? await Promise.all(discussion.replies.map((reply: any) => mapPrismaDiscussionToFrontend(reply))) : [],
   };
-  // Remove original fields if they are not needed directly on frontend
-  delete mapped.content;
-  delete mapped.created_at;
-  delete mapped.user_id; 
-  // delete mapped.book_id; // Keep if needed for context on frontend
-  // delete mapped.club_id; // Keep if needed for context on frontend
-  // delete mapped.parent_discussion_id; // Keep if needed
-  if (mapped.user) {
-    delete mapped.user.display_name;
-    //delete mapped.user.avatar_url;
-  }
   return mapped;
 }
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const clubId = params.id;
+export async function GET(
+  request: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    const {id} = await params;
 
   try {
-    const supabase = createRouteHandlerClient({ cookies });
-    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+    }
 
-    if (!authUser) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API club discussions GET] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !authUser) {
+      return NextResponse.json({ error: authError?.message || 'Authentication required' }, { status: 401 });
     }
 
     const membership = await prisma.clubMembership.findUnique({
-      where: { user_id_club_id: { user_id: authUser.id, club_id: clubId } },
+      where: { user_id_club_id: { user_id: authUser.id, club_id: id } },
     });
 
     if (!membership || membership.status !== 'ACTIVE') {
@@ -55,7 +68,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     }
 
     const club = await prisma.club.findUnique({
-      where: { id: clubId },
+      where: { id: id},
       select: { current_book_id: true },
     });
 
@@ -65,7 +78,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
     const discussions = await prisma.clubDiscussion.findMany({
       where: {
-        club_id: clubId,
+        club_id: id,
         book_id: bookIdToFilterBy || undefined, // Convert null to undefined for Prisma
         parent_discussion_id: null,
       },
@@ -82,26 +95,40 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       orderBy: { created_at: 'desc' },
     });
 
-    const mappedDiscussions = await Promise.all(discussions.map(mapPrismaDiscussionToFrontend));
+    const mappedDiscussions = await Promise.all(discussions.map((discussion) => mapPrismaDiscussionToFrontend(discussion)));
     return NextResponse.json(mappedDiscussions, { status: 200 });
 
   } catch (error: any) {
-    console.error(`Error fetching discussions for club ${clubId}:`, error);
+    console.error(`Error fetching discussions for club ${id}:`, error);
     return NextResponse.json({ error: error.message || 'Failed to fetch discussions' }, { status: 500 });
   } finally {
     
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const clubId = params.id;
+export async function POST(
+  req: NextRequest,
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    const {id} = await params;
 
   try {
-    const supabase = createRouteHandlerClient({ cookies });
-    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+    }
 
-    if (!authUser) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API club discussions POST] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !authUser) {
+      return NextResponse.json({ error: authError?.message || 'Authentication required' }, { status: 401 });
     }
 
     // Body structure from frontend: { text: string, bookId: string | null }
@@ -113,7 +140,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     // bookId can be null, so no explicit check for its presence, but type can be checked if needed.
 
     const membership = await prisma.clubMembership.findUnique({
-      where: { user_id_club_id: { user_id: authUser.id, club_id: clubId } },
+      where: { user_id_club_id: { user_id: authUser.id, club_id: id } },
     });
 
     if (!membership || membership.status !== 'ACTIVE') {
@@ -126,15 +153,21 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
     const newDiscussion = await prisma.clubDiscussion.create({
       data: {
-        club_id: clubId,
+        club_id: id,
         user_id: authUser.id,
         book_id: bookId || undefined, // Convert null to undefined for Prisma
         content: text.trim(),
       },
       include: {
-        user: { select: { id: true, display_name: true } },
+        user: { select: { id: true, display_name: true, avatar_url: true } },
         club: { select: { id: true, name: true } },
         book: bookId ? { select: { id: true, title: true } } : undefined,
+        replies: {
+          include: {
+            user: { select: { id: true, display_name: true, avatar_url: true } },
+          },
+          orderBy: { created_at: 'asc' },
+        },
       }
     });
 
@@ -146,7 +179,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
           activity_type: ActivityType.POSTED_CLUB_DISCUSSION,
           target_entity_type: ActivityTargetEntityType.CLUB_DISCUSSION,
           target_entity_id: newDiscussion.id,
-          target_entity_secondary_id: clubId, // Store club_id for context
+          target_entity_secondary_id: id, // Store club_id for context
           details: {
             club_name: newDiscussion.club?.name,
             book_title: newDiscussion.book?.title || null,
@@ -163,7 +196,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json(mappedNewDiscussion, { status: 201 });
 
   } catch (error: any) {
-    console.error(`Error creating discussion for club ${clubId}:`, error);
+    console.error(`Error creating discussion for club ${id}:`, error);
     if (error instanceof SyntaxError) { // Handle JSON parsing errors
         return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
     }

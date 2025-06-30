@@ -75,10 +75,12 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
     const relatedUser = activity.relatedUser?.display_name;
     const { data: session, status: sessionStatus } = useSession();
 
+  
+
     switch (activity.type) {
       case ActivityType.ADDED_BOOK_TO_SHELF:
         return (
-          <div className='font-light'>
+          <span className='font-thin'>
             <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
@@ -89,11 +91,11 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
               </Link>
             </span>{' '}
             to their shelf.
-          </div>
+          </span>
         );
       case ActivityType.CHANGED_BOOK_STATUS:
         return (
-          <>
+          <span className='font-thin'>
             <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
@@ -104,11 +106,11 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
               </Link>
             </span>{' '}
             to <span className={compact ? 'font-medium' : 'text-bookWhite font-normal italic'}>{newStatusFormatted}</span>.
-          </>
+          </span>
         );
       case ActivityType.FINISHED_READING_BOOK:
         return (
-          <div className='font-light'>
+          <span className='font-thin'>
             <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
@@ -118,11 +120,11 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
                 {activity.details?.book_title || 'a book'}
               </Link>
             </span>.
-          </div>
+          </span>
         );
       case ActivityType.CREATED_CLUB:
         return (
-          <div className='font-thin'>
+          <span className='font-thin'>
             <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
@@ -133,20 +135,20 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
               </Link>
             </span>{' '}
             book club.
-          </div>
+          </span>
         );
       case ActivityType.ACCEPTED_FRIEND_REQUEST:
         return (
-          <div className='font-thin'>
+          <span className='font-thin'>
             <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
             accepted your friend request.
-          </div>
+          </span>
         );
       case ActivityType.ADDED_BOOK_TO_LIBRARY:
         return (
-          <div className='font-thin'>
+          <span className='font-thin'>
             <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
@@ -157,11 +159,11 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
               </Link>
             </span>{' '}
             to the shared library.
-          </div>
+          </span>
         );
       case ActivityType.REVIEWED_BOOK:
         return (
-          <div className='font-thin'>
+          <span className='font-thin'>
             <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
@@ -178,11 +180,11 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
                           activity.details.rating === 'THUMBS_DOWN' ? '👎' : '⭐'}
               </span>
             )}.
-          </div>
+          </span>
         );
       case ActivityType.JOINED_CLUB:
         return (
-          <div className='font-thin'>
+          <span className='font-thin'>
             <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
@@ -193,11 +195,11 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
               </Link>
             </span>{' '}
             book club.
-          </div>
+          </span>
         );
       case ActivityType.CLUB_NEW_MEMBER:
         return (
-          <div className='font-thin'>
+          <span className='font-thin'>
             <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.display_name}`}>{activity.user.display_name}</Link>
             </span>{' '}
@@ -212,11 +214,11 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
               </Link>
             </span>{' '}
             book club.
-          </div>
+          </span>
         );
       case ActivityType.POSTED_CLUB_DISCUSSION:
         return (
-          <div className='font-thin'>
+          <span className='font-thin'>
             <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
@@ -234,17 +236,136 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
                 </span>
               </>
             )}
-          </div>
+          </span>
+        );
+      case ActivityType.SENT_BOOK_RECOMMENDATION:
+        return (
+          <span className='font-thin'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
+              <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
+            </span>{' '}
+            recommended{' '}
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
+              <Link href={`/books/${activity.details?.book_id}`}>
+                {activity.details?.book_title || 'a book'}
+              </Link>
+            </span>{' '}
+            to{' '}
+            {activity.related_user_id === (session?.user as any)?.id ? (
+              <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>you</span>
+            ) : (
+              <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
+                <Link href={`/profile/${activity.related_user_id}`}>
+                  {activity.relatedUser?.display_name || 'a friend'}
+                </Link>
+              </span>
+            )}.
+            {activity.details?.note && (
+              <span className='text-xs italic text-bookWhite/60 block mt-1'>
+                "{activity.details.note}"
+              </span>
+            )}
+          </span>
+        );
+      case ActivityType.RECEIVED_BOOK_RECOMMENDATION:
+        return (
+          <span className='font-thin'>
+            {activity.user?.id === (session?.user as any)?.id ? (
+              <>
+                <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>You</span>{' '}
+                received a recommendation for{' '}
+                <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
+                  <Link href={`/books/${activity.details?.book_id}`}>
+                    {activity.details?.book_title || 'a book'}
+                  </Link>
+                </span>{' '}
+                from{' '}
+                <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
+                  <Link href={`/profile/${activity.related_user_id}`}>
+                    {activity.relatedUser?.display_name || 'a friend'}
+                  </Link>
+                </span>.
+              </>
+            ) : (
+              <>
+                <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
+                  <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
+                </span>{' '}
+                received a recommendation for{' '}
+                <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
+                  <Link href={`/books/${activity.details?.book_id}`}>
+                    {activity.details?.book_title || 'a book'}
+                  </Link>
+                </span>{' '}
+                from{' '}
+                {activity.related_user_id === (session?.user as any)?.id ? (
+                  <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>you</span>
+                ) : (
+                  <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
+                    <Link href={`/profile/${activity.related_user_id}`}>
+                      {activity.relatedUser?.display_name || 'a friend'}
+                    </Link>
+                  </span>
+                )}.
+              </>
+            )}
+          </span>
+        );
+      case ActivityType.ACCEPTED_BOOK_RECOMMENDATION:
+        return (
+          <span className='font-thin'>
+            {activity.user?.id === (session?.user as any)?.id ? (
+              <>
+                <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>You</span>{' '}
+                added{' '}
+                <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
+                  <Link href={`/books/${activity.details?.book_id}`}>
+                    {activity.details?.book_title || 'a book'}
+                  </Link>
+                </span>{' '}
+                to your shelf after{' '}
+                <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
+                  <Link href={`/profile/${activity.related_user_id}`}>
+                    {activity.relatedUser?.display_name || 'a friend'}
+                  </Link>
+                </span>{' '}
+                recommended it.
+              </>
+            ) : (
+              <>
+                <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
+                  <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
+                </span>{' '}
+                added{' '}
+                <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
+                  <Link href={`/books/${activity.details?.book_id}`}>
+                    {activity.details?.book_title || 'a book'}
+                  </Link>
+                </span>{' '}
+                to their shelf after{' '}
+                {activity.related_user_id === (session?.user as any)?.id ? (
+                  <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>you</span>
+                ) : (
+                  <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
+                    <Link href={`/profile/${activity.related_user_id}`}>
+                      {activity.relatedUser?.display_name || 'a friend'}
+                    </Link>
+                  </span>
+                )}{' '}
+                recommended it.
+              </>
+            )}
+          </span>
         );
       default:
         return (
-          <div className='font-thin'>
+          <span className='font-thin'>
             An interesting activity involving{' '}
             <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
               <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
             </span>{' '}
             occurred.
-          </div>
+          </span>
         );
     }
   };

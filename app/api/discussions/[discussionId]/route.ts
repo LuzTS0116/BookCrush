@@ -1,103 +1,140 @@
-// import { NextRequest, NextResponse } from 'next/server';
-// 
-// import { createApiSupabase } from '@/lib/auth-server'; // Assuming you have this
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { createClient } from '@supabase/supabase-js';
 
-// 
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// // PUT: Update a discussion post
-// export async function PUT(req: NextRequest, { params }: { params: { discussionId: string } }) {
-//   const { discussionId } = params;
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing for discussion API.");
+}
 
-//   try {
-//     const supabase = createApiSupabase();
-//     const { data: { user } } = await supabase.auth.getUser();
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
-//     if (!user) {
-//       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-//     }
+// PUT: Update a discussion post
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ discussionId: string }> }) {
+  const { discussionId } = await params;
 
-//     const { content } = await req.json();
+  try {
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+    }
 
-//     if (!content || typeof content !== 'string' || content.trim() === '') {
-//       return NextResponse.json({ error: 'Content is required and must be a non-empty string' }, { status: 400 });
-//     }
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API discussion PUT] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
 
-//     const discussion = await prisma.clubDiscussion.findUnique({
-//       where: { id: discussionId },
-//     });
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
-//     if (!discussion) {
-//       return NextResponse.json({ error: 'Discussion not found' }, { status: 404 });
-//     }
+    if (authError || !user) {
+      return NextResponse.json({ error: authError?.message || 'Authentication required' }, { status: 401 });
+    }
 
-//     if (discussion.user_id !== user.id) {
-//       return NextResponse.json({ error: 'Forbidden: You can only update your own discussion posts' }, { status: 403 });
-//     }
+    const { content } = await req.json();
 
-//     const updatedDiscussion = await prisma.clubDiscussion.update({
-//       where: { id: discussionId },
-//       data: { content: content.trim() },
-//       include: {
-//         user: { select: { id: true, profile: { select: { display_name: true, id: true } } } },
-//         // Include replies if needed upon update
-//       }
-//     });
+    if (!content || typeof content !== 'string' || content.trim() === '') {
+      return NextResponse.json({ error: 'Content is required and must be a non-empty string' }, { status: 400 });
+    }
 
-//     return NextResponse.json(updatedDiscussion, { status: 200 });
+    const discussion = await prisma.clubDiscussion.findUnique({
+      where: { id: discussionId },
+    });
 
-//   } catch (error: any) {
-//     console.error(`Error updating discussion ${discussionId}:`, error);
-//     return NextResponse.json({ error: error.message || 'Failed to update discussion' }, { status: 500 });
-//   }
-// }
+    if (!discussion) {
+      return NextResponse.json({ error: 'Discussion not found' }, { status: 404 });
+    }
 
-// // DELETE: Delete a discussion post
-// export async function DELETE(req: NextRequest, { params }: { params: { discussionId: string } }) {
-//   const { discussionId } = params;
+    if (discussion.user_id !== user.id) {
+      return NextResponse.json({ error: 'Forbidden: You can only update your own discussion posts' }, { status: 403 });
+    }
 
-//   try {
-//     const supabase = createApiSupabase();
-//     const { data: { user } } = await supabase.auth.getUser();
+    const updatedDiscussion = await prisma.clubDiscussion.update({
+      where: { id: discussionId },
+      data: { 
+        content: content.trim(),
+        updated_at: new Date()
+      },
+      include: {
+        user: { select: { id: true, display_name: true, avatar_url: true } },
+      }
+    });
 
-//     if (!user) {
-//       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-//     }
+    return NextResponse.json(updatedDiscussion, { status: 200 });
 
-//     const discussion = await prisma.clubDiscussion.findUnique({
-//       where: { id: discussionId },
-//       include: { club: { select: { owner_id: true } } }, // To check if user is club owner
-//     });
+  } catch (error: any) {
+    console.error(`Error updating discussion ${discussionId}:`, error);
+    return NextResponse.json({ error: error.message || 'Failed to update discussion' }, { status: 500 });
+  }
+}
 
-//     if (!discussion) {
-//       return NextResponse.json({ error: 'Discussion not found' }, { status: 404 });
-//     }
+// DELETE: Delete a discussion post
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ discussionId: string }> }) {
+  const { discussionId } = await params;
 
-//     // Check if user is the author OR the club owner
-//     const isAuthor = discussion.user_id === user.id;
-//     const isClubOwner = discussion.club.owner_id === user.id;
-//     // You might want to include Club Admins here as well if you have an ADMIN role in ClubMembership
+  try {
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+    }
 
-//     if (!isAuthor && !isClubOwner) {
-//       return NextResponse.json({ error: 'Forbidden: You can only delete your own posts or are not a club owner/admin' }, { status: 403 });
-//     }
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API discussion DELETE] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !user) {
+      return NextResponse.json({ error: authError?.message || 'Authentication required' }, { status: 401 });
+    }
+
+    const discussion = await prisma.clubDiscussion.findUnique({
+      where: { id: discussionId },
+      include: { 
+        club: { 
+          select: { 
+            owner_id: true,
+            memberships: {
+              where: { user_id: user.id },
+              select: { role: true }
+            }
+          } 
+        } 
+      },
+    });
+
+    if (!discussion) {
+      return NextResponse.json({ error: 'Discussion not found' }, { status: 404 });
+    }
+
+    // Check if user is the author OR the club owner/admin
+    const isAuthor = discussion.user_id === user.id;
+    const isClubOwner = discussion.club.owner_id === user.id;
+    const isClubAdmin = discussion.club.memberships.some(m => m.role === 'ADMIN' || m.role === 'OWNER');
+
+    if (!isAuthor && !isClubOwner && !isClubAdmin) {
+      return NextResponse.json({ error: 'Forbidden: You can only delete your own posts or you must be a club owner/admin' }, { status: 403 });
+    }
     
-//     // Prisma will handle cascading deletes for replies due to the schema definition if parent_discussion_id is set up with onDelete: Cascade for replies
-//     // However, our current schema uses onDelete: NoAction for parent_discussion to avoid direct cascade of replies on parent deletion.
-//     // If you want to delete all replies when a parent is deleted, you'd need to do it manually or change schema.
-//     // For simplicity here, we are just deleting the specific discussion post.
-//     // If it's a parent post, its replies will become orphaned unless you handle them.
+    // Delete all replies first (manual cascade)
+    await prisma.clubDiscussion.deleteMany({ 
+      where: { parent_discussion_id: discussionId } 
+    });
 
-//     // If you want to delete replies too (manual approach if not using cascade on DB level for this specific relation):
-//     // await prisma.clubDiscussion.deleteMany({ where: { parent_discussion_id: discussionId } });
+    // Then delete the main discussion
+    await prisma.clubDiscussion.delete({
+      where: { id: discussionId },
+    });
 
-//     await prisma.clubDiscussion.delete({
-//       where: { id: discussionId },
-//     });
+    return NextResponse.json({ message: 'Discussion deleted successfully' }, { status: 200 });
 
-//     return NextResponse.json({ message: 'Discussion deleted successfully' }, { status: 200 }); // Or 204 No Content
-
-//   } catch (error: any) {
-//     console.error(`Error deleting discussion ${discussionId}:`, error);
-//     return NextResponse.json({ error: error.message || 'Failed to delete discussion' }, { status: 500 });
-//   }
-// } 
+  } catch (error: any) {
+    console.error(`Error deleting discussion ${discussionId}:`, error);
+    return NextResponse.json({ error: error.message || 'Failed to delete discussion' }, { status: 500 });
+  }
+} 

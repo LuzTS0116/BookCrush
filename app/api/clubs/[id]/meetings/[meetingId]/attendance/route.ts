@@ -8,8 +8,10 @@ import { prisma } from '@/lib/prisma';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; meetingId: string } }
-) {
+    { params }: { params: Promise<{ id: string , meetingId: string }> }
+ ) {
+
+    const {id, meetingId} = await params;
   try {
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
@@ -19,8 +21,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const clubId = params.id;
-    const meetingId = params.meetingId;
+    const clubId = id;
     const body = await request.json();
     const { status } = body; // Expected values: 'ATTENDING', 'NOT_ATTENDING', 'MAYBE'
 

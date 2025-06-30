@@ -5,7 +5,7 @@ import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { UserBook } from "@/types/book";
-import { CircleCheckBig, CircleAlert, Heart, ThumbsUp, ThumbsDown, Star, EllipsisVertical, Headphones, Smartphone, BookOpen } from "lucide-react";
+import { CircleCheckBig, CircleAlert, Heart, ThumbsUp, ThumbsDown, Star, EllipsisVertical, Headphones, Smartphone, BookOpen, BookMarked } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
 interface UserReactionReview {
@@ -25,9 +25,10 @@ interface HistoryBookDialogProps {
   historyBooks: UserBook;
   onMoveToShelf?: (bookId: string, shelf: string, title: string) => void;
   onRemoveFromShelf?: (bookId: string, title: string) => void;
+  onRecommendBook?: (userBook: UserBook) => void;
 }
 
-export function HistoryBookDialog({ historyBooks, onMoveToShelf, onRemoveFromShelf }: HistoryBookDialogProps) {
+export function HistoryBookDialog({ historyBooks, onMoveToShelf, onRemoveFromShelf, onRecommendBook }: HistoryBookDialogProps) {
   const [open, setOpen] = React.useState(false)
   const [userReactionReview, setUserReactionReview] = useState<UserReactionReview | null>(null)
   const [loading, setLoading] = useState(false)
@@ -135,7 +136,7 @@ export function HistoryBookDialog({ historyBooks, onMoveToShelf, onRemoveFromShe
                 )}
                 
                 {/* 3-dots menu */}
-                {(onMoveToShelf || onRemoveFromShelf) && (
+                {(onMoveToShelf || onRemoveFromShelf || onRecommendBook) && (
                   <DropdownMenu.Root>
                     <DropdownMenu.Trigger asChild>
                       <Button
@@ -167,6 +168,16 @@ export function HistoryBookDialog({ historyBooks, onMoveToShelf, onRemoveFromShe
                               Move to Reading Queue
                             </DropdownMenu.Item>
                           </>
+                        )}
+                        {onRecommendBook && (
+                          <DropdownMenu.Item
+                            onSelect={() => onRecommendBook(historyBooks)}
+                            className="px-3 py-2 text-xs text-center bg-accent/90 text-secondary my-1 rounded-md cursor-pointer hover:bg-accent-variant hover:text-secondary focus:bg-accent-variant focus:outline-none transition-colors"
+                          >
+                            <div className="flex items-center justify-center gap-1">
+                              Recommend to Friends
+                            </div>
+                          </DropdownMenu.Item>
                         )}
                         {onRemoveFromShelf && (
                           <DropdownMenu.Item

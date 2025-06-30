@@ -6,15 +6,17 @@ import { prisma } from '@/lib/prisma';
 
 
 export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+  req: Request,
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    const {id} = await params;
   try {
     // Check admin authentication and role
     await requireAdmin();
 
     const book = await prisma.book.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       include: {
         creator: {
           select: {
@@ -56,9 +58,11 @@ export async function GET(
 }
 
 export async function PUT(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+  req: Request,
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    const {id} = await params;
   try {
     // Check admin authentication and role
     await requireAdmin();
@@ -82,7 +86,7 @@ export async function PUT(
     }
 
     const updatedBook = await prisma.book.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         title: title.trim(),
         author: author?.trim() || null,
@@ -135,16 +139,18 @@ export async function PUT(
 }
 
 export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+  req: Request,
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    const {id} = await params;
   try {
     // Check admin authentication and role
     await requireAdmin();
 
     // Check if book exists
     const existingBook = await prisma.book.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       include: {
         _count: {
           select: {
@@ -175,7 +181,7 @@ export async function DELETE(
 
     // Delete book (this will cascade delete related records due to schema constraints)
     await prisma.book.delete({
-      where: { id: params.id }
+      where: { id: id }
     });
 
     return NextResponse.json({ message: 'Book deleted successfully' }, { status: 200 });

@@ -161,12 +161,11 @@ export default function AdminDashboard() {
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col">
+        <div className=''>
           <div className="flex items-center space-x-3 mb-2">
-            <Shield className="h-8 w-8 text-red-600" />
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Super Admin Dashboard</h1>
+              <h1 className="text-2xl font-bold tracking-tight flex"><Shield className="h-8 w-8 mr-1 text-red-600" />Super Admin Dashboard</h1>
               <Badge variant="destructive" className="mt-1">
                 SUPER ADMIN ACCESS
               </Badge>
@@ -176,7 +175,7 @@ export default function AdminDashboard() {
             Manage your book club platform • Welcome, {session?.user?.name || 'Super Admin'}
           </p>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex space-x-4 mt-2">
           <Button variant="outline" onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
@@ -189,6 +188,8 @@ export default function AdminDashboard() {
           </Button>
         </div>
       </div>
+      
+      
 
       {/* Statistics Overview */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -199,7 +200,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats?.users.total || 0}</div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-secondary/50">
               +{stats?.users.newThisMonth || 0} this month
             </p>
           </CardContent>
@@ -212,7 +213,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats?.books.total || 0}</div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-secondary/50">
               +{stats?.books.addedThisMonth || 0} this month
             </p>
           </CardContent>
@@ -225,7 +226,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats?.clubs.active || 0}</div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-secondary/50">
               {stats?.clubs.total || 0} total clubs
             </p>
           </CardContent>
@@ -238,7 +239,7 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats?.feedback.pending || 0}</div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-secondary/50">
               {stats?.feedback.total || 0} total feedback
             </p>
           </CardContent>
@@ -246,7 +247,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Main Admin Tabs */}
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs defaultValue="overview" className="space-y-9">
         <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>

@@ -70,7 +70,8 @@ interface FinishedBookDialogProps {
 }
 
 // Add the FinishedBookDialog component
-function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting, shareDialogCallback }: FinishedBookDialogProps) {
+export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting, shareDialogCallback }: FinishedBookDialogProps) {
+  const { data: session } = useSession(); // Add session management
   const [reviewText, setReviewText] = useState("");
   const [rating, setRating] = useState<"HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
@@ -78,6 +79,8 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting, sha
   const [loadingImage, setLoadingImage] = useState(false);
 
   const imageRef = useRef(null);
+
+  console.log(book)
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -123,6 +126,10 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting, sha
     }
   };
 
+  function clampText(text: string, maxChars = 240) {
+    return text.length > maxChars ? text.slice(0, maxChars).trim() + "…" : text;
+  }
+
   const generateAndOpenShareDialog = async (book: UserBook | null) => {
     const element = document.getElementById("share-image-preview");
 
@@ -131,8 +138,20 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting, sha
       return;
     }
 
+    if (!book?.book.cover_url) {
+      console.error("Book cover URL is missing, cannot generate share image.");
+      toast.error("Book cover image not available for sharing.");
+      setShareDialogOpen(true); // Open dialog to inform user
+      return;
+    }
+
     try {
-      const canvas = await html2canvas(element);
+      setLoadingImage(true); // Set loading true before starting image process
+      // Give a small delay to ensure image is fully rendered/decoded by the browser
+      await new Promise(resolve => setTimeout(resolve, 100)); 
+
+      const canvas = await html2canvas(element,{
+        useCORS: true});
       const dataUrl = canvas.toDataURL("image/png");
       setDownloadedImageUrl(dataUrl);
       setShareDialogOpen(true); // Open the Share dialog
@@ -140,6 +159,8 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting, sha
       console.error("Failed to generate share image:", err);
       setDownloadedImageUrl(null);
       setShareDialogOpen(true); // Still open dialog to show error
+    } finally {
+      setLoadingImage(false); // Ensure loading is false regardless of success or failure
     }
   };
 
@@ -151,7 +172,10 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting, sha
 
   try {
     onSubmit(reviewText, rating); // Wait for review to be submitted
-    generateAndOpenShareDialog(book);   // Then open share dialog
+       // Then open share dialog
+    if (isSubmitting == false){
+      generateAndOpenShareDialog(book);
+    }
     //shareDialogCallback();
   } catch (err) {
     console.error("Error submitting review:", err);
@@ -229,10 +253,10 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting, sha
         {/* Review Text */}
         <div className="space-y-1">
           <Textarea
-            placeholder="Book Review - Any thoughts you’d like to share? What will you remember most about this book? (optional)"
+            placeholder="Book Review - Any thoughts you'd like to share? What will you remember most about this book? (optional)"
             value={reviewText}
             onChange={(e) => setReviewText(e.target.value)}
-            className="min-h-[80px] bg-[#FAF9F6]/60 border-secondary-light/30 text-secondary placeholder:text-secondary/50 placeholder:text-sm placeholder:leading-4 placeholder:italic"
+            className="min-h-[80px] bg-[#FAF9F6]/60 border-secondary-light/30 text-secondary/80 text-sm font-light leading-4 placeholder:text-secondary/50 placeholder:text-sm placeholder:leading-4 placeholder:italic"
             disabled={isSubmitting}
           />
           <p className="text-xs text-secondary/50 text-right">
@@ -276,19 +300,41 @@ function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting, sha
         onOpenChange={setShareDialogOpen}
         downloadedImageUrl={downloadedImageUrl}
         loading={loadingImage}
+        shareDialogCallback={shareDialogCallback}
+        
       />
 
       {/* Hidden image for generation */}
       <div id="share-image-preview" ref={imageRef} className="absolute -top-[9999px] left-0" aria-hidden="true">
-        <div className="w-[1080px] h-[1920px] bg-[url('/images/quote-bg.png')] flex flex-col justify-center items-center px-12 py-8 text-center text-secondary-light">
-          <img src={book.book.cover_url || "/placeholder.svg"} alt="Book cover" className="w-[200px] h-auto mb-6 rounded shadow-lg" />
-          <p className="text-[40px] leading-[1.2] font-serif">I just finished reading:</p>
-          <p className="text-[48px] font-bold mt-2">{book.book.title}</p>
-          {rating && (
-            <p className="text-[30px] mt-6">
-              {rating === "HEART" ? "💖 Loved it!" : rating === "THUMBS_UP" ? "👍 Enjoyed it!" : "👎 Not for me"}
-            </p>
-          )}
+        <div className="w-[1080px] h-[1920px] bg-[url('/images/finished-bg.png')] flex flex-col items-center pt-[292px] px-12 pb-8 text-center">
+          <p className="text-[65px] text-secondary leading-none">{session?.user?.name?.split(" ")[0]}</p>
+          <p className={`text-[46px] text-secondary-light font-light ${reviewText ? "mb-[100px]" : "mb-[152px]"}`}>just finished reading</p>
+          <div className="p-4 bg-[url('/images/background.png')] object-cover overflow-hidden rounded-lg w-[320px] h-auto">
+            <img
+              src={book.book.cover_url ||"/placeholder.svg"}
+              alt="Book cover"
+              className="w-[312px] h-auto rounded shadow-lg z-50"
+              crossOrigin="anonymous"
+              onLoad={() => setLoadingImage(false)}
+              onError={() => setLoadingImage(false)}
+            />
+          </div>
+          <p className="text-[60px] font-normal leading-none mt-2 text-center max-w-[620px] text-secondary">{book.book.title}</p>
+          <p className="text-[35px] font-serif text-secondary-light/55 leading-none mt-2 mb-16 text-center">{book.book.author}</p>
+          <div className="relative flex flex-col items-center">
+            {rating && (
+              <div className={`z-50 mt-6 ${reviewText ? "absolute -top-10" : "mb-8"}`}>
+                <p className="text-[65px] leading-[32px] w-[120px] h-[120px] rounded-full p-3 bg-bookWhite border-[4px] border-accent">
+                  {rating === "HEART" ? "💖" : rating === "THUMBS_UP" ? "👍" : "👎"}
+                </p>
+              </div>
+            )}
+            {reviewText && (
+              <div className="w-[680px] rounded-3xl px-6 pb-8 pt-[40px] mt-16 bg-bookWhite/75 z-20">
+                <p className="text-[35px] text-secondary/70 font-serif leading-none text-center">"{clampText(reviewText)}"</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </>
@@ -494,8 +540,7 @@ export default function DashboardReading() {
   };
 
   const shareDialogCallback = () => {
-
-    setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
+    setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null }); 
   }
 
   // Function to handle finished book review submission
@@ -572,8 +617,6 @@ export default function DashboardReading() {
       setIsSubmittingFinishedReview(false);
     }
   };
-
-  
 
   // Function to close the finished book dialog
   const closeFinishedBookDialog = () => {
@@ -1431,7 +1474,7 @@ export default function DashboardReading() {
         book={finishedBookDialog.book}
         onSubmit={handleFinishedBookReview}
         isSubmitting={isSubmittingFinishedReview}
-        shareDialogCallback = {shareDialogCallback}
+        shareDialogCallback={shareDialogCallback}
       />
     </div>
   );

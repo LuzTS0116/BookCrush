@@ -12,7 +12,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 export async function GET(req: NextRequest) {
-  console.log('[API my-feedback GET] Request received');
+  //console.log('[API my-feedback GET] Request received');
 
   if (!supabase) {
     return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
     }
 
-    console.log('[API my-feedback GET] User authenticated:', user.id);
+    //console.log('[API my-feedback GET] User authenticated:', user.id);
 
     // Get query parameters for pagination
     const url = new URL(req.url);
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
 
     const hasMore = offset + feedback.length < totalCount;
 
-    console.log('[API my-feedback GET] Returning feedback:', feedback.length);
+    //console.log('[API my-feedback GET] Returning feedback:', feedback.length);
     return NextResponse.json({
       feedback,
       pagination: {
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
 
 // PATCH endpoint to mark feedback as read
 export async function PATCH(req: NextRequest) {
-  console.log('[API my-feedback PATCH] Request received');
+  //console.log('[API my-feedback PATCH] Request received');
 
   if (!supabase) {
     return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });

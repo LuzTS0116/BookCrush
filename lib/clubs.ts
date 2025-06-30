@@ -29,6 +29,7 @@ interface ClubInvitation {
     id: string;
     name: string;
     description: string;
+    genres?: string[];
     current_book?: {
       id: string;
       title: string;
@@ -58,6 +59,7 @@ interface Club {
   memberCount: number;
   admin?: boolean;
   ownerId: string;
+  genres?: string[];
   current_book?: {
     id: string;
     title: string;
@@ -117,12 +119,12 @@ const getCookieBasedRequestOptions = () => {
 export async function getMyClubs(accessToken: string | undefined): Promise<Club[]> {
   const baseUrl = getBaseUrl();
 
-  console.log('[getMyClubs] Starting with:', {
-    hasAccessToken: !!accessToken,
-    tokenLength: accessToken?.length || 0,
-    baseUrl,
-    tokenPrefix: accessToken?.substring(0, 20) + '...' || 'none'
-  });
+  // console.log('[getMyClubs] Starting with:', {
+  //   hasAccessToken: !!accessToken,
+  //   tokenLength: accessToken?.length || 0,
+  //   baseUrl,
+  //   tokenPrefix: accessToken?.substring(0, 20) + '...' || 'none'
+  // });
 
   if (!accessToken) {
     console.warn("getMyClubs: No access token provided.");
@@ -139,15 +141,15 @@ export async function getMyClubs(accessToken: string | undefined): Promise<Club[
   };
   
   try {
-    console.log('[getMyClubs] Making request to:', `${baseUrl}/api/clubs/my-clubs`);
+    //console.log('[getMyClubs] Making request to:', `${baseUrl}/api/clubs/my-clubs`);
     const response = await fetch(`${baseUrl}/api/clubs/my-clubs`, tokenRequestOptions);
     
-    console.log('[getMyClubs] Response received:', {
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries()),
-      url: response.url
-    });
+    // console.log('[getMyClubs] Response received:', {
+    //   status: response.status,
+    //   statusText: response.statusText,
+    //   headers: Object.fromEntries(response.headers.entries()),
+    //   url: response.url
+    // });
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'No error text available');
@@ -156,7 +158,7 @@ export async function getMyClubs(accessToken: string | undefined): Promise<Club[
     }
     
     const data: Club[] = await response.json();
-    console.log('[getMyClubs] Successfully received data:', { clubCount: data.length });
+    //console.log('[getMyClubs] Successfully received data:', { clubCount: data.length });
 
     // For each club where the user is an admin, fetch pending memberships
     // This part also needs to use tokenRequestOptions if the pending-memberships API is secured similarly

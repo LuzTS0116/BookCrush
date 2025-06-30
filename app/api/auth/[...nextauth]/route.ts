@@ -114,9 +114,6 @@ import Credentials from 'next-auth/providers/credentials';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { prisma } from '@/lib/prisma';
 
-
-
-
 const {
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
@@ -208,7 +205,7 @@ export const authOptions: NextAuthOptions = {
     error: '/login', // Redirect errors back to login page
   },
   callbacks: {
-    async jwt({ token, user, account }) {
+    async jwt({ token, user, account, trigger }) {
       // console.log('[Auth JWT Callback] Starting with:', {
       //   hasUser: !!user,
       //   hasAccount: !!account,
@@ -243,6 +240,24 @@ export const authOptions: NextAuthOptions = {
           };
         } else {
           // console.error('[Auth JWT Callback] Supabase signInWithIdToken failed for Google:', error?.message || 'No session returned');
+        }
+      }
+
+      // Check profile status only when token is first created or explicitly updated
+      if (token.id && (user || trigger === 'update') && token.profileComplete === undefined) {
+        try {
+          console.log('[Auth JWT Callback] Checking profile status for user:', token.id);
+          const profile = await prisma.profile.findUnique({
+            where: { id: token.id as string },
+            select: { id: true, display_name: true }
+          });
+          
+          token.profileComplete = !!profile && !!profile.display_name;
+          console.log('[Auth JWT Callback] Profile status set:', token.profileComplete);
+        } catch (error) {
+          console.error('[Auth JWT Callback] Error checking profile status:', error);
+          // Default to false if we can't check
+          token.profileComplete = false;
         }
       }
       
@@ -314,6 +329,7 @@ export const authOptions: NextAuthOptions = {
       
       session.supabaseAccessToken = token.supa?.access_token;
       session.supabaseRefreshToken = token.supa?.refresh_token;
+      session.profileComplete = token.profileComplete as boolean;
       
       return session;
     }

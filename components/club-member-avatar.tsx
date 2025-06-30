@@ -16,6 +16,8 @@ export function ClubMemberAvatar({
 }: ClubMemberAvatarProps) {
   const { avatarUrl, displayName, initials, isLoading } = useUserAvatar(userId);
 
+  
+
   const sizeClasses = {
     sm: "h-6 w-6",
     md: "h-8 w-8", 

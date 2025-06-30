@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  console.log('[API books GET] Request received');
+  //console.log('[API books GET] Request received');
 
   if (!supabase) {
     return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
@@ -225,7 +225,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
     }
 
-    console.log('[API books GET] User authenticated:', user.id);
+    //console.log('[API books GET] User authenticated:', user.id);
 
     // Get query parameters
     const url = new URL(req.url);
@@ -235,7 +235,7 @@ export async function GET(req: NextRequest) {
     const friendFilter = url.searchParams.get('friendFilter'); // Filter by specific friend
     const shelfFilter = url.searchParams.get('shelfFilter'); // Filter by shelf status
 
-    console.log('[API books GET] Filter parameters:', { filter, friendFilter, shelfFilter });
+    //console.log('[API books GET] Filter parameters:', { filter, friendFilter, shelfFilter });
 
     // Get user's friends first
     const friendships = await prisma.friendship.findMany({
@@ -252,7 +252,7 @@ export async function GET(req: NextRequest) {
       friendship.userId1 === user.id ? friendship.userId2 : friendship.userId1
     );
 
-    console.log('[API books GET] User friends:', friendIds.length);
+    //console.log('[API books GET] User friends:', friendIds.length);
 
     // Build the where clause based on filter - now filtering by UserBook presence
     let whereClause: any = {};
@@ -278,7 +278,7 @@ export async function GET(req: NextRequest) {
       case 'friends':
         // Only books that friends have on their shelves
         if (friendIds.length === 0) {
-          console.log('[API books GET] No friends found, returning empty array for friends filter');
+          //console.log('[API books GET] No friends found, returning empty array for friends filter');
           return NextResponse.json([]);
         }
         
@@ -347,7 +347,7 @@ export async function GET(req: NextRequest) {
       take: limit ? parseInt(limit) : latest ? 1 : undefined, // Limit for dashboard
     });
 
-    console.log('[API books GET] Found books:', books.length, 'with filter:', filter);
+    //console.log('[API books GET] Found books:', books.length, 'with filter:', filter);
 
     // Process all data in memory (much faster than multiple DB queries)
     const booksWithReactionCounts = books.map((book) => {
@@ -405,7 +405,7 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    console.log('[API books GET] Returning books with reactions:', booksWithReactionCounts.length);
+    //console.log('[API books GET] Returning books with reactions:', booksWithReactionCounts.length);
     return NextResponse.json(booksWithReactionCounts);
 
   } catch (err: any) {

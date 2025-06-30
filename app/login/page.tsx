@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from "@/components/ui/separator"
 import { handleSignIn } from '@/lib/auth';
 import { useEffect } from "react";
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 // import { createClient } from "@/lib/supabaseClient";
@@ -25,9 +25,10 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const [isClearingSession, setIsClearingSession] = useState(false);
   const [error, setError] = useState("");
   const supabase = createClient();
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -66,6 +67,20 @@ export default function LoginPage() {
     }
   }, [searchParams]);
   
+  // Check for session clearing flag from middleware
+  useEffect(() => {
+    const shouldClearSession = searchParams.get('clearSession');
+    if (shouldClearSession === 'true' && status === 'authenticated') {
+      console.log('Clearing invalid session as requested by middleware');
+      setIsClearingSession(true);
+      signOut({ redirect: false }).finally(() => {
+        setIsClearingSession(false);
+        // Clear the URL parameters after clearing session
+        router.replace('/login', { scroll: false });
+      });
+    }
+  }, [searchParams, status, router]);
+
   // Check for OAuth errors and display them
   useEffect(() => {
     const oauthError = searchParams.get('error');
@@ -100,7 +115,18 @@ export default function LoginPage() {
           errorMessage = "Session required for this action";
           break;
         case 'missing_supabase_token':
-          errorMessage = "Authentication session expired. Please try signing in again.";
+          // Don't show this error to users - it's a technical issue that resolves on retry
+          // Just clean up loading states and return silently
+          setIsGoogleLoading(false);
+          setIsRedirecting(false);
+          setIsOAuthCallback(false);
+          localStorage.removeItem('googleSignInInProgress');
+          return;
+        case 'token_expired':
+          errorMessage = "Your session has expired. Please sign in again.";
+          break;
+        case 'invalid_session':
+          errorMessage = "Your session was invalid and has been cleared. Please sign in again.";
           break;
         default:
           errorMessage = `Authentication error: ${oauthError}`;
@@ -161,7 +187,7 @@ export default function LoginPage() {
         router.push("/dashboard");
       }
       
-    } catch (err) {
+    } catch (err: any) {
       console.error("Login error:", err);
       setError(err.message || "Failed to sign in");
     } finally {
@@ -185,53 +211,78 @@ export default function LoginPage() {
     }
   };
 
-  // Handle session status changes
+  // Handle session status changes and validation
   useEffect(() => {
     console.log('Session status changed:', status);
+    
     if (status === "authenticated") {
-      console.log('User authenticated, setting redirecting state');
+      console.log('User authenticated, validating session...');
+      
+      // Check if the session has valid Supabase tokens
+      if (!session?.supabaseAccessToken) {
+        console.warn('Session exists but missing Supabase tokens, signing out...');
+        setError("Invalid session detected. Please sign in again.");
+        signOut({ redirect: false }); // Sign out without redirect
+        setIsGoogleLoading(false);
+        setIsRedirecting(false);
+        localStorage.removeItem('googleSignInInProgress');
+        return;
+      }
+      
+      console.log('Valid session found, redirecting...');
       setIsRedirecting(true);
       setIsGoogleLoading(false);
-      // Clean up localStorage when authentication succeeds
       localStorage.removeItem('googleSignInInProgress');
+      
+      // Check profile completion status from session
+      if (session.profileComplete === false) {
+        console.log('Profile incomplete, redirecting to profile setup');
+        router.replace("/profile-setup");
+      } else {
+        console.log('Profile complete, redirecting to dashboard');
+        router.replace("/dashboard");
+      }
+      
     } else if (status === "unauthenticated") {
       setIsGoogleLoading(false);
       setIsRedirecting(false);
-      // Clean up localStorage if authentication fails
       localStorage.removeItem('googleSignInInProgress');
     }
-  }, [status]);
-
-  // 2. Redirect when a valid session is detected
-  useEffect(() => {
-    if (status === "authenticated") {
-      // We use replace so the landing page doesn't stay in the history stack
-      router.replace("/dashboard");
-    }
-  }, [status, router]);
+  }, [status, session, router]);
 
   console.log(status);
 
   /* -------------------------------------------------------------------------
    * While NextAuth is still checking or we're in OAuth callback, show loading
    * ----------------------------------------------------------------------- */
-  // if (status === "loading" || isOAuthCallback || isRedirecting) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center">
-  //       <div className="text-center">
-  //         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-  //         <span className="text-bookWhite">
-  //           {isRedirecting 
-  //             ? "Redirecting to dashboard..." 
-  //             : isOAuthCallback 
-  //               ? "Completing sign in..." 
-  //               : "Checking session..."
-  //           }
-  //         </span>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  if (status === "loading" || isOAuthCallback || isRedirecting || isClearingSession) {
+    return (
+      <div className="relative w-full min-h-screen overflow-hidden px-4">
+        <Image 
+          src="/images/background.png"
+          alt="Create and Manage your Book Clubs | BookCrush"
+          width={1622}
+          height={2871}
+          className="absolute inset-0 w-auto h-full lg:w-full lg:h-auto object-cover z-[-1]"
+        />
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <span className="text-bookWhite">
+              {isClearingSession 
+                ? "Clearing invalid session..." 
+                : isRedirecting 
+                  ? "Redirecting..." 
+                  : isOAuthCallback 
+                    ? "Completing sign in..." 
+                    : "Checking session..."
+              }
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
 
   return (

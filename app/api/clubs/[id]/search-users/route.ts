@@ -8,8 +8,10 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    const {id} = await params;
   try {
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
@@ -19,7 +21,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const clubId = params.id;
+    const clubId = id;
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || '';
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react"
+import { useSession } from "next-auth/react";
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,11 +13,12 @@ import { Separator } from "@/components/ui/separator"
 import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { DropdownMenu as UIDropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Heart as PhosphorHeart } from "@phosphor-icons/react";
-import { Heart, ThumbsUp, ArrowLeft, ThumbsDown, Plus, Send, BookOpen, Calendar, User, Clock, ChevronLeft, MessageSquare, Loader2, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown, CheckCircle } from "lucide-react"
+import { Heart, ThumbsUp, ArrowLeft, ThumbsDown, Plus, Send, BookOpen, Calendar, User, Clock, ChevronLeft, MessageSquare, Loader2, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown, CheckCircle, Edit, Trash2, MoreVertical } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
-import { BookDetails } from "@/types/book";
+import { BookDetails, UserBook } from "@/types/book";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -42,6 +44,7 @@ interface BookReview {
   rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN";
   text: string;
   date: string;
+  updated_at?: string;
 }
 
 interface BookReactions {
@@ -89,7 +92,7 @@ interface BookData {
 const SHELF_OPTIONS = [
   { label: "Currently Reading", value: "currently_reading" },
   { label: "Reading Queue", value: "queue" },
-  { label: "Finished", value: "finished" },
+  { label: "Finished", value: "history" },
 ];
 
 // Add a separate KindleEmailDialog component
@@ -146,161 +149,8 @@ function KindleEmailDialog({
   );
 }
 
-// Add interface for the finished book dialog
-interface FinishedBookDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  book: BookData | null;
-  onSubmit: (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => void;
-  isSubmitting: boolean;
-}
-
-// Add the FinishedBookDialog component
-function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: FinishedBookDialogProps) {
-  const [reviewText, setReviewText] = useState("");
-  const [rating, setRating] = useState<"HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null>(null);
-
-  const handleSubmit = () => {
-    if (rating) {
-      onSubmit(reviewText, rating);
-    }
-  };
-
-  const handleSkip = () => {
-    onSubmit("", "HEART"); // Submit with empty review and default rating
-  };
-
-  const getRatingIcon = (ratingType: "HEART" | "THUMBS_UP" | "THUMBS_DOWN", isSelected: boolean) => {
-    const baseClasses = "h-6 w-6";
-    const selectedClasses = isSelected ? "ring-2 ring-offset-2" : "";
-    
-    switch (ratingType) {
-      case "HEART":
-        return (
-          <LucideHeart 
-            className={`${baseClasses} ${isSelected ? "text-primary fill-primary ring-primary" : "text-muted-foreground"} ${selectedClasses}`} 
-          />
-        );
-      case "THUMBS_UP":
-        return (
-          <LucideThumbsUp 
-            className={`${baseClasses} ${isSelected ? "text-accent-variant ring-accent-variant" : "text-muted-foreground"} ${selectedClasses}`} 
-          />
-        );
-      case "THUMBS_DOWN":
-        return (
-          <LucideThumbsDown 
-            className={`${baseClasses} ${isSelected ? "text-accent ring-accent" : "text-muted-foreground"} ${selectedClasses}`} 
-          />
-        );
-    }
-  };
-
-  // Reset form when dialog opens/closes
-  useEffect(() => {
-    if (isOpen) {
-      setReviewText("");
-      setRating(null);
-    }
-  }, [isOpen]);
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader className="text-center">
-          <DialogTitle className="text-2xl">🎉 Congratulations!</DialogTitle>
-          <DialogDescription>
-            You&apos;ve finished reading <span className="font-semibold">{book?.title}</span>
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="flex flex-col items-center space-y-4 py-4">
-          {book && (
-            <div className="w-24 h-32 rounded-lg overflow-hidden shadow-md">
-              <img 
-                src={book.cover || "/placeholder.svg"} 
-                alt={book.title}
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
-          
-          <div className="text-center">
-            <h3 className="font-medium">{book?.title}</h3>
-            <p className="text-sm text-muted-foreground">by {book?.author}</p>
-          </div>
-          
-          <div className="w-full space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">How did you like it?</label>
-              <div className="flex justify-center gap-3">
-                {(["HEART", "THUMBS_UP", "THUMBS_DOWN"] as const).map((ratingType) => (
-                  <button
-                    key={ratingType}
-                    type="button"
-                    onClick={() => setRating(ratingType)}
-                    className={`p-3 rounded-full transition-all hover:bg-muted ${
-                      rating === ratingType ? "bg-muted" : ""
-                    }`}
-                    disabled={isSubmitting}
-                  >
-                    {getRatingIcon(ratingType, rating === ratingType)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium mb-2 block">
-                Share your thoughts (optional)
-              </label>
-              <Textarea
-                placeholder="What did you think about this book? (max 500 characters)"
-                value={reviewText}
-                onChange={(e) => setReviewText(e.target.value.slice(0, 500))}
-                className="min-h-[100px] resize-none"
-                disabled={isSubmitting}
-              />
-              <div className="text-xs text-muted-foreground mt-1 text-right">
-                {reviewText.length}/500
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button
-            variant="outline"
-            onClick={handleSkip}
-            disabled={isSubmitting}
-            className="w-full sm:w-auto"
-          >
-            Skip Review
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!rating || isSubmitting}
-            className="w-full sm:w-auto"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Finishing...
-              </>
-            ) : (
-              <>
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Mark as Finished
-              </>
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function BookDetailsView({ params }: { params: { id: string } }) {
+  const { data: session } = useSession();
   const [reviewText, setReviewText] = useState("")
   const [userRating, setUserRating] = useState<"HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null>(null)
   const [userReaction, setUserReaction] = useState<"HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null>(null)
@@ -340,15 +190,30 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
   const [isLoadingFriends, setIsLoadingFriends] = useState(false);
   const [friendsError, setFriendsError] = useState<string | null>(null);
 
-  // Add state for finished book dialog
-  const [finishedBookDialogOpen, setFinishedBookDialogOpen] = useState(false);
-  const [isSubmittingFinishedBook, setIsSubmittingFinishedBook] = useState(false);
+  // Add state for editing reviews
+  const [editingReview, setEditingReview] = useState<string | null>(null);
+  const [editReviewText, setEditReviewText] = useState("");
+  const [editReviewRating, setEditReviewRating] = useState<"HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null>(null);
+  const [isUpdatingReview, setIsUpdatingReview] = useState(false);
+  const [isDeletingReview, setIsDeletingReview] = useState<Record<string, boolean>>({});
 
   // Add a function to fetch book files
   const fetchBookFiles = async () => {
     try {
       setIsLoadingFiles(true);
-      const response = await fetch(`/api/books/files?bookId=${id}`);
+
+      if (!session?.supabaseAccessToken) {
+        toast.error("Please log in to view book files");
+        setIsLoadingFiles(false);
+        return;
+      }
+
+      const response = await fetch(`/api/books/files?bookId=${id}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
+      });
       
       if (response.ok) {
         const files = await response.json();
@@ -378,7 +243,17 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
       setIsLoadingFriends(true);
       setFriendsError(null);
       
-      const response = await fetch(`/api/books/${id}/friends-shelves`);
+      if (!session?.supabaseAccessToken) {
+        toast.error("Please log in to view friends' shelves");
+        return;
+      }
+
+      const response = await fetch(`/api/books/${id}/friends-shelves`, {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
+      });
       
       if (response.ok) {
         const friendsData = await response.json();
@@ -607,6 +482,116 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
     }
   }
 
+  // Handle starting edit mode for a review
+  const handleStartEditReview = (review: BookReview) => {
+    setEditingReview(review.id);
+    setEditReviewText(review.text);
+    setEditReviewRating(review.rating);
+  };
+
+  // Handle canceling edit mode
+  const handleCancelEditReview = () => {
+    setEditingReview(null);
+    setEditReviewText("");
+    setEditReviewRating(null);
+  };
+
+  // Handle updating a review
+  const handleUpdateReview = async (reviewId: string) => {
+    if (!editReviewText.trim() || !editReviewRating) {
+      toast.error('Please provide both a rating and review text');
+      return;
+    }
+
+    try {
+      setIsUpdatingReview(true);
+
+      const response = await fetch(`/api/books/${id}/reviews`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reviewId,
+          content: editReviewText,
+          rating: editReviewRating
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Update the review in the local state
+        setReviews(prev => prev.map(review => 
+          review.id === reviewId 
+            ? { 
+                ...review, 
+                text: result.review.text || editReviewText,
+                rating: result.review.rating || editReviewRating,
+                updated_at: result.review.updated_at || new Date().toISOString()
+              }
+            : review
+        ));
+        
+        // Reset edit state
+        handleCancelEditReview();
+        
+        toast.success('Review updated successfully!');
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || 'Failed to update review');
+      }
+    } catch (error) {
+      console.error('Error updating review:', error);
+      toast.error('Failed to update review');
+    } finally {
+      setIsUpdatingReview(false);
+    }
+  };
+
+  // Handle deleting a review
+  const handleDeleteReview = async (reviewId: string) => {
+    if (!confirm('Are you sure you want to delete this review? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setIsDeletingReview(prev => ({ ...prev, [reviewId]: true }));
+
+      const response = await fetch(`/api/books/${id}/reviews`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reviewId })
+      });
+
+      if (response.ok) {
+        // Remove the review from local state
+        setReviews(prev => prev.filter(review => review.id !== reviewId));
+        
+        // Find the deleted review to update reaction counts
+        const deletedReview = reviews.find(review => review.id === reviewId);
+        if (deletedReview) {
+          setReactions(prev => ({
+            ...prev,
+            [deletedReview.rating]: Math.max(0, prev[deletedReview.rating] - 1)
+          }));
+        }
+        
+        toast.success('Review deleted successfully!');
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || 'Failed to delete review');
+      }
+    } catch (error) {
+      console.error('Error deleting review:', error);
+      toast.error('Failed to delete review');
+    } finally {
+      setIsDeletingReview(prev => ({ ...prev, [reviewId]: false }));
+    }
+  };
+
   const getRatingIcon = (rating: string, size = 5) => {
     switch (rating) {
       case "HEART":
@@ -622,12 +607,6 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
 
   // Function to add/move a book to a shelf
   const handleAddToShelf = async (bookId: string, shelf: string) => {
-    // Special handling for finished shelf - show review dialog
-    if (shelf === 'finished') {
-      setFinishedBookDialogOpen(true);
-      return;
-    }
-
     setShelfActionsStatus(prev => ({
       ...prev,
       [bookId]: { isLoading: true, message: null }
@@ -664,62 +643,6 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
     }
   };
 
-  // Handle finished book submission with review
-  const handleFinishedBookSubmit = async (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => {
-    try {
-      setIsSubmittingFinishedBook(true);
-
-      // First, move the book to finished shelf
-      const shelfResponse = await fetch('/api/shelf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          bookId: id, 
-          shelf: 'history', // Use 'history' for finished books
-          status: 'finished' 
-        })
-      });
-
-      if (!shelfResponse.ok) {
-        const errorData = await shelfResponse.json();
-        throw new Error(errorData.error || 'Failed to mark book as finished');
-      }
-
-      // If there's a review, submit it
-      if (reviewText.trim()) {
-        const reviewResponse = await fetch(`/api/books/${id}/reviews`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content: reviewText,
-            rating: rating
-          })
-        });
-
-        if (reviewResponse.ok) {
-          const reviewResult = await reviewResponse.json();
-          // Add the new review to the list
-          setReviews(prev => [reviewResult.review, ...prev]);
-          // Update reaction counts
-          setReactions(prev => ({
-            ...prev,
-            [rating]: prev[rating] + 1
-          }));
-        }
-      }
-
-      // Close dialog and show success message
-      setFinishedBookDialogOpen(false);
-      toast.success('🎉 Congratulations! Book marked as finished!');
-
-    } catch (error: any) {
-      console.error('Error finishing book:', error);
-      toast.error(`Failed to finish book: ${error.message}`);
-    } finally {
-      setIsSubmittingFinishedBook(false);
-    }
-  };
-
   // Add book to favorites - heart
   const handleFavorite = (bookId: string) => {
     setUserFavorite(prev => ({
@@ -741,11 +664,21 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
   // Add function to handle sending to Kindle
   const handleSendToKindle = async (fileId: string, customEmail?: string) => {
     try {
+
+      if (!session?.supabaseAccessToken) {
+        toast.error("Please log in to send files to Kindle");
+        
+        return;
+      }
+
       setIsSendingToKindle(prev => ({ ...prev, [fileId]: true }));
       
       const response = await fetch('/api/books/files/kindle', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
         body: JSON.stringify({ 
           fileId,
           customEmail
@@ -1073,6 +1006,12 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                     )}
                   </div>
                 </div>
+                <p className="text-[10px]  leading-none italic text-secondary/40 mt-2">
+                  *At BookCrush, we believe in the power of books to heal, inspire, and transform lives. We also believe in supporting the creators behind them.
+                  For a short time, in this early development stage, this section will be available to share/download .epub files to help those facing financial hardship find refuge in stories.
+                  But whenever possible, we encourage you to buy the book or borrow it through official digital libraries.
+                  Supporting authors means more stories, more voices, and more magic for everyone.
+                </p>
               </div>
             </div>
             
@@ -1315,12 +1254,125 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                                   </Avatar>
                                   <div>
                                     <p className="font-medium text-base/4">{review.user.name}</p>
-                                    <p className="text-xs font-serif text-secondary-light/60">{review.date}</p>
+                                    <div className="flex items-center gap-2">
+                                      <p className="text-xs font-serif text-secondary-light/60">{review.date}</p>
+                                      {review.updated_at && (
+                                        <span className="text-xs font-serif text-secondary-light/40 italic">
+                                          (edited)
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
-                                {getRatingIcon(review.rating)}
+                                <div className="flex items-center gap-2">
+                                  {editingReview === review.id ? (
+                                    <div className="flex gap-2">
+                                      <button
+                                        onClick={() => setEditReviewRating("HEART")}
+                                        className={`p-1 rounded-full transition-colors ${editReviewRating === "HEART" ? "bg-primary/30" : "hover:bg-muted"}`}
+                                        disabled={isUpdatingReview}
+                                      >
+                                        <Heart
+                                          className={`h-4 w-4 ${editReviewRating === "HEART" ? "text-primary-dark fill-primary-dark" : "text-muted-foreground"}`}
+                                        />
+                                      </button>
+                                      <button
+                                        onClick={() => setEditReviewRating("THUMBS_UP")}
+                                        className={`p-1 rounded-full transition-colors ${editReviewRating === "THUMBS_UP" ? "bg-accent-variant/30" : "hover:bg-muted"}`}
+                                        disabled={isUpdatingReview}
+                                      >
+                                        <ThumbsUp
+                                          className={`h-4 w-4 ${editReviewRating === "THUMBS_UP" ? "text-accent-variant" : "text-muted-foreground"}`}
+                                        />
+                                      </button>
+                                      <button
+                                        onClick={() => setEditReviewRating("THUMBS_DOWN")}
+                                        className={`p-1 rounded-full transition-colors ${editReviewRating === "THUMBS_DOWN" ? "bg-accent/25" : "hover:bg-muted"}`}
+                                        disabled={isUpdatingReview}
+                                      >
+                                        <ThumbsDown
+                                          className={`h-4 w-4 ${editReviewRating === "THUMBS_DOWN" ? "text-accent" : "text-muted-foreground"}`}
+                                        />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      {getRatingIcon(review.rating)}
+                                      {session?.user?.id === review.user.id && (
+                                        <UIDropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className="h-8 w-8 p-0 hover:bg-secondary/20"
+                                            >
+                                              <MoreVertical className="h-4 w-4" />
+                                            </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent className="w-32">
+                                            <DropdownMenuItem
+                                              onClick={() => handleStartEditReview(review)}
+                                              className="flex items-center gap-2 cursor-pointer"
+                                            >
+                                              <Edit className="h-4 w-4" />
+                                              Edit
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                              onClick={() => handleDeleteReview(review.id)}
+                                              className="flex items-center gap-2 cursor-pointer text-red-600 focus:text-red-600"
+                                              disabled={isDeletingReview[review.id]}
+                                            >
+                                              {isDeletingReview[review.id] ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                              ) : (
+                                                <Trash2 className="h-4 w-4" />
+                                              )}
+                                              Delete
+                                            </DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                        </UIDropdownMenu>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
                               </div>
-                              <p className="text-sm ml-12">{review.text}</p>
+                              {editingReview === review.id ? (
+                                <div className="ml-12 space-y-3">
+                                  <Textarea
+                                    value={editReviewText}
+                                    onChange={(e) => setEditReviewText(e.target.value)}
+                                    className="min-h-[100px] bg-secondary/5 text-secondary border-none p-2 placeholder:text-secondary/35 sans-serif text-sm"
+                                    disabled={isUpdatingReview}
+                                    placeholder="Edit your review..."
+                                  />
+                                  <div className="flex justify-end gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={handleCancelEditReview}
+                                      disabled={isUpdatingReview}
+                                      className="rounded-full text-bookWhite"
+                                    >
+                                      Cancel
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleUpdateReview(review.id)}
+                                      disabled={!editReviewText.trim() || !editReviewRating || isUpdatingReview}
+                                      className="bg-primary/75 hover:bg-primary rounded-full text-secondary"
+                                    >
+                                      {isUpdatingReview ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      ) : (
+                                        <CheckCircle className="mr-2 h-4 w-4" />
+                                      )}
+                                      {isUpdatingReview ? 'Updating...' : 'Update'}
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-sm ml-12">{review.text}</p>
+                              )}
                             </div>
                           ))
                         ) : (
@@ -1374,7 +1426,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                           placeholder="Share your thoughts on this book..."
                           value={reviewText}
                           onChange={(e) => setReviewText(e.target.value)}
-                          className="min-h-[120px] bg-secondary-light text-bookWhite border-none"
+                          className="min-h-[120px] bg-secondary/5 text-secondary border-none p-2 placeholder:text-secondary/35 sans-serif text-sm"
                           disabled={isSubmittingReview}
                         />
                         <div className="flex justify-end">
@@ -1605,21 +1657,11 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
           </Card> */}
         {/* </div> */}
         <KindleEmailDialog
-      open={kindleEmailDialogOpen}
-      onOpenChange={setKindleEmailDialogOpen}
-      selectedFileId={selectedFileId}
-      onSend={handleSendToKindleWithEmail}
-    />
-    <FinishedBookDialog
-      isOpen={finishedBookDialogOpen}
-      onClose={() => setFinishedBookDialogOpen(false)}
-      book={book}
-      onSubmit={handleFinishedBookSubmit}
-      isSubmitting={isSubmittingFinishedBook}
-    />
+          open={kindleEmailDialogOpen}
+          onOpenChange={setKindleEmailDialogOpen}
+          selectedFileId={selectedFileId}
+          onSend={handleSendToKindleWithEmail}
+        />
     </div>
-
-    
-    
   )
 }

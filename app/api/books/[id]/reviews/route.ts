@@ -4,6 +4,17 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma';
 import { ReactionType } from '@prisma/client' 
 import {getAvatarPublicUrlServer} from '@/lib/supabase-server-utils';
+import { createClient } from '@supabase/supabase-js';
+
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing for book reviews API.");
+}
+
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 
 // GET /api/books/[id]/reviews - Fetch reviews for a book
@@ -14,6 +25,10 @@ export async function GET(
 
   const {id} = await params; 
   try {
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+    }
+
     const bookId = id
 
     if (!bookId) {
@@ -49,7 +64,7 @@ export async function GET(
       user: {
         id: review.user.id,
         name: review.user.display_name,
-        avatar: await getAvatarPublicUrlServer(review.user.avatar_url),
+        avatar: await getAvatarPublicUrlServer(supabase!, review.user.avatar_url),
         initials: review.user.display_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
       },
       rating: review.rating,
@@ -58,7 +73,8 @@ export async function GET(
         year: 'numeric', 
         month: 'long', 
         day: 'numeric' 
-      })
+      }),
+      updated_at: review.updated_at ? review.updated_at.toISOString() : null
     })))
 
     return NextResponse.json(formattedReviews, { status: 200 })
@@ -73,9 +89,11 @@ export async function GET(
 
 // POST /api/books/[id]/reviews - Create or update a review
 export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+   request: Request,
+  { params }: { params: Promise<{ id: string }> }
 ) {
+
+  const {id} = await params; 
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
@@ -88,7 +106,7 @@ export async function POST(
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    const bookId = params.id
+    const bookId = id
     const { content, rating } = await request.json()
 
     if (!bookId) {
@@ -192,7 +210,7 @@ export async function POST(
       user: {
         id: result.user.id,
         name: result.user.display_name,
-        avatar: await getAvatarPublicUrlServer(result.user.avatar_url),
+        avatar: await getAvatarPublicUrlServer(supabase!, result.user.avatar_url),
         initials: result.user.display_name.split(' ').map((n: string) => n[0]).join('').toUpperCase()
       },
       rating: result.rating,
@@ -215,4 +233,176 @@ export async function POST(
   } finally {
     
   }
-} 
+}
+
+// PUT /api/books/[id]/reviews - Update a specific review
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userId = session.user.id;
+    const bookId = id;
+    const { reviewId, content, rating } = await request.json();
+
+    if (!reviewId || !content || !rating) {
+      return NextResponse.json({ error: 'Review ID, content and rating are required' }, { status: 400 });
+    }
+
+    // Validate rating is a valid ReactionType
+    if (!Object.values(ReactionType).includes(rating as ReactionType)) {
+      return NextResponse.json({ error: 'Invalid rating type' }, { status: 400 });
+    }
+
+    // Check if the review exists and belongs to the user
+    const existingReview = await prisma.bookReview.findUnique({
+      where: { id: reviewId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            display_name: true,
+            avatar_url: true
+          }
+        }
+      }
+    });
+
+    if (!existingReview) {
+      return NextResponse.json({ error: 'Review not found' }, { status: 404 });
+    }
+
+    if (existingReview.user_id !== userId) {
+      return NextResponse.json({ error: 'You can only edit your own reviews' }, { status: 403 });
+    }
+
+    // Update the review
+    const updatedReview = await prisma.$transaction(async (tx) => {
+      const review = await tx.bookReview.update({
+        where: { id: reviewId },
+        data: {
+          content,
+          rating: rating as ReactionType,
+          updated_at: new Date()
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              display_name: true,
+              avatar_url: true
+            }
+          }
+        }
+      });
+
+      // Update the corresponding reaction
+      await tx.reaction.upsert({
+        where: {
+          user_id_target_type_target_id_type: {
+            user_id: userId,
+            target_type: 'BOOK',
+            target_id: bookId,
+            type: rating as ReactionType
+          }
+        },
+        update: {
+          created_at: new Date()
+        },
+        create: {
+          user_id: userId,
+          target_type: 'BOOK',
+          target_id: bookId,
+          type: rating as ReactionType
+        }
+      });
+
+      return review;
+    });
+
+    // Format the response
+    const formattedReview = {
+      id: updatedReview.id,
+      text: updatedReview.content,
+      rating: updatedReview.rating,
+      updated_at: updatedReview.updated_at?.toISOString()
+    };
+
+    return NextResponse.json({ 
+      message: 'Review updated successfully',
+      review: formattedReview
+    }, { status: 200 });
+
+  } catch (error) {
+    console.error('Error updating book review:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// DELETE /api/books/[id]/reviews - Delete a specific review
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userId = session.user.id;
+    const bookId = id;
+    const { reviewId } = await request.json();
+
+    if (!reviewId) {
+      return NextResponse.json({ error: 'Review ID is required' }, { status: 400 });
+    }
+
+    // Check if the review exists and belongs to the user
+    const existingReview = await prisma.bookReview.findUnique({
+      where: { id: reviewId }
+    });
+
+    if (!existingReview) {
+      return NextResponse.json({ error: 'Review not found' }, { status: 404 });
+    }
+
+    if (existingReview.user_id !== userId) {
+      return NextResponse.json({ error: 'You can only delete your own reviews' }, { status: 403 });
+    }
+
+    // Delete the review and corresponding reaction
+    await prisma.$transaction(async (tx) => {
+      await tx.bookReview.delete({
+        where: { id: reviewId }
+      });
+
+      // Delete the corresponding reaction
+      await tx.reaction.deleteMany({
+        where: {
+          user_id: userId,
+          target_type: 'BOOK',
+          target_id: bookId,
+          type: existingReview.rating
+        }
+      });
+    });
+
+    return NextResponse.json({ 
+      message: 'Review deleted successfully'
+    }, { status: 200 });
+
+  } catch (error) {
+    console.error('Error deleting book review:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

@@ -6,15 +6,17 @@ import { prisma } from '@/lib/prisma';
 
 
 export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+  req: Request,
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    const {id} = await params;
   try {
     // Check admin authentication and role
     await requireAdmin();
 
     const user = await prisma.profile.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       include: {
         _count: {
           select: {
@@ -52,9 +54,11 @@ export async function GET(
 }
 
 export async function PUT(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+  req: Request,
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    const {id} = await params;
   try {
     // Check admin authentication and role
     await requireAdmin();
@@ -68,7 +72,7 @@ export async function PUT(
     }
 
     const updatedUser = await prisma.profile.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         display_name: display_name.trim(),
         nickname: nickname?.trim() || null,
@@ -116,21 +120,23 @@ export async function PUT(
 }
 
 export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+  req: Request,
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    const {id} = await params;
   try {
     // Check admin authentication and role
     const adminUser = await requireAdmin();
     
     // Prevent admin from deleting themselves
-    if (adminUser.id === params.id) {
+    if (adminUser.id === id) {
       return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
     }
 
     // Check if user exists
     const existingUser = await prisma.profile.findUnique({
-      where: { id: params.id }
+      where: { id: id }
     });
 
     if (!existingUser) {
@@ -139,7 +145,7 @@ export async function DELETE(
 
     // Delete user (this will cascade delete related records due to schema constraints)
     await prisma.profile.delete({
-      where: { id: params.id }
+      where: { id: id }
     });
 
     return NextResponse.json({ message: 'User deleted successfully' }, { status: 200 });

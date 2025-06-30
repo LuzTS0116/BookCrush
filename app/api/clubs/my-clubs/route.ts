@@ -5,6 +5,8 @@ import { createClient } from '@supabase/supabase-js'; // Standard Supabase clien
 import { PrismaClient } from '@prisma/client'
 import {  ClubMembershipStatus, ClubRole  } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { getAvatarPublicUrlServer } from '@/lib/supabase-server-utils';
+
 
 
 
@@ -21,15 +23,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
 const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 export async function GET(req: NextRequest) {
-  console.log('[API my-clubs] Request received:', {
-    method: req.method,
-    url: req.url,
-    headers: {
-      authorization: req.headers.get('Authorization')?.substring(0, 30) + '...',
-      contentType: req.headers.get('Content-Type'),
-      userAgent: req.headers.get('User-Agent')?.substring(0, 50) + '...',
-    }
-  });
+  // console.log('[API my-clubs] Request received:', {
+  //   method: req.method,
+  //   url: req.url,
+  //   headers: {
+  //     authorization: req.headers.get('Authorization')?.substring(0, 30) + '...',
+  //     contentType: req.headers.get('Content-Type'),
+  //     userAgent: req.headers.get('User-Agent')?.substring(0, 50) + '...',
+  //   }
+  // });
 
   if (!supabase) {
     console.error('[API my-clubs] Supabase client not initialized');
@@ -42,23 +44,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
     }
     const token = authHeader.split(' ')[1];
-    console.log('[API my-clubs] Token extracted:', { tokenLength: token?.length || 0, tokenPrefix: token?.substring(0, 20) + '...' });
+    // console.log('[API my-clubs] Token extracted:', { tokenLength: token?.length || 0, tokenPrefix: token?.substring(0, 20) + '...' });
 
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
-    console.log('[API my-clubs] Supabase auth result:', {
-      hasUser: !!user,
-      userId: user?.id,
-      userEmail: user?.email,
-      error: userError?.message
-    });
+    // console.log('[API my-clubs] Supabase auth result:', {
+    //   hasUser: !!user,
+    //   userId: user?.id,
+    //   userEmail: user?.email,
+    //   error: userError?.message
+    // });
 
     if (userError || !user) {
       console.error("Auth error or no user:", userError);
       return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
     }
 
-    console.log('[API my-clubs] User authenticated successfully, fetching clubs...');
+    // console.log('[API my-clubs] User authenticated successfully, fetching clubs...');
 
     // Fetch all memberships for the current user that are ACTIVE
     const userMemberships = await prisma.clubMembership.findMany({
@@ -76,6 +78,7 @@ export async function GET(req: NextRequest) {
             description: true,
             owner_id: true,
             memberCount: true,
+            genres: true,
             current_book: {
               select: {
                 id: true,
@@ -121,12 +124,12 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    console.log('[API my-clubs] Database query completed:', { membershipCount: userMemberships.length });
+    //console.log('[API my-clubs] Database query completed:', { membershipCount: userMemberships.length });
 
     //get the a single meeting with status scheduled from userMemberships.club.meetings
     // const nextMeeting = userMemberships.map(membership => membership.club.meetings.find(meeting => meeting.status === 'SCHEDULED'));
 
-    const clubsWithStatus = userMemberships.map(membership => ({
+    const clubsWithStatus = await Promise.all(userMemberships.map(async membership => ({
       id: membership.club.id,
       name: membership.club.name,
       description: membership.club.description,
@@ -134,22 +137,23 @@ export async function GET(req: NextRequest) {
       memberCount: membership.club.memberCount,
       membershipStatus: membership.status,
       role: membership.role,
+      genres: membership.club.genres,
       // Corrected admin check
       admin: membership.club.owner_id === user.id,
       current_book: membership.club.current_book,
       meetings: membership.club.meetings,
       // Include members data for avatars
-      members: membership.club.memberships.map(member => ({
+      members: await Promise.all(membership.club.memberships.map(async member => ({
         id: member.user.id,
         display_name: member.user.display_name,
         nickname: member.user.nickname,
-        avatar_url: member.user.avatar_url,
+        avatar_url: await getAvatarPublicUrlServer(supabase!, member.user.avatar_url),
         role: member.role,
         joined_at: member.joined_at,
-      })),
-    }));
+      }))),
+    })));
 
-    console.log('[API my-clubs] Returning response:', { clubCount: clubsWithStatus.length });
+    // console.log('[API my-clubs] Returning response:', { clubCount: clubsWithStatus.length });
     return NextResponse.json(clubsWithStatus, { status: 200 });
 
   } catch (error: any) {

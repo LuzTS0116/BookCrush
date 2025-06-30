@@ -111,7 +111,20 @@ export async function GET(
                 avatar_url: true,
               },
             },
+            replies: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    display_name: true,
+                    avatar_url: true,
+                  },
+                },
+              },
+              orderBy: { created_at: 'asc' },
+            },
           },
+          orderBy: { created_at: 'desc' },
         });
 
         // Format discussions with proper avatar URLs
@@ -119,8 +132,15 @@ export async function GET(
           ...discussion,
           user: {
             ...discussion.user,
-            avatar_url: await getAvatarPublicUrlServer(discussion.user.avatar_url)
-          }
+            avatar_url: await getAvatarPublicUrlServer(supabase!, discussion.user.avatar_url)
+          },
+          replies: await Promise.all(discussion.replies.map(async (reply) => ({
+            ...reply,
+            user: {
+              ...reply.user,
+              avatar_url: await getAvatarPublicUrlServer(supabase!, reply.user.avatar_url)
+            }
+          })))
         })));
       }
     }
@@ -191,7 +211,7 @@ export async function GET(
       ...membership,
       user: {
         ...membership.user,
-        avatar_url: await getAvatarPublicUrlServer(membership.user.avatar_url)
+        avatar_url: await getAvatarPublicUrlServer(supabase!, membership.user.avatar_url)
       }
     })));
 

@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
 
     // Format all profiles with proper avatar URLs (handles both Google URLs and storage keys)
     const formattedUsers = await Promise.all(
-      explorableUsers.map(user => formatProfileWithAvatarUrlServer(user))
+      explorableUsers.map(user => formatProfileWithAvatarUrlServer(supabase!, user))
     );
 
     return NextResponse.json(formattedUsers, { status: 200 });

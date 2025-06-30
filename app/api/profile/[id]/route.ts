@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
-
+import { createClient } from '@supabase/supabase-js';
 import { getPublicProfileData } from '@/lib/friendship-utils';
 import { canViewProfile } from '@/lib/friendship-utils';
 import { formatProfileWithAvatarUrlServer } from '@/lib/supabase-server-utils';
 import { prisma } from '@/lib/prisma';
+
+// Initialize Supabase client - credentials should be in environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing. Check environment variables.");
+  // You might want to throw an error here or handle it gracefully depending on your app's startup requirements
+}
+
+// Create a single Supabase client instance
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 
 
@@ -13,13 +23,26 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!supabase) {
+    console.error('[API profile/[id]] Supabase client not initialized');
+    return NextResponse.json({ error: "Supabase client not initialized. Check server configuration." }, { status: 500 });
+  }
   try {
-    // 1. Authenticate the requesting user
-    const supabase = createRouteHandlerClient({ cookies });
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API profile/[id] Missing or invalid Authorization header:', authHeader?.substring(0, 20));
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
+    const token = authHeader.split(' ')[1];
+    
 
-    if (authError || !user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    
+
+    if (userError || !user) {
+      console.error("Auth error or no user:", userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
     }
 
     // 2. Get the profile ID from params
@@ -32,6 +55,7 @@ export async function GET(
     // 3. Check if the requesting user can view the profile
     const canView = await canViewProfile(prisma, user.id, id);
     if (!canView) {
+      console.error("You cant view this PROFILE");
       return NextResponse.json({ error: "You do not have permission to view this profile" }, { status: 403 });
     }
 
@@ -73,7 +97,9 @@ export async function GET(
     }
 
     // Format the profile with proper avatar URL
-    const formattedProfile = await formatProfileWithAvatarUrlServer(profile);
+    const formattedProfile = await formatProfileWithAvatarUrlServer(supabase!, profile);
+
+    
 
     return NextResponse.json(formattedProfile, { status: 200 });
 

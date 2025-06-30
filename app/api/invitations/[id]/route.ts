@@ -10,8 +10,10 @@ import { prisma } from '@/lib/prisma';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    const {id} = await params;
   try {
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
@@ -21,7 +23,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const invitationId = params.id;
+    const invitationId = id;
     const body = await request.json();
     const { action } = body; // 'accept' or 'decline'
 
@@ -153,8 +155,10 @@ export async function PATCH(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    const {id} = await params;
   try {
     const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
@@ -164,7 +168,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const invitationId = params.id;
+    const invitationId = id;
 
     // Get the invitation details
     const invitation = await prisma.clubInvitation.findUnique({
@@ -226,8 +230,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    const {id} = await params;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
@@ -237,7 +243,7 @@ export async function POST(
     const user_id = session.user.id;
 
     const { action } = await request.json();
-    const invitationId = params.id;
+    const invitationId = id;
 
     if (!action || !['accept', 'decline'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action. Must be "accept" or "decline"' }, { status: 400 });

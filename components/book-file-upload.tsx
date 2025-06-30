@@ -15,6 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Upload } from "lucide-react"
+import { useSession } from "next-auth/react";
 
 interface BookFileUploadProps {
   bookId: string
@@ -28,6 +29,7 @@ export default function BookFileUpload({ bookId, bookTitle, language, onFileUplo
   const [englishFile, setEnglishFile] = useState<File | null>(null)
   const [spanishFile, setSpanishFile] = useState<File | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const { data: session } = useSession();
 
   const handleUpload = async () => {
     // If language is specified, only check that file
@@ -110,10 +112,18 @@ export default function BookFileUpload({ bookId, bookTitle, language, onFileUplo
       mimeType: file.type,
       language
     }
+
+    if (!session?.supabaseAccessToken) {
+      toast.error("Please log in to upload files");
+      throw new Error("Authentication required to upload files");
+    }
     
     const associateResponse = await fetch('/api/books/files', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.supabaseAccessToken}`,
+      },
       body: JSON.stringify(fileData)
     })
     

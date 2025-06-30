@@ -2,24 +2,45 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { prisma } from '@/lib/prisma';
+import { createClient } from '@supabase/supabase-js';
+import { getAvatarPublicUrlServer } from '@/lib/supabase-server-utils';
 
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing for books API.");
+}
 
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    const { data: { user } } = await supabase.auth.getUser();
+    { params }: { params: Promise<{ id: string }> }
+ ) {
 
-    if (!user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    const {id} = await params;
+  try {
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
     }
 
-    const bookId = params.id;
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API books POST] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error('[API books POST] Auth error:', userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
+    }
+
+    const bookId = id;
 
     // Get user's friends
     const friendships = await prisma.friendship.findMany({
@@ -89,7 +110,7 @@ export async function GET(
     });
 
     // Format the response
-    const formattedFriends = friendsWithBook.map(userBook => ({
+    const preFormat = friendsWithBook.map(userBook => ({
       id: userBook.user.id,
       name: userBook.user.display_name || userBook.user.nickname || 'Unknown',
       nickname: userBook.user.nickname,
@@ -100,6 +121,17 @@ export async function GET(
       media_type: userBook.media_type,
       added_at: userBook.added_at,
       is_favorite: userBook.is_favorite,
+    }));
+
+    // Format the friends with proper avatar URLs
+    const formattedFriends = await Promise.all(preFormat.map(async (friend) => {
+      if (friend.avatar) {
+        return {
+          ...friend,
+          avatar:  await getAvatarPublicUrlServer(supabase!, friend.avatar)
+        };
+      }
+      return friend;
     }));
 
     return NextResponse.json(formattedFriends, { status: 200 });

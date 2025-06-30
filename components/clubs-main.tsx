@@ -113,6 +113,45 @@ export default function ClubsMain({
   const [newClubPrivacy, setNewClubPrivacy] = useState<"public" | "private">("public");
   const [isCreateClubDialogOpen, setIsCreateClubDialogOpen] = useState(false); // To control dialog closing
   
+  // Genre-related states for Create Club
+  const [selectedGenre, setSelectedGenre] = useState("");
+  const [clubGenres, setClubGenres] = useState<string[]>([]);
+
+  // Genres array (same as profile-setup)
+  const genres = [
+    "Biography",
+    "Children's",
+    "Classics",
+    "Dark Romance",
+    "Fantasy",
+    "Fiction",
+    "Historical Fiction",
+    "Horror",
+    "Literary Fiction",
+    "Manga",
+    "Mystery",
+    "Non-Fiction",
+    "Poetry",
+    "Romance",
+    "Romantasy",
+    "Science Fiction",
+    "Self-Help",
+    "Thriller",
+    "Young Adult"
+  ];
+
+  // Genre helper functions
+  const addGenre = () => {
+    if (selectedGenre && !clubGenres.includes(selectedGenre)) {
+      setClubGenres([...clubGenres, selectedGenre]);
+      setSelectedGenre("");
+    }
+  };
+
+  const removeGenre = (genre: string) => {
+    setClubGenres(clubGenres.filter((g) => g !== genre));
+  };
+  
   // Initialize with server-provided data
   const [myClubs, setMyClubs] = useState<Club[]>(initialMyClubs);
   const [discoverClubs, setDiscoverClubs] = useState<Club[]>(initialDiscoverClubs);
@@ -121,6 +160,7 @@ export default function ClubsMain({
   // Effect to update local state when props change (e.g., after router.refresh())
   useEffect(() => {
     setMyClubs(initialMyClubs);
+    console.log("initialMyClubs", initialMyClubs)
     
   }, [initialMyClubs]);
 //console.log(initialMyClubs)
@@ -146,6 +186,7 @@ export default function ClubsMain({
           name: newClubName,
           description: newClubDescription,
           isPrivate: newClubPrivacy === "private",
+          genres: clubGenres,
         }),
       });
 
@@ -161,6 +202,8 @@ export default function ClubsMain({
       setNewClubName("");
       setNewClubDescription("");
       setNewClubPrivacy("public");
+      setClubGenres([]);
+      setSelectedGenre("");
       setIsCreateClubDialogOpen(false);
 
       router.refresh(); // Refresh server-side data
@@ -330,10 +373,19 @@ console.log(pendingInvitations);
       setLoadingAction(false);
     }
   };
+  
+  
+  const filteredClubs = myClubs?.filter((club) =>
+      club.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      club.genres?.some((genre: string) => genre.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
 
-  const filteredClubs = myClubs.filter((club) =>
-    club.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredDiscoverClubs = discoverClubs?.filter((club) =>
+      club.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      club.genres?.some((genre: string) => genre.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+  
+  
   // --- Render Logic ---
 
   return (
@@ -381,6 +433,45 @@ console.log(pendingInvitations);
                             onChange={(e) => setNewClubDescription(e.target.value)}
                             disabled={loadingAction}
                         />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="genres">Preferred Genres (Optional)</Label>
+                          <div className="flex gap-2">
+                            <Select value={selectedGenre} onValueChange={setSelectedGenre} disabled={loadingAction}>
+                              <SelectTrigger className="bg-bookWhite text-secondary">
+                                <SelectValue placeholder="Choose a genre" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {genres.filter(genre => !clubGenres.includes(genre)).map((genre) => (
+                                  <SelectItem key={genre} value={genre}>
+                                    {genre}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button 
+                              type="button"
+                              onClick={addGenre} 
+                              disabled={!selectedGenre || loadingAction}
+                              className="bg-primary hover:bg-primary-light text-primary-foreground"
+                            >
+                              Add
+                            </Button>
+                          </div>
+                          {clubGenres.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {clubGenres.map((genre) => (
+                                <Badge 
+                                  key={genre} 
+                                  variant="secondary" 
+                                  className="bg-primary/70 text-secondary hover:bg-primary cursor-pointer"
+                                  onClick={() => removeGenre(genre)}
+                                >
+                                  {genre} <X className="ml-1 h-3 w-3" />
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         {/* <div className="grid gap-2">
                         <Label htmlFor="privacy">Privacy</Label>
@@ -509,6 +600,29 @@ console.log(pendingInvitations);
                             <CardDescription className="font-serif font-medium text-sm/4 pt-1">
                               {invitation.club.description}
                             </CardDescription>
+
+                            {/* Genres */}
+                            {invitation.club.genres && invitation.club.genres.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {invitation.club.genres.slice(0, 3).map((genre) => (
+                                  <Badge 
+                                    key={genre} 
+                                    variant="outline" 
+                                    className="bg-accent/20 text-secondary text-xs border-none"
+                                  >
+                                    {genre}
+                                  </Badge>
+                                ))}
+                                {invitation.club.genres.length > 3 && (
+                                  <Badge 
+                                    variant="outline" 
+                                    className="bg-accent/20 text-secondary text-xs border-none"
+                                  >
+                                    +{invitation.club.genres.length - 3} more
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
 
                             {/* Invitation Details */}
                             {/* <div className="mt-2 p-2 bg-accent/10 rounded-md">
@@ -656,6 +770,10 @@ console.log(pendingInvitations);
                   <p className="text-center text-muted-foreground py-10">You are not a member of any clubs yet. Explore the "Discover" tab!</p>
                 ) : myClubs.length === 0 ? (
                   <p className="text-center text-muted-foreground py-10">No active club memberships. Check your invitations above or explore the "Discover" tab!</p>
+                ) : filteredClubs.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-10">
+                    {searchQuery ? `No clubs found matching "${searchQuery}"` : "No clubs to display"}
+                  </p>
                 ) : (
                   filteredClubs.map((club) => (
                       <Card key={club.id}>
@@ -695,6 +813,29 @@ console.log(pendingInvitations);
                             <CardDescription className="font-serif font-medium text-sm/4 pt-1">
                             {club.description}
                             </CardDescription>
+
+                            {/* Genres */}
+                            {club.genres && club.genres.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {club.genres.slice(0, 3).map((genre) => (
+                                  <Badge 
+                                    key={genre} 
+                                    variant="outline" 
+                                    className="bg-accent/20 text-secondary text-xs border-none"
+                                  >
+                                    {genre}
+                                  </Badge>
+                                ))}
+                                {club.genres.length > 3 && (
+                                  <Badge 
+                                    variant="outline" 
+                                    className="bg-accent/20 text-secondary text-xs border-none"
+                                  >
+                                    +{club.genres.length - 3} more
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
                         </div>
                       </CardHeader>
                       <CardContent className="px-3 py-0">
@@ -977,10 +1118,12 @@ console.log(pendingInvitations);
                 </TabsContent>
 
                 <TabsContent value="discover" className="space-y-3">
-                {discoverClubs.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-10">No new clubs to discover at the moment. Check back later!</p>
+                {filteredDiscoverClubs.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-10">
+                    {searchQuery ? `No clubs found matching "${searchQuery}"` : "No new clubs to discover at the moment. Check back later!"}
+                  </p>
                 ) : (
-                  discoverClubs.map((club) => (
+                  filteredDiscoverClubs.map((club) => (
                       <Card key={club.id}>
                       <CardHeader className="pb-2 text-secondary-light items-start px-3 pt-3">
                         {/* Left side: Title */}
@@ -990,6 +1133,29 @@ console.log(pendingInvitations);
                                 </CardTitle>
                             </div>
                           <CardDescription className="pt-1 font-serif font-medium text-sm/4">{club.description}</CardDescription>
+
+                          {/* Genres */}
+                          {club.genres && club.genres.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {club.genres.slice(0, 3).map((genre) => (
+                                <Badge 
+                                  key={genre} 
+                                  variant="outline" 
+                                  className="bg-accent/20 text-secondary text-xs border-none"
+                                >
+                                  {genre}
+                                </Badge>
+                              ))}
+                              {club.genres.length > 3 && (
+                                <Badge 
+                                  variant="outline" 
+                                  className="bg-accent/20 text-secondary text-xs border-none"
+                                >
+                                  +{club.genres.length - 3} more
+                                </Badge>
+                              )}
+                            </div>
+                          )}
                       </CardHeader>
                       <CardContent className="px-3 py-0">
                         {club.current_book ? (
@@ -1022,10 +1188,17 @@ console.log(pendingInvitations);
                                       <div className="flex">
                                           <p className="text-secondary text-xs/4">{club.current_book?.pages} pages • {club.current_book?.reading_time}</p>
                                       </div>
-                                      <span className="flex flex-row items-center w-36 mt-1.5 h-5 px-2 bg-accent-variant/75 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
-                                        <Calendar className="h-3 w-3 mr-1"/>
-                                        {calculateDaysUntilMeeting(club.meetings[0].meeting_date)}.
-                                      </span>
+                                      {club.meetings && club.meetings.length > 0 ? (
+                                        <span className="flex flex-row items-center w-36 mt-1.5 h-5 px-2 bg-accent-variant/75 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
+                                          <Calendar className="h-3 w-3 mr-1"/>
+                                          {calculateDaysUntilMeeting(club.meetings[0].meeting_date)}.
+                                        </span>
+                                      ) : (
+                                        <span className="flex flex-row items-center w-40 mt-1.5 h-5 px-2 bg-accent-variant/75 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
+                                          <Calendar className="h-3 w-3 mr-1"/>
+                                          No meeting date set.
+                                        </span>
+                                      )}
                                     </div>
                                 </div>
                             </div>

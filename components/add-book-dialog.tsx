@@ -331,7 +331,8 @@ const handleSelect = async (suggestion: BookSuggestion) => {
 
   const uploadFile = async (file: File, language: string, bookId: string) => {
     if (!session?.supabaseAccessToken) {
-      throw new Error('Authentication required for file upload');
+      toast.error("Please log in to upload files");
+      throw new Error("Authentication required to upload files");
     }
 
     // Step 1: Get presigned URL
@@ -377,7 +378,7 @@ const handleSelect = async (suggestion: BookSuggestion) => {
     
     const associateResponse = await fetch('/api/books/files', {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.supabaseAccessToken}`,
       },
@@ -407,12 +408,11 @@ const handleSelect = async (suggestion: BookSuggestion) => {
     setValidationError(null);
 
     try {
-      const feedbackContent = `Book Not Found Request:
-Title: ${bookNotFoundData.title.trim()}
-Author: ${bookNotFoundData.author.trim()}
-${bookNotFoundData.additionalInfo.trim() ? `Additional Info: ${bookNotFoundData.additionalInfo.trim()}` : ''}
-
-User was searching for this book but couldn't find it in our database.`;
+      const feedbackContent = `Book Not Found Request |
+      Title: ${bookNotFoundData.title.trim()}
+      Author: ${bookNotFoundData.author.trim()}
+      ${bookNotFoundData.additionalInfo.trim() ? `Additional Info: ${bookNotFoundData.additionalInfo.trim()}` : ''}
+      | This book couldn't be found in the database.`;
 
       const response = await fetch('/api/feedback', {
         method: 'POST',

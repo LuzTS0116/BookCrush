@@ -8,6 +8,7 @@ declare module "next-auth" {
     } & DefaultSession["user"]
     supabaseAccessToken?: string
     supabaseRefreshToken?: string
+    profileComplete?: boolean
   }
 
   interface User extends DefaultUser {
@@ -26,5 +27,6 @@ declare module "next-auth/jwt" {
       access_token: string
       refresh_token: string
     }
+    profileComplete?: boolean
   }
 } 

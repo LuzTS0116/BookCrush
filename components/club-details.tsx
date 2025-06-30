@@ -1,6 +1,7 @@
 "use client"
 
-import { use,useState, useEffect, useCallback } from "react" // Added useEffect, useCallback
+import { useState, useEffect, useRef, useCallback } from "react" // Added useEffect, useCallback
+import { useSession } from "next-auth/react";
 import { useParams } from "next/navigation"
 import Image from "next/image";
 import { Button } from "@/components/ui/button"
@@ -21,17 +22,316 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { BookOpen, CalendarDays, Plus, Search, Settings, Send, MessageSquare, Clock, Loader2, Check, ArrowLeft, MapPin } from "lucide-react" // Added Loader2, Check
+import { BookOpen, CalendarDays, Plus, Search, Settings, Send, MessageSquare, Clock, Loader2, Check, ArrowLeft, MapPin, Reply, Edit, Trash2, MoreVertical, ChevronDown, ChevronUp } from "lucide-react" // Added icons for replies and actions
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { toast } from "sonner"; // Assuming sonner for toasts
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { BookSelectionDialog } from '@/components/BookSelectionDialog'
 import { useRouter } from "next/navigation"
 import { formatRelativeDate } from "@/lib/utils";
 import { useAvatarUrl } from "@/hooks/use-profile"
 
+// --- Discussion Item Component ---
+interface DiscussionItemProps {
+  discussion: Discussion;
+  isReply?: boolean;
+  currentUserId?: string;
+  club: ClubData | null;
+  avatarUrl: string | null;
+  expandedDiscussions: Set<string>;
+  loadingDiscussionAction: Record<string, boolean>;
+  editingDiscussion: string | null;
+  editContent: Record<string, string>;
+  replyingTo: string | null;
+  replyContent: Record<string, string>;
+  onToggleExpanded: (discussionId: string) => void;
+  onStartEditing: (discussionId: string, content: string) => void;
+  onCancelEditing: () => void;
+  onStartReplying: (discussionId: string) => void;
+  onCancelReplying: () => void;
+  onEditDiscussion: (discussionId: string) => void;
+  onDeleteDiscussion: (discussionId: string) => void;
+  onReplyToDiscussion: (discussionId: string) => void;
+  onEditContentChange: (discussionId: string, content: string) => void;
+  onReplyContentChange: (discussionId: string, content: string) => void;
+  formatRelativeDate: (date: string) => string;
+}
+
+const DiscussionItem: React.FC<DiscussionItemProps> = ({
+  discussion,
+  isReply = false,
+  currentUserId,
+  club,
+  avatarUrl,
+  expandedDiscussions,
+  loadingDiscussionAction,
+  editingDiscussion,
+  editContent,
+  replyingTo,
+  replyContent,
+  onToggleExpanded,
+  onStartEditing,
+  onCancelEditing,
+  onStartReplying,
+  onCancelReplying,
+  onEditDiscussion,
+  onDeleteDiscussion,
+  onReplyToDiscussion,
+  onEditContentChange,
+  onReplyContentChange,
+  formatRelativeDate,
+}) => {
+  const isCurrentUser = currentUserId === discussion.user.id;
+  const canEdit = isCurrentUser;
+  const canDelete = isCurrentUser || club?.currentUserIsAdmin;
+  const isExpanded = expandedDiscussions.has(discussion.id);
+  const hasReplies = discussion.replies && discussion.replies.length > 0;
+  const isLoading = loadingDiscussionAction[discussion.id];
+
+  return (
+    <div className={`${isReply ? 'ml-6 border-l-2 border-primary/20 pl-4' : ''}`}>
+      <div className="flex gap-3 bg-secondary-light/5 p-3 rounded-md">
+        <Avatar className="h-8 w-8 flex-shrink-0">
+          <AvatarImage
+            src={discussion.user?.avatar_url || undefined}
+            alt={discussion.user?.display_name || 'User'}
+          />
+          <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+            {discussion.user?.display_name?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <p className="font-medium leading-none text-sm">{discussion.user?.display_name || 'Anonymous'}</p>
+              {discussion.updated_at && discussion.updated_at !== discussion.created_at && (
+                <span className="text-xs text-muted-foreground italic">(edited)</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-serif text-secondary-light/60">
+                {discussion.created_at ? formatRelativeDate(discussion.created_at) : 'Recently'}
+              </p>
+              {club?.currentUserMembershipStatus === 'ACTIVE' && (canEdit || canDelete) && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-secondary/50">
+                      <MoreVertical className="h-3 w-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {canEdit && (
+                      <DropdownMenuItem
+                        onClick={() => onStartEditing(discussion.id, discussion.content)}
+                        disabled={isLoading}
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                    )}
+                    {canDelete && (
+                      <DropdownMenuItem
+                        onClick={() => onDeleteDiscussion(discussion.id)}
+                        disabled={isLoading}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
+          </div>
+          
+          {/* Discussion content or edit form */}
+          {editingDiscussion === discussion.id ? (
+            <div className="mt-2 space-y-2">
+              <Textarea
+                value={editContent[discussion.id] || ''}
+                onChange={(e) => onEditContentChange(discussion.id, e.target.value)}
+                className="min-h-[80px] bg-bookWhite border-secondary-light/30 p-2"
+                disabled={isLoading}
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => onEditDiscussion(discussion.id)}
+                  disabled={isLoading || !editContent[discussion.id]?.trim()}
+                  className="bg-primary hover:bg-primary-light text-secondary rounded-full"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  ) : null}
+                  Save
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onCancelEditing}
+                  disabled={isLoading}
+                  className="rounded-full text-bookWhite"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm font-serif font-normal mt-2">{discussion.content}</p>
+          )}
+
+          {/* Action buttons */}
+          {club?.currentUserMembershipStatus === 'ACTIVE' && !isReply && (
+            <div className="flex flex-row justify-end items-center gap-3 mt-3">
+              {hasReplies && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onToggleExpanded(discussion.id)}
+                  className="h-6 px-2 text-xs bg-secondary/5 text-secondary-light/70 hover:text-secondary"
+                >
+                  {isExpanded ? (
+                    <ChevronUp className="h-3 w-3 mr-1" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3 mr-1" />
+                  )}
+                  {discussion.replies!.length} {discussion.replies!.length === 1 ? 'reply' : 'replies'}
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onStartReplying(discussion.id)}
+                disabled={isLoading}
+                className="h-6 px-2 text-xs text-secondary-light/70 bg-secondary/5 hover:text-secondary"
+              >
+                <Reply className="h-3 w-3 mr-1" />
+                Reply
+              </Button>
+            </div>
+          )}
+
+          {/* Reply form */}
+          {replyingTo === discussion.id && (
+            <div className="mt-3 space-y-2">
+              <div className="flex gap-2">
+                <Avatar className="h-6 w-6 flex-shrink-0">
+                  <AvatarImage src={avatarUrl || "/placeholder.svg"} alt="Your avatar" />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">ME</AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <Textarea
+                    placeholder="Write a reply..."
+                    value={replyContent[discussion.id] || ''}
+                    onChange={(e) => onReplyContentChange(discussion.id, e.target.value)}
+                    className="min-h-[60px] bg-bookWhite border-secondary-light/30 text-sm"
+                    disabled={isLoading}
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="flex gap-2 ml-8">
+                <Button
+                  size="sm"
+                  onClick={() => onReplyToDiscussion(discussion.id)}
+                  disabled={isLoading || !replyContent[discussion.id]?.trim()}
+                  className="bg-primary hover:bg-primary-light text-secondary rounded-full"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                  ) : null}
+                  Reply
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onCancelReplying}
+                  disabled={isLoading}
+                  className="rounded-full text-bookWhite bg-secondary-light/80"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Replies */}
+      {hasReplies && isExpanded && (
+        <div className="mt-2 space-y-2">
+          {discussion.replies!.map((reply) => (
+            <DiscussionItem
+              key={reply.id}
+              discussion={reply}
+              isReply={true}
+              currentUserId={currentUserId}
+              club={club}
+              avatarUrl={avatarUrl}
+              expandedDiscussions={expandedDiscussions}
+              loadingDiscussionAction={loadingDiscussionAction}
+              editingDiscussion={editingDiscussion}
+              editContent={editContent}
+              replyingTo={replyingTo}
+              replyContent={replyContent}
+              onToggleExpanded={onToggleExpanded}
+              onStartEditing={onStartEditing}
+              onCancelEditing={onCancelEditing}
+              onStartReplying={onStartReplying}
+              onCancelReplying={onCancelReplying}
+              onEditDiscussion={onEditDiscussion}
+              onDeleteDiscussion={onDeleteDiscussion}
+              onReplyToDiscussion={onReplyToDiscussion}
+              onEditContentChange={onEditContentChange}
+              onReplyContentChange={onReplyContentChange}
+              formatRelativeDate={formatRelativeDate}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+export function TruncatedCard({ text, link }:{ text: string, link: string }) {
+  const contentRef = useRef<HTMLParagraphElement>(null);
+  const [isClamped, setIsClamped] = useState(false);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (el) {
+      // scrollHeight > clientHeight means there's hidden overflow
+      setIsClamped(el.scrollHeight > el.clientHeight);
+    }
+  }, [text]);
+
+  return (
+    <div className="bg-secondary/5 p-2.5 rounded-md mt-2">
+      <p
+        ref={contentRef}
+        className="text-sm/4 text-secondary font-light line-clamp-5"
+      >
+        {text}
+      </p>
+
+      {isClamped && (
+        <Link href={link}>
+          <button
+            className="mt-0.5 text-sm underline text-secondary-light text-right"
+          >
+            view more
+          </button>
+        </Link>
+      )}
+    </div>
+  );
+}
 
 // --- Define Interfaces (copied from previous thought, ensure consistency) ---
 
@@ -51,14 +351,17 @@ interface ClubMembership {
 }
 
 interface Discussion {
-  id: string; // Added to match API response after mapping
+  id: string;
   user: {
+    id: string;
     display_name: string;
     avatar_url: string | null;
-    //initials: string;
   };
   content: string;
   created_at: string;
+  updated_at?: string;
+  parent_discussion_id?: string | null;
+  replies?: Discussion[];
 }
 
 interface BookHistoryEntry {
@@ -81,6 +384,7 @@ interface CurrentBookDetails {
   title: string;
   author: string;
   cover_url: string;
+  genres?: string[];
   description: string;
   reading_time: string | null;
   pages: number | null;
@@ -164,6 +468,7 @@ interface ClubData {
 
 
 export default function ClubDetailsView({ params }: { params: { id: string } }) {
+  const { data: session, status } = useSession();
   const [comment, setComment] = useState("");
   const [club, setClub] = useState<ClubData | null>(null); // Club data, initially null
   const [loadingClub, setLoadingClub] = useState(true); // Loading state for initial club data fetch
@@ -186,6 +491,14 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   // Member book status state
   const [memberBookStatuses, setMemberBookStatuses] = useState<MemberBookStatus[]>([]);
   const [loadingMemberStatuses, setLoadingMemberStatuses] = useState(false);
+
+  // Discussion interaction state
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState<Record<string, string>>({});
+  const [editingDiscussion, setEditingDiscussion] = useState<string | null>(null);
+  const [editContent, setEditContent] = useState<Record<string, string>>({});
+  const [expandedDiscussions, setExpandedDiscussions] = useState<Set<string>>(new Set());
+  const [loadingDiscussionAction, setLoadingDiscussionAction] = useState<Record<string, boolean>>({});
 
 
   //wrap params with React.use() 
@@ -216,7 +529,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
       setLoadingClub(false);
     }
   }, [id]);
-  console.log(club)
+  
   // Initial data load on component mount
   useEffect(() => {
     fetchClubDetails();
@@ -393,12 +706,16 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
     setLoadingPostComment(true);
     try {
-      // Assuming the API endpoint is /api/clubs/{clubId}/discussions
-      // And it expects { text: string, bookId: string | null }
+      if (!session?.supabaseAccessToken) {
+        toast.error("Please log in to post comment");
+        return;
+      }
+      
       const response = await fetch(`/api/clubs/${club.id}/discussions`, {
         method: 'POST',
-        headers: {
+        headers: { 
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
         },
         body: JSON.stringify({
           text: comment,
@@ -411,9 +728,36 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
         throw new Error(errorData.error || "Failed to post comment.");
       }
 
+      const newDiscussion = await response.json();
+      console.log("New discussion posted:", newDiscussion);
+      
+      // Update the club state locally instead of refetching
+      setClub(prevClub => {
+        if (!prevClub) return prevClub;
+        
+        return {
+          ...prevClub,
+          discussions: [
+            {
+              id: newDiscussion.id,
+              content: newDiscussion.content,
+              created_at: newDiscussion.created_at,
+              updated_at: newDiscussion.updated_at,
+              parent_discussion_id: null,
+              user: {
+                id: newDiscussion.user.id,
+                display_name: newDiscussion.user.display_name,
+                avatar_url: newDiscussion.user.avatar_url
+              },
+              replies: []
+            },
+            ...prevClub.discussions
+          ]
+        };
+      });
+      
       toast.success("Comment posted successfully!");
       setComment(""); // Clear the textarea
-      await fetchClubDetails(); // Refresh club data to show the new comment
 
     } catch (err: any) {
       toast.error(`Error posting comment: ${err.message}`);
@@ -458,12 +802,18 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
       return;
     }
 
+    if (!session?.supabaseAccessToken) {
+      toast.error("Please log in to send invitation");
+      return;
+    }
+
     setLoadingInvite(true);
     try {
       const response = await fetch(`/api/clubs/${club.id}/invitations`, {
         method: 'POST',
-        headers: {
+        headers: { 
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
         },
         body: JSON.stringify({
           user_id: user.id,
@@ -509,10 +859,21 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   // --- NEW: Function to fetch pending invitations ---
   const fetchPendingInvitations = useCallback(async () => {
     if (!club?.currentUserIsAdmin || !id) return;
+
+    if (!session?.supabaseAccessToken) {
+      toast.error("No session found");
+      return;
+    }
     
     setLoadingInvitations(true);
     try {
-      const response = await fetch(`/api/clubs/${id}/invitations`);
+      const response = await fetch(`/api/clubs/${id}/invitations`, {
+        headers: {
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+          'Content-Type': 'application/json',
+        },
+
+    });
       
       if (!response.ok) {
         throw new Error("Failed to fetch pending invitations");
@@ -531,14 +892,18 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
   // --- NEW: Function to fetch member book statuses ---
   const fetchMemberBookStatuses = useCallback(async () => {
-    if (!club?.current_book || !id) {
+    if (!club?.current_book || !id || !session?.supabaseAccessToken) {
       setMemberBookStatuses([]);
       return;
     }
     
     setLoadingMemberStatuses(true);
     try {
-      const response = await fetch(`/api/clubs/${id}/members/book-status`);
+      const response = await fetch(`/api/clubs/${id}/members/book-status`, {
+        headers: {
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
+      });
       
       if (!response.ok) {
         throw new Error("Failed to fetch member book statuses");
@@ -553,7 +918,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     } finally {
       setLoadingMemberStatuses(false);
     }
-  }, [club?.current_book, id]);
+  }, [club?.current_book, id, session?.supabaseAccessToken]);
 
   // Fetch pending invitations when club data loads and user is admin
   useEffect(() => {
@@ -568,6 +933,239 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
       fetchMemberBookStatuses();
     }
   }, [club, fetchMemberBookStatuses]);
+
+  // --- NEW: Discussion interaction functions ---
+  
+  // Handle reply to discussion
+  const handleReplyToDiscussion = async (discussionId: string) => {
+    const content = replyContent[discussionId]?.trim();
+    if (!content || !club || !session?.supabaseAccessToken) {
+      toast.error("Please enter a reply");
+      return;
+    }
+
+    setLoadingDiscussionAction(prev => ({ ...prev, [discussionId]: true }));
+    try {
+      const response = await fetch(`/api/discussions/${discussionId}/replies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
+        body: JSON.stringify({ content }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to post reply");
+      }
+
+      const newReply = await response.json();
+      
+      // Update the club state locally instead of refetching everything
+      setClub(prevClub => {
+        if (!prevClub) return prevClub;
+        
+        const updatedDiscussions = prevClub.discussions.map(discussion => {
+          if (discussion.id === discussionId) {
+            return {
+              ...discussion,
+              replies: [...(discussion.replies || []), {
+                id: newReply.id,
+                content: newReply.content,
+                created_at: newReply.created_at,
+                updated_at: newReply.updated_at,
+                parent_discussion_id: newReply.parent_discussion_id,
+                user: {
+                  id: newReply.user.id,
+                  display_name: newReply.user.display_name,
+                  avatar_url: newReply.user.avatar_url
+                }
+              }]
+            };
+          }
+          return discussion;
+        });
+        
+        return {
+          ...prevClub,
+          discussions: updatedDiscussions
+        };
+      });
+
+      toast.success("Reply posted successfully!");
+      setReplyContent(prev => ({ ...prev, [discussionId]: '' }));
+      setReplyingTo(null);
+      
+      // Expand the discussion to show the new reply
+      setExpandedDiscussions(prev => new Set([...prev, discussionId]));
+
+    } catch (err: any) {
+      toast.error(`Error posting reply: ${err.message}`);
+      console.error("Error posting reply:", err);
+    } finally {
+      setLoadingDiscussionAction(prev => ({ ...prev, [discussionId]: false }));
+    }
+  };
+
+  // Handle edit discussion
+  const handleEditDiscussion = async (discussionId: string) => {
+    const content = editContent[discussionId]?.trim();
+    if (!content || !session?.supabaseAccessToken) {
+      toast.error("Please enter content");
+      return;
+    }
+
+    setLoadingDiscussionAction(prev => ({ ...prev, [discussionId]: true }));
+    try {
+      const response = await fetch(`/api/discussions/${discussionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
+        body: JSON.stringify({ content }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to edit discussion");
+      }
+
+      const updatedDiscussion = await response.json();
+      
+      // Update the club state locally
+      setClub(prevClub => {
+        if (!prevClub) return prevClub;
+        
+        const updateDiscussionInList = (discussions: Discussion[]): Discussion[] => {
+          return discussions.map(discussion => {
+            if (discussion.id === discussionId) {
+              return {
+                ...discussion,
+                content: updatedDiscussion.content,
+                updated_at: updatedDiscussion.updated_at
+              };
+            }
+            // Also check replies
+            if (discussion.replies) {
+              return {
+                ...discussion,
+                replies: updateDiscussionInList(discussion.replies)
+              };
+            }
+            return discussion;
+          });
+        };
+        
+        return {
+          ...prevClub,
+          discussions: updateDiscussionInList(prevClub.discussions)
+        };
+      });
+
+      toast.success("Discussion updated successfully!");
+      setEditContent(prev => ({ ...prev, [discussionId]: '' }));
+      setEditingDiscussion(null);
+
+    } catch (err: any) {
+      toast.error(`Error editing discussion: ${err.message}`);
+      console.error("Error editing discussion:", err);
+    } finally {
+      setLoadingDiscussionAction(prev => ({ ...prev, [discussionId]: false }));
+    }
+  };
+
+  // Handle delete discussion
+  const handleDeleteDiscussion = async (discussionId: string) => {
+    if (!session?.supabaseAccessToken) {
+      toast.error("Authentication required");
+      return;
+    }
+
+    if (!confirm("Are you sure you want to delete this discussion? This action cannot be undone.")) {
+      return;
+    }
+
+    setLoadingDiscussionAction(prev => ({ ...prev, [discussionId]: true }));
+    try {
+      const response = await fetch(`/api/discussions/${discussionId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete discussion");
+      }
+
+      // Update the club state locally by removing the discussion
+      setClub(prevClub => {
+        if (!prevClub) return prevClub;
+        
+        const removeDiscussionFromList = (discussions: Discussion[]): Discussion[] => {
+          return discussions
+            .filter(discussion => discussion.id !== discussionId)
+            .map(discussion => ({
+              ...discussion,
+              replies: discussion.replies ? removeDiscussionFromList(discussion.replies) : []
+            }));
+        };
+        
+        return {
+          ...prevClub,
+          discussions: removeDiscussionFromList(prevClub.discussions)
+        };
+      });
+
+      toast.success("Discussion deleted successfully!");
+
+    } catch (err: any) {
+      toast.error(`Error deleting discussion: ${err.message}`);
+      console.error("Error deleting discussion:", err);
+    } finally {
+      setLoadingDiscussionAction(prev => ({ ...prev, [discussionId]: false }));
+    }
+  };
+
+  // Toggle expanded state for discussion replies
+  const toggleDiscussionExpanded = (discussionId: string) => {
+    setExpandedDiscussions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(discussionId)) {
+        newSet.delete(discussionId);
+      } else {
+        newSet.add(discussionId);
+      }
+      return newSet;
+    });
+  };
+
+  // Start editing a discussion
+  const startEditingDiscussion = (discussionId: string, currentContent: string) => {
+    setEditingDiscussion(discussionId);
+    setEditContent(prev => ({ ...prev, [discussionId]: currentContent }));
+  };
+
+  // Cancel editing
+  const cancelEditingDiscussion = () => {
+    setEditingDiscussion(null);
+    setEditContent({});
+  };
+
+  // Start replying to a discussion
+  const startReplyingToDiscussion = (discussionId: string) => {
+    setReplyingTo(discussionId);
+    setReplyContent(prev => ({ ...prev, [discussionId]: '' }));
+  };
+
+    // Cancel replying
+  const cancelReplyingToDiscussion = () => {
+    setReplyingTo(null);
+    setReplyContent({});
+  };
 
   // --- Loading State and Error Handling for UI ---
   if (loadingClub) {
@@ -648,39 +1246,54 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
         <div className="md:col-span-2">
           <Card className="bg-bookWhite/90 py-2">
-            <CardHeader className="px-3 py-3">
+            <CardHeader className="px-3 pt-3 pb-0">
               <CardTitle className="px-0 pb-2 text-secondary">Current Book</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6 px-3 py-3">
+            <CardContent className="space-y-6 px-3 pt-1.5 pb-3">
               {club.current_book ? (
-                <div className="flex flex-col md:flex-row gap-6">
-                  <div className="w-32 h-48 bg-muted/30 rounded-md flex items-center justify-center overflow-hidden mx-auto md:mx-0">
-                    <img
-                      src={club.current_book.cover_url || "/placeholder-book.png"}
-                      alt={`${club.current_book.title} cover`}
-                      className="max-h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-bold">{club.current_book.title}</h3>
-                    <p className="text-secondary font-serif font-normal">{club.current_book.author}</p>
+                <div className="">
+                  <div className="flex flex-row gap-2 bg-secondary/5 p-2.5 rounded-md">
+                    <div className="w-[100px] flex-shrink-0">                      
+                      <Link href={`/books/${club.current_book.id}`}>
+                        <img
+                          src={club.current_book.cover_url || "/placeholder.svg"}
+                          alt={`${club.current_book.title} cover` || "Book cover"}
+                          className="h-full w-full rounded-md shadow-md object-cover"
+                        />
+                      </Link>
+                    </div>
+                    <div className="flex-1">
+                      <Link href={`/books/${club.current_book.id}`}>
+                        <h3 className="text-xl/4 font-semibold">{club.current_book.title}</h3>
+                      </Link>
+                      <p className="text-sm text-secondary-light/70">{club.current_book.author}</p>
 
-                    {club.current_book.reading_time && (
-                      <div className="mt-2 flex items-center gap-2">
-                        <Clock className="h-5 w-5 text-secondary" />
-                        <span className="text-sm">Reading time: {club.current_book.reading_time}</span>
+                      {/* Genre Tags */}
+                      {club.current_book.genres && (
+                      <div className="flex flex-wrap gap-1">
+                        {club.current_book.genres?.slice(0, 2).map((genre: string) => (
+                          <span
+                            key={genre}
+                            className="bg-accent/30 text-secondary/40 text-xs/3 font-medium px-2 py-1 rounded-full"
+                          >
+                            {genre}
+                          </span>
+                        ))}
                       </div>
-                    )}
+                      )}
 
-                    {club.current_book.pages && (
-                      <div className="mt-2 flex items-center gap-2">
-                        <BookOpen className="h-5 w-5 text-secondary" />
-                        <span className="text-sm">{club.current_book.pages} pages</span>
+                      {/* Pages & Time */}
+                      {club.current_book.pages && (
+                      <div className="flex-1">
+                        <p className="text-secondary/80 font-sans font-normal text-sm inline-block">{club.current_book.pages} pages • {club.current_book.reading_time}</p>
                       </div>
-                    )}
-
-                    <p className="mt-2 text-sm text-secondary font-serif font-normal">{club.current_book.description}</p>
+                      )}
+                    </div>
                   </div>
+                  <TruncatedCard 
+                    text={club.current_book.description}
+                    link={`/books/${club.current_book.id}`}
+                  />
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
@@ -898,29 +1511,36 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                   </CardHeader>
                   <CardContent className="p-3">
                     {club.discussions && club.discussions.length > 0 ? (
-                      <div className="space-y-2">
-                        {club.discussions.map((discussion, i) => (
-                          <div key={discussion.id || i} className="flex gap-4 bg-secondary-light/10 p-2 rounded-md">
-                            <Avatar className="h-10 w-10">
-                              <AvatarImage
-                                src={discussion.user?.avatar_url || undefined}
-                                alt={discussion.user?.display_name || 'User'}
-                              />
-                              <AvatarFallback className="bg-primary text-primary-foreground">
-                                {discussion.user?.display_name?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between">
-                                <p className="font-medium leading-none">{discussion.user?.display_name || 'Anonymous'}</p>
-                                <p className="text-xs font-serif text-secondary-light/60">
-                                  {discussion.created_at ? formatRelativeDate(discussion.created_at) : 'Recently'}
-                                </p>
-                              </div>
-                              <p className="text-sm font-serif font-normal mt-1">{discussion.content}</p>
-                              {/* TODO: Implement rendering for discussion.replies if they exist and are fetched */}
-                            </div>
-                          </div>
+                      <div className="space-y-3">
+                        {club.discussions.map((discussion) => (
+                          <DiscussionItem
+                            key={discussion.id}
+                            discussion={discussion}
+                            currentUserId={session?.user?.id}
+                            club={club}
+                            avatarUrl={avatarUrl}
+                            expandedDiscussions={expandedDiscussions}
+                            loadingDiscussionAction={loadingDiscussionAction}
+                            editingDiscussion={editingDiscussion}
+                            editContent={editContent}
+                            replyingTo={replyingTo}
+                            replyContent={replyContent}
+                            onToggleExpanded={toggleDiscussionExpanded}
+                            onStartEditing={startEditingDiscussion}
+                            onCancelEditing={cancelEditingDiscussion}
+                            onStartReplying={startReplyingToDiscussion}
+                            onCancelReplying={cancelReplyingToDiscussion}
+                            onEditDiscussion={handleEditDiscussion}
+                            onDeleteDiscussion={handleDeleteDiscussion}
+                            onReplyToDiscussion={handleReplyToDiscussion}
+                            onEditContentChange={(discussionId, content) => 
+                              setEditContent(prev => ({ ...prev, [discussionId]: content }))
+                            }
+                            onReplyContentChange={(discussionId, content) => 
+                              setReplyContent(prev => ({ ...prev, [discussionId]: content }))
+                            }
+                            formatRelativeDate={formatRelativeDate}
+                          />
                         ))}
                       </div>
                     ) : (
@@ -941,7 +1561,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
                     {/* Comment submission section - only for ACTIVE members */}
                     {club.currentUserMembershipStatus === 'ACTIVE' ? (
-                      <div className="flex gap-4">
+                      <form onSubmit={(e) => { e.preventDefault(); handlePostComment(); }} className="flex gap-4">
                         <Avatar className="h-10 w-10">
                           {/* Replace with actual current user avatar logic if available */}
                           <AvatarImage src={avatarUrl || "placeholder.svg?height=40&width=40"} alt="Your avatar" />
@@ -949,20 +1569,22 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                         </Avatar>
                         <div className="flex-1 space-y-2">
                           <Textarea
-                            placeholder={
-                              club.current_book
-                                ? "Share your thoughts on the book..."
-                                : "Post a general discussion topic..."
-                            }
+                            placeholder="Share your thoughts..."
                             value={comment}
                             onChange={(e) => setComment(e.target.value)}
-                            className="min-h-[100px] bg-secondary-light text-bookWhite border-none"
+                            className="min-h-[100px] bg-secondary/5 text-secondary border-none p-2 placeholder:text-secondary/35 sans-serif text-sm"
                             disabled={loadingPostComment}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                                e.preventDefault();
+                                handlePostComment();
+                              }
+                            }}
                           />
                           <div className="flex justify-end">
                             <Button
+                              type="submit"
                               className="bg-primary hover:bg-primary-light rounded-full text-secondary"
-                              onClick={handlePostComment}
                               disabled={loadingPostComment || !comment.trim()}
                             >
                               {loadingPostComment ? (
@@ -974,7 +1596,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                             </Button>
                           </div>        
                         </div>
-                      </div>
+                      </form>
                     ) : (
                       <div className="text-center py-4 text-muted-foreground">
                         {club.currentUserMembershipStatus === 'PENDING' ? (

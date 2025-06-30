@@ -8,6 +8,7 @@ interface ShareAchievementDialogProps {
   onOpenChange: (open: boolean) => void;
   downloadedImageUrl: string | null;
   loading: boolean;
+  shareDialogCallback: () => void;
 }
 
 export function ShareAchievementDialog({
@@ -15,7 +16,13 @@ export function ShareAchievementDialog({
   onOpenChange,
   downloadedImageUrl,
   loading,
+  shareDialogCallback
 }: ShareAchievementDialogProps) {
+
+  function handleCallback(){
+    shareDialogCallback();
+    onOpenChange(false);
+  }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[85vw] rounded-2xl px-0 py-1 text-secondary">
@@ -28,21 +35,21 @@ export function ShareAchievementDialog({
         />
         {!downloadedImageUrl ? (
           <div className="text-center p-6">
-            <p className="text-sm text-red-500">Oops! Something went wrong while generating your image. Try again.</p>
+            <p className="text-sm text-bookWhite">Oops! Something went wrong while generating your image. Try again.</p>
           </div>
         ) : (
           <>
             <DialogHeader className="px-6 pt-4">
-              <DialogTitle className="mt-7 text-center text-xl font-semibold">
-                🎉 Your review has been submitted!
+              <DialogTitle className="mt-0 text-center text-base font-medium text-bookWhite">
+                Your review has been submitted!🎉
               </DialogTitle>
-              <DialogDescription className="text-center text-sm mt-2 text-secondary-light/80">
-                Want to share your reading achievement with your friends? Download this image and share it on your favorite platform!
+              <DialogDescription className="text-center text-[12px] mt-2 text-bookWhite/80 font-serif leading-[13px]">
+                Want to share your achievement with your friends? Download this image and share it on your favorite platform!
               </DialogDescription>
             </DialogHeader>
 
             <div className="grid gap-2 py-0 px-4">
-              <div className="h-[45vh] w-auto overflow-hidden mx-auto rounded-lg shadow-md">
+              <div className="h-[40vh] w-auto overflow-hidden mx-auto rounded-lg shadow-md">
                 <img
                   src={downloadedImageUrl}
                   alt="Book achievement preview"
@@ -50,19 +57,34 @@ export function ShareAchievementDialog({
                 />
               </div>
 
-              <div className="flex justify-end mt-4">
-                <a
-                  href={downloadedImageUrl}
-                  onClick={shareDialogCallback}
-                  download="reading-achievement.png"
-                  className="bg-primary text-secondary px-4 py-2 rounded-full text-sm hover:bg-primary-dark transition"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <>Download and Share</>
-                  )}
-                </a>
+              <div className="flex flex-row justify-center mt-4 gap-3">
+                <div className="">
+                  <a
+                    href={downloadedImageUrl}
+                    download="reading-achievement.png"
+                    className="bg-primary text-secondary px-4 py-2 rounded-full text-sm hover:bg-primary-dark transition"
+                  >
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>Download Image</>
+                    )}
+                  </a>
+                </div>
+                <div className="">
+                  <a
+                    //onClick={() => onOpenChange(false)}
+                    onClick={handleCallback}
+                    download="reading-achievement.png"
+                    className="bg-accent/80 text-secondary px-4 py-2 rounded-full text-sm hover:bg-accent transition"
+                  >
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>Close</>
+                    )}
+                  </a>
+                </div>
               </div>
             </div>
 

@@ -19,7 +19,7 @@ const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supa
 // Helper function to enrich activities with necessary details for the frontend
 async function enrichActivity(activity: ActivityLog & { user: Profile }): Promise<any> {
   // Format the avatar URL from storage key to public URL
-  const avatarUrl = await getAvatarPublicUrlServer(activity.user.avatar_url);
+  const avatarUrl = await getAvatarPublicUrlServer(supabase!, activity.user.avatar_url);
   
   let enrichedActivity: any = {
     id: activity.id,
@@ -35,6 +35,7 @@ async function enrichActivity(activity: ActivityLog & { user: Profile }): Promis
     target_entity_type: activity.target_entity_type,
     target_entity_id: activity.target_entity_id,
     target_entity_secondary_id: activity.target_entity_secondary_id,
+    related_user_id: activity.related_user_id,
   };
 
   // Example of fetching more specific data based on type
@@ -65,7 +66,7 @@ async function enrichActivity(activity: ActivityLog & { user: Profile }): Promis
       });
       
       if (relatedUser) {
-        const relatedUserAvatarUrl = await getAvatarPublicUrlServer(relatedUser.avatar_url);
+        const relatedUserAvatarUrl = await getAvatarPublicUrlServer(supabase!, relatedUser.avatar_url);
         enrichedActivity.relatedUser = {
           ...relatedUser,
           avatar_url: relatedUserAvatarUrl

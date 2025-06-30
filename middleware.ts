@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
   //   id: token.id,
   //   email: token.email,
   //   hasSupaToken: !!token.supa?.access_token,
-  //   supaTokenLength: token.supa?.access_token?.length || 0
+  //   profileComplete: token.profileComplete
   // });
 
   if (pathname.startsWith('/profile-setup')) {
@@ -75,60 +75,31 @@ export async function middleware(request: NextRequest) {
 
   if (!token.supa?.access_token) {
     // console.warn('[Main Middleware] Token found but missing Supabase access token');
+    // Add a special flag to indicate this is an invalid session
     const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('error', 'missing_supabase_token');
+    loginUrl.searchParams.set('error', 'invalid_session');
+    loginUrl.searchParams.set('clearSession', 'true');
     return NextResponse.redirect(loginUrl);
   }
 
-  // Check profile status
-  try {
-    const profileStatusUrl = new URL('/api/user/profile-status', request.url);
-    const profileResponse = await fetch(profileStatusUrl.toString(), {
-      headers: {
-        'Authorization': `Bearer ${token.supa.access_token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    // console.log('[Main Middleware] Profile status response:', profileResponse.status);
-
-    if (!profileResponse.ok) {
-      const errorData = await profileResponse.json().catch(() => ({ error: 'Failed to parse profile status error' }));
-      // console.error('[Main Middleware] Profile status check failed:', profileResponse.status, errorData.error);
-      
-      // If it's a 401, the token might be expired
-      if (profileResponse.status === 401) {
-        // console.log('[Main Middleware] Unauthorized - token might be expired, redirecting to login');
-        const loginUrl = new URL('/login', request.url);
-        loginUrl.searchParams.set('error', 'token_expired');
-        return NextResponse.redirect(loginUrl);
-      }
-      
-      // For other errors, redirect to login with error
-      const errorRedirectUrl = new URL('/login', request.url);
-      errorRedirectUrl.searchParams.set('error', 'profile_check_api_error');
-      return NextResponse.redirect(errorRedirectUrl);
-    }
-
-    const { hasProfile } = await profileResponse.json();
-    // console.log('[Main Middleware] Profile status:', { hasProfile });
-
-    if (!hasProfile) {
-      // console.log('[Main Middleware] No profile found, redirecting to /profile-setup.');
-      const redirectUrl = new URL('/profile-setup', request.url);
-      redirectUrl.searchParams.set('redirectedFrom', pathname);
-      return NextResponse.redirect(redirectUrl);
-    }
-    
-    // console.log('[Main Middleware] Profile found, allowing access to:', pathname);
-    return NextResponse.next();
-    
-  } catch (error: any) {
-    // console.error('[Main Middleware] Error calling profile status API:', error.message);
-    const errorRedirectUrl = new URL('/login', request.url);
-    errorRedirectUrl.searchParams.set('error', 'profile_api_fetch_error');
-    return NextResponse.redirect(errorRedirectUrl);
+  // Check profile completion status from JWT token (no API call needed!)
+  if (token.profileComplete === false) {
+    // console.log('[Main Middleware] Profile incomplete, redirecting to /profile-setup.');
+    const redirectUrl = new URL('/profile-setup', request.url);
+    redirectUrl.searchParams.set('redirectedFrom', pathname);
+    return NextResponse.redirect(redirectUrl);
   }
+
+  // If profileComplete is undefined, it means we need to check once
+  // This can happen during token refresh or edge cases
+  if (token.profileComplete === undefined) {
+    // console.log('[Main Middleware] Profile status unknown, allowing but logging warning.');
+    console.warn('[Main Middleware] Profile status is undefined for user:', token.id);
+    // Allow access but the JWT callback should handle this on next token refresh
+  }
+  
+  // console.log('[Main Middleware] Profile complete, allowing access to:', pathname);
+  return NextResponse.next();
 }
 
 export const config = {

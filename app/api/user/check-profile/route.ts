@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 export async function GET(request: NextRequest) {
   // CRITICAL LOG: What cookie header does this API route actually receive?
   const cookieHeader = request.headers.get('cookie');
-  console.log('[API /user/check-profile] GET request received. Cookie header:', cookieHeader);
+  // console.log('[API /user/check-profile] GET request received. Cookie header:', cookieHeader);
 
   try {
     // Use NextAuth's getToken instead of getUserFromApiRequest
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    console.log('[API /user/check-profile] User successfully authenticated via NextAuth:', token.id);
+    // console.log('[API /user/check-profile] User successfully authenticated via NextAuth:', token.id);
 
     const profile = await prisma.profile.findUnique({
       where: { id: token.id as string },
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    console.log('[API /user/check-profile] Profile lookup result:', profile);
+    // console.log('[API /user/check-profile] Profile lookup result:', profile);
     return NextResponse.json({ 
       hasProfile: !!profile,
       role: profile?.role || 'USER',

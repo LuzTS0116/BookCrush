@@ -28,6 +28,7 @@ import { handleSignOut } from '@/lib/auth';
 import { useProfile } from "@/hooks/use-profile"
 import { useUserRole } from "@/hooks/useUserRole"
 import { useFeedbackNotifications } from "@/hooks/use-feedback-notifications"
+import { useRecommendationNotifications } from "@/hooks/use-recommendation-notifications"
 import React, { useState } from "react";
 
 export function MainNav() {
@@ -46,8 +47,13 @@ export function MainNav() {
     error: profileError 
   } = useProfile()
 
-  // Check for feedback notifications
+  // Check for feedback and recommendation notifications
   const { hasUnreadReplies, unreadCount } = useFeedbackNotifications();
+  const { hasUnread: hasUnreadRecommendations, unreadCount: recommendationCount } = useRecommendationNotifications();
+  
+  // Calculate total notification count
+  const totalNotifications = unreadCount + recommendationCount;
+  const hasNotifications = hasUnreadReplies || hasUnreadRecommendations;
 
   const pathname = usePathname()
 
@@ -182,27 +188,36 @@ export function MainNav() {
                     </AvatarFallback>
                   </Avatar>
                   
-                  {/* Feedback notification badge */}
-                  {hasUnreadReplies && (
+                  {/* Combined notification badge for feedback and recommendations */}
+                  {hasNotifications && (
                     <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-red-500 flex items-center justify-center border-2 border-secondary-light">
                       <span className="text-[6px] font-thin text-white">
-                        {unreadCount > 9 ? '9+' : unreadCount}
+                        {totalNotifications > 9 ? '9+' : totalNotifications}
                       </span>
                     </div>
                   )}
                   
                   {/* Optional: Show a small loading indicator */}
-                  {profileLoading && !hasUnreadReplies && (
+                  {profileLoading && !hasNotifications && (
                     <div className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-blue-500 animate-pulse" />
                   )}
                 </Link>
               </TooltipTrigger>
               <TooltipContent>
                 <p>
-                  {hasUnreadReplies 
-                    ? `You have ${unreadCount} new feedback ${unreadCount === 1 ? 'reply' : 'replies'}` 
-                    : 'Go to Profile'
-                  }
+                  {hasNotifications ? (
+                    <>
+                      {hasUnreadReplies && hasUnreadRecommendations ? (
+                        `You have ${unreadCount} feedback ${unreadCount === 1 ? 'reply' : 'replies'} and ${recommendationCount} book ${recommendationCount === 1 ? 'recommendation' : 'recommendations'}`
+                      ) : hasUnreadReplies ? (
+                        `You have ${unreadCount} new feedback ${unreadCount === 1 ? 'reply' : 'replies'}`
+                      ) : (
+                        `You have ${recommendationCount} new book ${recommendationCount === 1 ? 'recommendation' : 'recommendations'}`
+                      )}
+                    </>
+                  ) : (
+                    'Go to Profile'
+                  )}
                 </p>
               </TooltipContent>
             </Tooltip>

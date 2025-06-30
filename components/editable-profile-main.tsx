@@ -14,9 +14,14 @@ import { FavoriteBookDialog } from "./favorite-book-dialog"
 import { ContributionBookDialog } from "./contribution-book-dialog"
 import { HistoryBookDialog } from "./history-book-dialog"
 import MyFeedback from "./my-feedback"
+import { RecommendationsMain } from "./recommendations/RecommendationsMain"
+import Image from "next/image"
 import { useFeedbackNotifications } from "@/hooks/use-feedback-notifications"
+import { useRecommendationNotifications } from "@/hooks/use-recommendation-notifications"
+import { FinishedBookDialog } from "./dashboard-reading"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Heart, Books, Bookmark, CheckCircle } from "@phosphor-icons/react"
+import { RecommendBookDialog } from "./recommendations/RecommendBookDialog"
 import { getDisplayAvatarUrl } from "@/lib/supabase-utils"
 import { BookDetails, BookFile, UserBook, StatusDisplay, TabDisplay } from "@/types/book"
 import Link from "next/link"
@@ -92,15 +97,17 @@ interface HistoryBookItemProps {
   userBook: UserBook;
   onMoveToShelf: (bookId: string, shelf: string, title: string) => void;
   onRemoveFromShelf: (bookId: string, title: string) => void;
+  onRecommendBook?: (userBook: UserBook) => void;
 }
 
-function HistoryBookItem({ userBook, onMoveToShelf, onRemoveFromShelf }: HistoryBookItemProps) {
+function HistoryBookItem({ userBook, onMoveToShelf, onRemoveFromShelf, onRecommendBook }: HistoryBookItemProps) {
   return (
     <div className="relative w-auto">
       <HistoryBookDialog 
         historyBooks={userBook} 
         onMoveToShelf={onMoveToShelf}
         onRemoveFromShelf={onRemoveFromShelf}
+        onRecommendBook={onRecommendBook}
       />
       
       {/* Status indicators */}
@@ -123,12 +130,14 @@ interface SortableQueueBookProps {
   userBook: UserBook;
   onStartReading: (bookId: string) => void;
   onRemove: (bookId: string, title: string) => void;
+  onRecommendBook: (userBook: UserBook) => void;
 }
 
 function SortableQueueBook({ 
   userBook, 
   onStartReading, 
-  onRemove
+  onRemove,
+  onRecommendBook
 }: SortableQueueBookProps) {
   const {
     attributes,
@@ -208,12 +217,20 @@ function SortableQueueBook({
                         className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
                         sideOffset={5}
                       >
-                        <DropdownMenu.Item
-                          onSelect={() => onRemove(userBook.book_id, userBook.book.title)}
-                          className="px-3 py-2 text-xs text-center bg-red-700/90 my-2 rounded-md cursor-pointer hover:bg-red-800 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
-                        >
-                          Remove from Shelf
-                        </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        onSelect={() => onRecommendBook(userBook)}
+                        className="px-3 py-2 text-xs text-center bg-accent/90 text-secondary my-2 rounded-md cursor-pointer hover:bg-accent-variant hover:text-secondary focus:bg-accent-variant focus:outline-none transition-colors"
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          Recommend to Friends
+                        </div>
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        onSelect={() => onRemove(userBook.book_id, userBook.book.title)}
+                        className="px-3 py-2 text-xs text-center bg-red-700/90 my-2 rounded-md cursor-pointer hover:bg-red-800 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
+                      >
+                        Remove from Shelf
+                      </DropdownMenu.Item>
                       </DropdownMenu.Content>
                     </DropdownMenu.Portal>
                   </DropdownMenu.Root>
@@ -263,182 +280,6 @@ function SortableQueueBook({
         </div>
       </div>
     </Card>
-  );
-}
-
-// Add interface for the finished book dialog
-interface FinishedBookDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  book: UserBook | null;
-  onSubmit: (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => void;
-  isSubmitting: boolean;
-}
-
-// Add the FinishedBookDialog component
-function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitting }: FinishedBookDialogProps) {
-  const [reviewText, setReviewText] = useState("");
-  const [rating, setRating] = useState<"HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null>(null);
-
-  // Reset form when dialog opens/closes
-  useEffect(() => {
-    if (!isOpen) {
-      setReviewText("");
-      setRating(null);
-    }
-  }, [isOpen]);
-
-  const handleSubmit = () => {
-    if (!rating) {
-      toast.error('Please select a rating');
-      return;
-    }
-    onSubmit(reviewText, rating);
-  };
-
-  const getRatingIcon = (ratingType: "HEART" | "THUMBS_UP" | "THUMBS_DOWN", isSelected: boolean) => {
-    const baseClasses = "h-6 w-6";
-    const selectedClasses = isSelected ? "ring-2 ring-offset-2" : "";
-    
-    switch (ratingType) {
-      case "HEART":
-        return (
-          <LucideHeart 
-            className={`${baseClasses} ${isSelected ? "text-primary fill-primary ring-primary" : "text-muted-foreground"} ${selectedClasses}`} 
-          />
-        );
-      case "THUMBS_UP":
-        return (
-          <LucideThumbsUp 
-            className={`${baseClasses} ${isSelected ? "text-accent-variant ring-accent-variant" : "text-muted-foreground"} ${selectedClasses}`} 
-          />
-        );
-      case "THUMBS_DOWN":
-        return (
-          <LucideThumbsDown 
-            className={`${baseClasses} ${isSelected ? "text-accent ring-accent" : "text-muted-foreground"} ${selectedClasses}`} 
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
-  if (!book) return null;
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] bg-bookWhite">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold text-secondary">
-            🎉 Congratulations on finishing "{book.book.title}"!
-          </DialogTitle>
-          <DialogDescription className="text-secondary/70">
-            How was your reading experience? Share your thoughts with the community.
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="space-y-6 py-4">
-          {/* Book Info */}
-          <div className="flex items-center gap-3 p-3 bg-secondary/5 rounded-lg">
-            <img
-              src={book.book.cover_url || "/placeholder.svg"}
-              alt={book.book.title}
-              className="w-16 h-24 object-cover rounded shadow-sm"
-            />
-            <div>
-              <h3 className="font-semibold text-secondary">{book.book.title}</h3>
-              <p className="text-sm text-secondary/70">{book.book.author}</p>
-            </div>
-          </div>
-
-          {/* Rating Selection */}
-          <div className="space-y-3">
-            <div>
-              <h4 className="text-sm font-medium text-secondary mb-3">Rate this book:</h4>
-              <div className="flex justify-center gap-6">
-                <button
-                  onClick={() => setRating("HEART")}
-                  className={`p-3 rounded-full transition-all ${
-                    rating === "HEART" 
-                      ? "bg-primary/20 scale-110" 
-                      : "hover:bg-secondary/10 hover:scale-105"
-                  }`}
-                  disabled={isSubmitting}
-                >
-                  {getRatingIcon("HEART", rating === "HEART")}
-                </button>
-                <button
-                  onClick={() => setRating("THUMBS_UP")}
-                  className={`p-3 rounded-full transition-all ${
-                    rating === "THUMBS_UP" 
-                      ? "bg-accent-variant/20 scale-110" 
-                      : "hover:bg-secondary/10 hover:scale-105"
-                  }`}
-                  disabled={isSubmitting}
-                >
-                  {getRatingIcon("THUMBS_UP", rating === "THUMBS_UP")}
-                </button>
-                <button
-                  onClick={() => setRating("THUMBS_DOWN")}
-                  className={`p-3 rounded-full transition-all ${
-                    rating === "THUMBS_DOWN" 
-                      ? "bg-accent/20 scale-110" 
-                      : "hover:bg-secondary/10 hover:scale-105"
-                  }`}
-                  disabled={isSubmitting}
-                >
-                  {getRatingIcon("THUMBS_DOWN", rating === "THUMBS_DOWN")}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Review Text */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium text-secondary">Share your thoughts (optional):</h4>
-            <Textarea
-              placeholder="What did you think about this book? Share your experience..."
-              value={reviewText}
-              onChange={(e) => setReviewText(e.target.value)}
-              className="min-h-[100px] bg-secondary/5 border-secondary/20 text-secondary placeholder:text-secondary/50"
-              disabled={isSubmitting}
-            />
-            <p className="text-xs text-secondary/50 text-right">
-              {reviewText.length}/500 characters
-            </p>
-          </div>
-        </div>
-
-        <DialogFooter className="gap-2">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={isSubmitting}
-            className="rounded-full"
-          >
-            Skip Review
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!rating || isSubmitting}
-            className="rounded-full bg-accent hover:bg-accent-variant"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Submitting...
-              </>
-            ) : (
-              <>
-                <Check className="mr-2 h-4 w-4" />
-                Finish & Review
-              </>
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -496,8 +337,23 @@ export default function EditableProfileMain() {
   // State for feedback dialog
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = useState(false)
 
+  // State for recommendations dialog
+  const [isRecommendationsDialogOpen, setIsRecommendationsDialogOpen] = useState(false)
+
+  // State for recommend book dialog
+  const [recommendDialog, setRecommendDialog] = useState<{
+    isOpen: boolean;
+    book: UserBook | null;
+  }>({
+    isOpen: false,
+    book: null
+  });
+
   // Check for feedback notifications
   const { hasUnreadReplies, unreadCount } = useFeedbackNotifications();
+  
+  // Check for recommendation notifications
+  const { hasUnread: hasUnreadRecommendations, unreadCount: recommendationCount } = useRecommendationNotifications();
 
   // @dnd-kit sensors with optimized touch handling
   const sensors = useSensors(
@@ -571,9 +427,16 @@ export default function EditableProfileMain() {
   // Fetch profile data
   useEffect(() => {
     const fetchProfile = async () => {
+      if (!session?.supabaseAccessToken) {
+      toast.error("No session found");
+      return;
+    }
       try {
         const response = await fetch('/api/profile', {
-          credentials: 'include'
+          headers: {
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+          'Content-Type': 'application/json',
+        },
         })
 
         if (!response.ok) {
@@ -713,15 +576,21 @@ export default function EditableProfileMain() {
   const handleSave = async () => {
     if (!profile) return
 
+    if (!session?.supabaseAccessToken) {
+      toast.error("No session found");
+      return;
+    }
+
     setIsSaving(true)
     setError(null)
+
     
     try {
       const response = await fetch('/api/profile', {
         method: 'POST',
-        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           display_name: displayName.trim(),
@@ -931,6 +800,10 @@ export default function EditableProfileMain() {
       }
     }
   };
+
+  const shareDialogCallback = () => {
+    setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
+  }
 
   // Function to handle finished book review submission
   const handleFinishedBookReview = async (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => {
@@ -1476,6 +1349,32 @@ export default function EditableProfileMain() {
     setIsFeedbackDialogOpen(true);
   };
 
+  // Function to handle recommendations icon click
+  const handleRecommendationsIconClick = () => {
+    setIsRecommendationsDialogOpen(true);
+  };
+
+  // Handle recommend book action
+  const handleRecommendBook = (userBook: UserBook) => {
+    setRecommendDialog({
+      isOpen: true,
+      book: userBook
+    });
+  };
+
+  // Handle recommend dialog close
+  const handleRecommendDialogClose = () => {
+    setRecommendDialog({
+      isOpen: false,
+      book: null
+    });
+  };
+
+  // Handle successful recommendation
+  const handleRecommendSuccess = () => {
+    toast.success('Book recommendation sent successfully!');
+  };
+
   // Effect to mark feedback as viewed when dialog opens
   useEffect(() => {
     if (isFeedbackDialogOpen) {
@@ -1547,9 +1446,27 @@ export default function EditableProfileMain() {
                   <ArrowLeft className="h-5 w-5 text-secondary" />
                 </button>
 
-                {/* Feedback and Edit Buttons */}
+                {/* Feedback, Recommendations, and Edit Buttons */}
                 {!isEditing && (
-                  <div className="absolute top-3 right-3 flex gap-2">
+                  <div className="absolute top-3 right-3 flex gap-3">
+
+                    {/* Recommendations Button */}
+                    <button
+                      onClick={handleRecommendationsIconClick}
+                      className="relative p-2 rounded-full bg-bookWhite/80 backdrop-blur-sm hover:bg-bookWhite shadow-md"
+                      title={hasUnreadRecommendations ? `You have ${recommendationCount} new book recommendation${recommendationCount === 1 ? '' : 's'}` : 'Book recommendations'}
+                    >
+                      <BookMarked className="h-5 w-5 text-secondary" />
+                      {/* Recommendation notification badge */}
+                      {hasUnreadRecommendations && (
+                        <div className="absolute -top-0.5 -right-0.5 h-3 w-3 rounded-full bg-red-500 flex items-center justify-center border-2 border-secondary">
+                          <span className="text-[8px] text-bookWhite font-bold leading-none">
+                            {recommendationCount > 9 ? '9+' : recommendationCount}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+
                     {/* Feedback Button */}
                     <button
                       onClick={handleFeedbackIconClick}
@@ -1852,6 +1769,14 @@ export default function EditableProfileMain() {
                                           </DropdownMenu.Item>
                                         ))}
                                         <DropdownMenu.Item
+                                          onSelect={() => handleRecommendBook(userBook)}
+                                          className="px-3 py-2 text-xs text-center bg-accent/90 my-1 text-secondary rounded-md cursor-pointer hover:bg-accent-variant hover:text-secondary focus:bg-accent-variant focus:outline-none transition-colors"
+                                        >
+                                          <div className="flex items-center justify-center gap-1">
+                                            Recommend to Friends
+                                          </div>
+                                        </DropdownMenu.Item>
+                                        <DropdownMenu.Item
                                           onSelect={() => showRemoveConfirmation(bookId, userBook.book.title, 'currently_reading')}
                                           className="px-3 py-2 text-xs text-end w-[132px] self-end bg-red-700/90 my-1 rounded-md cursor-pointer hover:bg-red-600 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
                                           disabled={currentShelfStatus?.isLoading}
@@ -2045,6 +1970,7 @@ export default function EditableProfileMain() {
                             userBook={userBook}
                             onStartReading={handleStartReading}
                             onRemove={(bookId: string, title: string) => showRemoveConfirmation(bookId, title, 'queue')}
+                            onRecommendBook={handleRecommendBook}
                           />
                         ))}
                       </div>
@@ -2069,6 +1995,7 @@ export default function EditableProfileMain() {
                           userBook={userBook}
                           onMoveToShelf={handleMoveFromHistory}
                           onRemoveFromShelf={showHistoryRemoveConfirmation}
+                          onRecommendBook={handleRecommendBook}
                         />
                       ))}
                     </div>
@@ -2131,14 +2058,22 @@ export default function EditableProfileMain() {
         book={finishedBookDialog.book}
         onSubmit={handleFinishedBookReview}
         isSubmitting={isSubmittingFinishedReview}
+        shareDialogCallback={shareDialogCallback}
       />
 
       {/* Feedback Dialog */}
       <Dialog open={isFeedbackDialogOpen} onOpenChange={setIsFeedbackDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden bg-bookWhite">
+        <DialogContent className="max-w-[400px] w-[90vw] max-h-[80vh] overflow-hidden p-3">
+          <Image 
+            src="/images/background.png"
+            alt="Create and Manage your Book Clubs | BookCrush"
+            width={1622}
+            height={2871}
+            className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+          />
           <DialogHeader>
-            <DialogTitle className="text-secondary">My Feedback</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-bookWhite mt-5">My Feedback</DialogTitle>
+            <DialogDescription className="text-bookWhite font-serif">
               View your submitted feedback and admin responses
             </DialogDescription>
           </DialogHeader>
@@ -2147,6 +2082,43 @@ export default function EditableProfileMain() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Recommendations Dialog */}
+      <Dialog open={isRecommendationsDialogOpen} onOpenChange={setIsRecommendationsDialogOpen}>
+        <DialogContent className="max-w-[400px] w-[95vw] max-h-[85vh] p-6 overflow-hidden">
+          <DialogHeader className="relative z-20">
+            <DialogTitle className="text-bookWhite">Book Recommendations</DialogTitle>
+            <DialogDescription className="text-bookWhite/80 font-serif">
+              Share and discover great reads with friends
+            </DialogDescription>
+          </DialogHeader>
+          <div className="absolute inset-0 z-0">
+            <Image 
+              src="/images/background.png"
+              alt="Book Recommendations | BookCrush"
+              width={1622}
+              height={2871}
+              className="w-full h-full object-cover rounded-lg"
+            />
+          </div>
+          <div className="relative z-10 max-h-[60vh] overflow-y-auto">
+            <RecommendationsMain onClose={() => setIsRecommendationsDialogOpen(false)} />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Recommend Book Dialog */}
+      <RecommendBookDialog
+        open={recommendDialog.isOpen}
+        onOpenChange={handleRecommendDialogClose}
+        book={recommendDialog.book ? {
+          id: recommendDialog.book.book_id,
+          title: recommendDialog.book.book.title,
+          author: recommendDialog.book.book.author,
+          cover_url: recommendDialog.book.book.cover_url
+        } : null}
+        onSuccess={handleRecommendSuccess}
+      />
 
       {/* Confirmation Modal */}
       {confirmRemoval.bookId && (

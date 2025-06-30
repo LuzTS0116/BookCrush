@@ -52,11 +52,46 @@ export default async function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="light">
           <MainNav />
           <div className="mb-15">{children}</div>
+          {/* <-- only one Toaster, Sonner will hook into all your toast() calls */}
           <MobileNav />
         </ThemeProvider>
         </SupabaseBridge>
         </AuthSessionProvider>
-        <Toaster />
+        <Toaster
+          position="top-center"
+          containerStyle={{
+            // make the toast container stretch left→right,
+            // then flex‑center its inner toasts
+            left: 0,
+            right: 0,
+            display: 'flex',
+            justifyContent: 'center',
+            // optional offset from top nav
+            top: '1rem',
+          }}
+          toastOptions={{
+            // show for 3 seconds
+            duration: 3000,
+            icon: null,
+            // no close button:
+            rich: false,
+            // shared styles for every toast
+            style: {
+              background: '#2e3d6a',
+              color: '#faf4e7',
+              opacity: 0.95,
+              borderRadius: '0.5rem', // tailwind “rounded” ~ 8px
+              padding: '0.75rem 1rem',
+              fontSize: '0.875rem',
+              // centered text:
+              textAlign: 'center',
+              // avoid wide max‑width:
+              maxWidth: '420px',
+            },
+            // gap between toasts
+            gutter: 8,
+          }}
+        />
       </body>
     </html>
   )

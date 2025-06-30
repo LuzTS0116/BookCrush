@@ -4,17 +4,35 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { PrismaClient } from '@prisma/client'
 import { prisma } from '@/lib/prisma';
 import {  FriendRequestStatus  } from '@prisma/client'; // Import Prisma enum
+import { createClient } from '@supabase/supabase-js';
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing. Check environment variables.");
+}
 
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 export async function GET(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    const { data: { user } } = await supabase.auth.getUser();
+    if (!supabase) {
+      console.error('[API friends] Supabase client not initialized');
+      return NextResponse.json({ error: "Supabase client not initialized. Check server configuration." }, { status: 500 });
+    }
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API friends] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
+    const token = authHeader.split(' ')[1];
 
-    if (!user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error("Auth error or no user:", userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
     }
 
     const { searchParams } = new URL(req.url);

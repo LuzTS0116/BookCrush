@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
         description: true,
         owner_id: true,
         memberCount: true,
+        genres: true,
         // Add memberships for real member avatars
         memberships: {
           where: {
@@ -82,6 +83,7 @@ export async function GET(req: NextRequest) {
         ownerId: club.owner_id,
         memberCount: club.memberCount,
         membershipStatus: null,
+        genres: club.genres,
         // Include members data for avatars
         members: club.memberships.map(member => ({
           id: member.user.id,
@@ -127,6 +129,7 @@ export async function GET(req: NextRequest) {
             ownerId: club.owner_id,
             memberCount: club.memberCount,
             membershipStatus: userStatus || null,
+            genres: club.genres,
             // Include members data for avatars
             members: club.memberships.map(member => ({
               id: member.user.id,

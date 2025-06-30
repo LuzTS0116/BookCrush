@@ -7,8 +7,10 @@ import { prisma } from '@/lib/prisma';
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    const {id} = await params;
   try {
     // Check admin authentication and role
     await requireAdmin();
@@ -35,7 +37,7 @@ export async function PUT(
     }
 
     const updatedFeedback = await prisma.feedback.update({
-      where: { id: params.id },
+      where: { id: id },
       data: updateData,
       include: {
         user: {
@@ -73,14 +75,16 @@ export async function PUT(
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    const {id} = await params;
   try {
     // Check admin authentication and role
     await requireAdmin();
 
     const feedback = await prisma.feedback.findUnique({
-      where: { id: params.id },
+      where: { id: id },
       include: {
         user: {
           select: {

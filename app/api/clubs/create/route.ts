@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: rateLimitCheck.error }, { status: 429 });
     }
 
-    const { name, description, isPrivate } = await req.json();
+    const { name, description, isPrivate, genres } = await req.json();
 
     // Validate and sanitize club name
     const nameValidation = sanitizeInput.clubName(name);
@@ -67,6 +67,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "isPrivate must be a boolean value" }, { status: 400 });
     }
 
+    // Validate genres parameter
+    let validatedGenres: string[] = [];
+    if (genres !== undefined) {
+      if (!Array.isArray(genres)) {
+        return NextResponse.json({ error: "genres must be an array" }, { status: 400 });
+      }
+      
+      // Filter out invalid genres and limit to reasonable number
+      validatedGenres = genres
+        .filter((genre: any) => typeof genre === 'string' && genre.trim().length > 0)
+        .map((genre: string) => genre.trim())
+        .slice(0, 10); // Limit to 10 genres
+    }
+
     // Check if user already owns too many clubs (prevent spam)
     const existingClubsCount = await prisma.club.count({
       where: { owner_id: user.id }
@@ -94,6 +108,7 @@ export async function POST(req: NextRequest) {
           owner_id: user.id,
           is_private: isPrivate === true,
           memberCount: 1, // Initialize with 1 member (the owner)
+          genres: validatedGenres,
         },
       });
 

@@ -1,32 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { getAvatarPublicUrlServer } from '@/lib/supabase-server-utils';
+import { createClient } from '@supabase/supabase-js';
 
 
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing for books API.");
+}
+
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+  }
+
+    const {id} = await params;
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Bearer token authentication (consistent with other APIs)
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API books POST] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
     }
 
-    const clubId = params.id;
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error('[API books POST] Auth error:', userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
+    }
+
+    const clubId = id;
 
     // Check if user is an admin or owner of the club
     const membership = await prisma.clubMembership.findUnique({
       where: {
         user_id_club_id: {
-          user_id: session.user.id,
+          user_id: user.id,
           club_id: clubId
         }
       }
@@ -71,7 +91,7 @@ export async function GET(
           ...invitation,
           invitee: {
             ...invitation.invitee,
-            avatar_url: await getAvatarPublicUrlServer(invitation.invitee.avatar_url)
+            avatar_url: await getAvatarPublicUrlServer(supabase!, invitation.invitee.avatar_url)
           }
         };
       }
@@ -92,18 +112,31 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+    { params }: { params: Promise<{ id: string }> }
+ ) {
+
+    if (!supabase) {
+    return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+  }
+
+    const {id} = await params;
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Bearer token authentication (consistent with other APIs)
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API books POST] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
     }
 
-    const clubId = params.id;
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error('[API books POST] Auth error:', userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
+    }
+
+    const clubId = id;
     const body = await request.json();
     const { user_id, message } = body;
 
@@ -115,7 +148,7 @@ export async function POST(
     const membership = await prisma.clubMembership.findUnique({
       where: {
         user_id_club_id: {
-          user_id: session.user.id,
+          user_id: user.id,
           club_id: clubId
         }
       }
@@ -182,7 +215,7 @@ export async function POST(
     const invitation = await prisma.clubInvitation.create({
       data: {
         club_id: clubId,
-        inviter_id: session.user.id,
+        inviter_id: user.id,
         invitee_id: user_id,
         email: inviteeUser.email, // Store email for reference but validate by ID
         message,

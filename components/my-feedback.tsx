@@ -239,8 +239,8 @@ export default function MyFeedback() {
     return (
       <div className="text-center py-8">
         <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-muted-foreground mb-2">No Feedback Submitted</h3>
-        <p className="text-sm text-muted-foreground">
+        <h3 className="text-lg font-semibold text-bookWhite mb-2">No Feedback Submitted</h3>
+        <p className="text-sm text-bookWhite/80">
           You haven't submitted any feedback yet. When you do, you'll be able to track its status here.
         </p>
       </div>
@@ -249,8 +249,7 @@ export default function MyFeedback() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-secondary">My Feedback</h2>
+      <div className="flex items-center justify-end">
         <Badge variant="secondary" className="text-xs">
           {pagination.total} total
         </Badge>
@@ -263,11 +262,20 @@ export default function MyFeedback() {
           const isNewReply = hasAdminReply && !item.user_notified;
 
           return (
-            <Card key={item.id} className={`bg-bookWhite transition-all ${isNewReply ? 'ring-2 ring-accent' : ''}`}>
-              <CardHeader className="pb-3">
+            <Card key={item.id} className={`bg-bookWhite/15 backdrop-blur-sm transition-all p-0 ${isNewReply ? 'ring-2 ring-accent' : ''}`}>
+              <CardHeader className="p-3">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
+                  <div className="space-y-1">
+                    <CardDescription className="text-xs text-bookWhite/60 font-serif">
+                      Submitted {new Date(item.created_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </CardDescription>
+                    <div className="flex flex-wrap items-center gap-2">
                       <Badge className={getTypeColor(item.type)} variant="secondary">
                         {formatType(item.type)}
                       </Badge>
@@ -278,53 +286,32 @@ export default function MyFeedback() {
                         </div>
                       </Badge>
                       {isNewReply && (
-                        <Badge className="bg-accent text-bookWhite">
+                        <Badge className="bg-accent/75 text-bookWhite">
                           New Reply
                         </Badge>
                       )}
                     </div>
-                    <CardDescription className="text-xs text-muted-foreground">
-                      Submitted {new Date(item.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </CardDescription>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleExpanded(item.id)}
-                    className="h-8 w-8 p-0"
-                  >
-                    {isExpanded ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </Button>
                 </div>
               </CardHeader>
 
-              <CardContent className="pt-0">
+              <CardContent className="px-3 pt-1 pb-4">
                 <div className="space-y-3">
                   {/* Feedback Content */}
                   <div>
-                    <h4 className="text-sm font-medium text-secondary mb-1">Your Feedback:</h4>
-                    <p className={`text-sm text-secondary/80 ${!isExpanded ? 'line-clamp-2' : ''}`}>
+                    <h4 className="text-sm font-medium text-bookWhite mb-1">Your Feedback:</h4>
+                    <p className={`text-xs text-bookWhite/80 font-serif leading-4`}>
                       {item.content}
                     </p>
                   </div>
 
                   {/* Admin Reply */}
                   {hasAdminReply && (
-                    <div className="border-t pt-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h4 className="text-sm font-medium text-secondary">Admin Response:</h4>
+                    <div className="border-t border-bookWhite/70 pt-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-sm font-medium text-bookWhite">Admin Response:</h4>
                         {item.admin_replied_at && (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-bookWhite/60 font-serif">
                             {new Date(item.admin_replied_at).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric',
@@ -334,8 +321,8 @@ export default function MyFeedback() {
                           </span>
                         )}
                       </div>
-                      <div className="bg-secondary/5 rounded-lg p-3">
-                        <p className="text-sm text-secondary/80">
+                      <div className="bg-secondary/35 rounded-lg p-2">
+                        <p className="text-xs text-bookWhite/80 font-serif leading-4">
                           {item.admin_notes}
                         </p>
                       </div>
@@ -350,12 +337,12 @@ export default function MyFeedback() {
 
       {/* Load More Button */}
       {pagination.hasMore && (
-        <div className="flex justify-center pt-4">
+        <div className="flex justify-center pt-0">
           <Button
             onClick={handleLoadMore}
             disabled={isLoadingMore}
             variant="outline"
-            className="rounded-full"
+            className="rounded-full bg-primary/75 hover:bg-primary text-secondary-light hover:text-secondary border-none"
           >
             {isLoadingMore ? (
               <>

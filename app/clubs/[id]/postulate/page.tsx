@@ -1,7 +1,7 @@
 // /app/clubs/[id]/postulate/page.tsx
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,121 +9,104 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Check, Plus, Search, ThumbsUp, X } from "lucide-react"
+import { Calendar, Check, Plus, Search, ThumbsUp, X, Loader2 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
+import { toast } from "sonner"
+import {useParams} from "next/navigation";
 
 export default function PostulateBooksPage({ params }: { params: { id: string } }) {
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedBooks, setSelectedBooks] = useState<number[]>([])
+  const [selectedBooks, setSelectedBooks] = useState<string[]>([])
   const [reason, setReason] = useState("")
   const [activeTab, setActiveTab] = useState("search")
+  const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  
+  // Real data state
+  const [club, setClub] = useState<any>(null)
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [suggestions, setSuggestions] = useState<any[]>([])
+  const [loadingClub, setLoadingClub] = useState(true)
+  const [loadingSuggestions, setLoadingSuggestions] = useState(true)
 
-  // Mock club data
-  const club = {
-    id: params.id,
-    name: "Fiction Lovers",
-    description: "A group dedicated to contemporary fiction and literary novels.",
-    members: 12,
-    currentBook: {
-      title: "The Midnight Library",
-      author: "Matt Haig",
-      cover: "/placeholder.svg?height=200&width=150",
-      meetingDate: "May 9, 2025",
-    },
-  }
+  const {id} = useParams();
 
-  // Mock search results
-  const searchResults = [
-    {
-      id: 1,
-      title: "Cloud Cuckoo Land",
-      author: "Anthony Doerr",
-      cover: "/placeholder.svg?height=200&width=150",
-      genre: ["Historical Fiction", "Literary Fiction"],
-      year: "2021",
-      pages: 640,
-    },
-    {
-      id: 2,
-      title: "The Lincoln Highway",
-      author: "Amor Towles",
-      cover: "/placeholder.svg?height=200&width=150",
-      genre: ["Historical Fiction", "Adventure"],
-      year: "2021",
-      pages: 592,
-    },
-    {
-      id: 3,
-      title: "Sea of Tranquility",
-      author: "Emily St. John Mandel",
-      cover: "/placeholder.svg?height=200&width=150",
-      genre: ["Science Fiction", "Literary Fiction"],
-      year: "2022",
-      pages: 272,
-    },
-  ]
+  // Fetch club data
+  useEffect(() => {
+    const fetchClub = async () => {
+      try {
+        const response = await fetch(`/api/clubs/${id}`)
+        if (response.ok) {
+          const clubData = await response.json()
+          console.log('Club data:', clubData) // Debug log
+          setClub(clubData)
+        } else {
+          toast.error("Failed to load club information")
+        }
+      } catch (error) {
+        toast.error("Error loading club information")
+      } finally {
+        setLoadingClub(false)
+      }
+    }
 
-  // Mock postulated books
-  const postulatedBooks = [
-    {
-      id: 4,
-      title: "Tomorrow, and Tomorrow, and Tomorrow",
-      author: "Gabrielle Zevin",
-      cover: "/placeholder.svg?height=200&width=150",
-      genre: ["Literary Fiction", "Contemporary"],
-      year: "2022",
-      pages: 416,
-      postulatedBy: {
-        name: "Sarah Johnson",
-        avatar: "/placeholder.svg?height=40&width=40",
-        initials: "SJ",
-      },
-      reason:
-        "This novel about friendship, love, and video game design has been on my TBR list for months. I think it would spark great discussions about creativity and relationships.",
-      votes: 5,
-      hasVoted: true,
-    },
-    {
-      id: 5,
-      title: "Lessons in Chemistry",
-      author: "Bonnie Garmus",
-      cover: "/placeholder.svg?height=200&width=150",
-      genre: ["Historical Fiction", "Humor"],
-      year: "2022",
-      pages: 390,
-      postulatedBy: {
-        name: "Alex Lee",
-        avatar: "/placeholder.svg?height=40&width=40",
-        initials: "AL",
-      },
-      reason:
-        "A brilliant female scientist in the 1960s becomes a cooking show host. It's funny, poignant, and tackles gender discrimination in a unique way.",
-      votes: 3,
-      hasVoted: false,
-    },
-    {
-      id: 6,
-      title: "The Seven Husbands of Evelyn Hugo",
-      author: "Taylor Jenkins Reid",
-      cover: "/placeholder.svg?height=200&width=150",
-      genre: ["Historical Fiction", "LGBTQ+"],
-      year: "2017",
-      pages: 389,
-      postulatedBy: {
-        name: "Mike Peterson",
-        avatar: "/placeholder.svg?height=40&width=40",
-        initials: "MP",
-      },
-      reason:
-        "This book about a fictional Hollywood star has been recommended to me multiple times. It explores fame, sexuality, and the price of success.",
-      votes: 2,
-      hasVoted: false,
-    },
-  ]
+    fetchClub()
+  }, [id])
 
-  const toggleBookSelection = (id: number) => {
+  // Fetch suggestions
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      try {
+        const response = await fetch(`/api/clubs/${id}/suggestions`)
+        if (response.ok) {
+          const suggestionsData = await response.json()
+          console.log('Suggestions data:', suggestionsData) // Debug log
+          setSuggestions(suggestionsData)
+        } else {
+          toast.error("Failed to load suggestions")
+        }
+      } catch (error) {
+        toast.error("Error loading suggestions")
+      } finally {
+        setLoadingSuggestions(false)
+      }
+    }
+
+    fetchSuggestions()
+  }, [id])
+
+  // Search books with debounce
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([])
+      return
+    }
+
+    const searchBooks = async () => {
+      setLoading(true)
+      try {
+        const response = await fetch(`/api/books/search?q=${encodeURIComponent(searchQuery)}&limit=10`)
+        if (response.ok) {
+          const results = await response.json()
+          setSearchResults(results || [])
+        } else {
+          setSearchResults([])
+        }
+      } catch (error) {
+        toast.error("Error searching books")
+        setSearchResults([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    const timeoutId = setTimeout(searchBooks, 300)
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery])
+
+  const toggleBookSelection = (id: string) => {
     if (selectedBooks.includes(id)) {
       setSelectedBooks(selectedBooks.filter((bookId) => bookId !== id))
     } else {
@@ -131,17 +114,127 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
     }
   }
 
-  const handlePostulate = () => {
-    // In a real app, you would submit the postulation to an API
-    console.log({ selectedBooks, reason })
-    setSelectedBooks([])
-    setReason("")
-    setActiveTab("postulated")
+  const handlePostulate = async () => {
+    if (selectedBooks.length === 0 || !reason.trim()) return
+    
+    setSubmitting(true)
+    try {
+      // Submit each selected book as a suggestion
+      for (const bookId of selectedBooks) {
+        const response = await fetch(`/api/clubs/${id}/suggestions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ book_id: bookId, reason: reason.trim() })
+        })
+        
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to submit suggestion')
+        }
+      }
+      
+      toast.success('Book suggestion(s) submitted successfully!')
+      setSelectedBooks([])
+      setReason("")
+      setActiveTab("postulated")
+      
+      // Refresh suggestions
+      const response = await fetch(`/api/clubs/${id}/suggestions`)
+      if (response.ok) {
+        const suggestionsData = await response.json()
+        setSuggestions(suggestionsData)
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to submit suggestion')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const handleVote = (id: number) => {
-    // In a real app, you would submit the vote to an API
-    console.log({ votedFor: id })
+  const handleVote = async (suggestionId: string, hasVoted: boolean) => {
+    try {
+      const method = hasVoted ? 'DELETE' : 'POST'
+      const response = await fetch(`/api/clubs/${id}/suggestions/${suggestionId}/vote`, {
+        method,
+        headers: { 'Content-Type': 'application/json' }
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to record vote')
+      }
+      
+      const result = await response.json()
+      toast.success(hasVoted ? 'Vote removed' : 'Vote recorded')
+      
+      // Update the suggestion in local state
+      setSuggestions(prev => prev.map(suggestion => 
+        suggestion.id === suggestionId 
+          ? { ...suggestion, has_voted: !hasVoted, vote_count: result.vote_count }
+          : suggestion
+      ))
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to record vote')
+    }
+  }
+
+  const formatVotingEndDate = (votingEnds: string) => {
+    const endDate = new Date(votingEnds)
+    const now = new Date()
+    const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    
+    if (daysLeft > 1) {
+      return `Voting ends in ${daysLeft} days`
+    } else if (daysLeft === 1) {
+      return "Voting ends tomorrow"
+    } else if (daysLeft === 0) {
+      return "Voting ends today"
+    } else {
+      return "Voting has ended"
+    }
+  }
+
+  const calculateVoteProgress = (voteCount: number) => {
+    // Use club memberCount if available, otherwise use max votes from suggestions as fallback
+    let totalMembers = club?.memberCount || club?.members?.length || 1
+    
+    // If we have suggestions, use the highest vote count + 2 as a reasonable estimate
+    if (suggestions.length > 0 && totalMembers === 1) {
+      const maxVotes = Math.max(...suggestions.map(s => s.vote_count))
+      totalMembers = Math.max(maxVotes + 2, 3) // At least 3 members for reasonable progress
+    }
+
+    const percentage = Math.min((voteCount / totalMembers) * 100, 100)
+    console.log(`Vote calculation: ${voteCount}/${totalMembers} = ${percentage}%`) // Debug log
+    
+    return {
+      percentage: Math.round(percentage),
+      totalMembers
+    }
+  }
+
+  if (loadingClub) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p>Loading club information...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!club) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Club Not Found</h1>
+          <p className="text-muted-foreground">The club you're looking for doesn't exist or you don't have access to it.</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -178,6 +271,13 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
                     />
                   </div>
 
+                  {loading && (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      <span>Searching...</span>
+                    </div>
+                  )}
+                  
                   <div className="space-y-4">
                     {searchResults.map((book) => (
                       <div
@@ -187,7 +287,7 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
                         }`}
                       >
                         <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
-                          <img src={book.cover || "/placeholder.svg"} alt={book.title} className="max-h-full" />
+                          <img src={book.cover_url || "/placeholder.svg"} alt={book.title} className="max-h-full" />
                         </div>
                         <div className="flex-1">
                           <div className="flex justify-between">
@@ -209,7 +309,7 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
                             </Button>
                           </div>
                           <div className="flex flex-wrap gap-2 mt-2">
-                            {book.genre.map((g) => (
+                            {book.genres?.map((g: string) => (
                               <Badge key={g} variant="secondary" className="bg-primary/10 text-primary">
                                 {g}
                               </Badge>
@@ -218,7 +318,7 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
                           <div className="grid grid-cols-2 gap-4 mt-2 text-sm">
                             <div className="flex items-center gap-1">
                               <span className="text-muted-foreground">Year:</span>
-                              <span>{book.year}</span>
+                              <span>{book.published_date}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <span className="text-muted-foreground">Pages:</span>
@@ -274,10 +374,17 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
                   <CardFooter>
                     <Button
                       onClick={handlePostulate}
-                      disabled={selectedBooks.length === 0 || !reason.trim()}
+                      disabled={selectedBooks.length === 0 || !reason.trim() || submitting}
                       className="w-full bg-primary hover:bg-primary-light"
                     >
-                      Submit Suggestion
+                      {submitting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        "Submit Suggestion"
+                      )}
                     </Button>
                   </CardFooter>
                 </Card>
@@ -291,79 +398,109 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
                   <CardDescription>Vote for the book you'd like to read next</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-6">
-                    {postulatedBooks.map((book) => (
-                      <div key={book.id} className="border rounded-lg overflow-hidden">
-                        <div className="p-4">
-                          <div className="flex gap-4">
-                            <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
-                              <img src={book.cover || "/placeholder.svg"} alt={book.title} className="max-h-full" />
+                  {loadingSuggestions ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      <span>Loading suggestions...</span>
+                    </div>
+                  ) : suggestions.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No book suggestions yet. Be the first to suggest a book!</p>
+                      <Button 
+                        variant="outline" 
+                        className="mt-4" 
+                        onClick={() => setActiveTab("search")}
+                      >
+                        Suggest a Book
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {suggestions.map((suggestion: any) => (
+                        <div key={suggestion.id} className="border rounded-lg overflow-hidden">
+                          <div className="p-4">
+                            <div className="flex gap-4">
+                              <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
+                                <img src={suggestion.book.cover_url || "/placeholder.svg"} alt={suggestion.book.title} className="max-h-full" />
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex justify-between">
+                                  <div>
+                                    <h3 className="font-medium">{suggestion.book.title}</h3>
+                                    <p className="text-sm text-muted-foreground">{suggestion.book.author}</p>
+                                  </div>
+                                  <Button
+                                    variant={suggestion.has_voted ? "default" : "outline"}
+                                    size="sm"
+                                    className={suggestion.has_voted ? "bg-primary text-primary-foreground" : ""}
+                                    onClick={() => handleVote(suggestion.id, suggestion.has_voted)}
+                                  >
+                                    <ThumbsUp className="mr-2 h-4 w-4" />
+                                    {suggestion.has_voted ? "Voted" : "Vote"} ({suggestion.vote_count})
+                                  </Button>
+                                </div>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {suggestion.book.genres?.map((g: string) => (
+                                    <Badge key={g} variant="secondary" className="bg-primary/10 text-primary">
+                                      {g}
+                                    </Badge>
+                                  ))}
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 mt-2 text-sm">
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-muted-foreground">Year:</span>
+                                    <span>{suggestion.book.published_date}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-muted-foreground">Pages:</span>
+                                    <span>{suggestion.book.pages}</span>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex-1">
-                              <div className="flex justify-between">
-                                <div>
-                                  <h3 className="font-medium">{book.title}</h3>
-                                  <p className="text-sm text-muted-foreground">{book.author}</p>
-                                </div>
-                                <Button
-                                  variant={book.hasVoted ? "default" : "outline"}
-                                  size="sm"
-                                  className={book.hasVoted ? "bg-primary text-primary-foreground" : ""}
-                                  onClick={() => handleVote(book.id)}
-                                  disabled={book.hasVoted}
-                                >
-                                  <ThumbsUp className="mr-2 h-4 w-4" />
-                                  {book.hasVoted ? "Voted" : "Vote"} ({book.votes})
-                                </Button>
-                              </div>
-                              <div className="flex flex-wrap gap-2 mt-2">
-                                {book.genre.map((g) => (
-                                  <Badge key={g} variant="secondary" className="bg-primary/10 text-primary">
-                                    {g}
-                                  </Badge>
-                                ))}
-                              </div>
-                              <div className="grid grid-cols-2 gap-4 mt-2 text-sm">
-                                <div className="flex items-center gap-1">
-                                  <span className="text-muted-foreground">Year:</span>
-                                  <span>{book.year}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <span className="text-muted-foreground">Pages:</span>
-                                  <span>{book.pages}</span>
-                                </div>
+                            <Separator className="my-4" />
+                            <div className="flex items-start gap-3">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage
+                                  src={suggestion.suggested_by.avatar_url || "/placeholder.svg"}
+                                  alt={suggestion.suggested_by.display_name}
+                                />
+                                <AvatarFallback>{suggestion.suggested_by.display_name.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="text-sm">
+                                  <span className="font-medium">{suggestion.suggested_by.display_name}</span> suggested this book:
+                                </p>
+                                <p className="text-sm mt-1 text-muted-foreground italic">"{suggestion.reason}"</p>
                               </div>
                             </div>
                           </div>
-                          <Separator className="my-4" />
-                          <div className="flex items-start gap-3">
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage
-                                src={book.postulatedBy.avatar || "/placeholder.svg"}
-                                alt={book.postulatedBy.name}
-                              />
-                              <AvatarFallback>{book.postulatedBy.initials}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="text-sm">
-                                <span className="font-medium">{book.postulatedBy.name}</span> suggested this book:
-                              </p>
-                              <p className="text-sm mt-1">{book.reason}</p>
+                          <div className="bg-muted/20 p-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Votes: {suggestion.vote_count}</span>
+                              <div className="flex items-center gap-2 w-2/3">
+                                <Progress 
+                                  value={calculateVoteProgress(suggestion.vote_count).percentage} 
+                                  className="flex-1 h-2" 
+                                />
+                                <span className="text-xs text-muted-foreground">
+                                  {calculateVoteProgress(suggestion.vote_count).percentage}%
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
-                        <div className="bg-muted/20 p-3">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium">Votes: {book.votes}</span>
-                            <Progress value={(book.votes / 12) * 100} className="w-2/3 h-2 bg-muted" />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
                 <CardFooter className="flex justify-between">
-                  <p className="text-sm text-muted-foreground">Voting ends in 5 days</p>
+                  <p className="text-sm text-muted-foreground">
+                    {suggestions.length > 0 && suggestions[0].voting_ends 
+                      ? formatVotingEndDate(suggestions[0].voting_ends)
+                      : "No active voting period"
+                    }
+                  </p>
                   <Button variant="outline" onClick={() => setActiveTab("search")}>
                     Suggest Another Book
                   </Button>
@@ -383,17 +520,19 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
               <div className="flex flex-col items-center">
                 <div className="w-32 h-48 bg-muted/30 rounded-md flex items-center justify-center overflow-hidden mb-4">
                   <img
-                    src={club.currentBook.cover || "/placeholder.svg"}
-                    alt={club.currentBook.title}
+                    src={club.current_book?.cover_url || "/placeholder.svg"}
+                    alt={club.current_book?.title || "No book"}
                     className="max-h-full"
                   />
                 </div>
-                <h3 className="text-lg font-bold text-center">{club.currentBook.title}</h3>
-                <p className="text-sm text-muted-foreground text-center">{club.currentBook.author}</p>
-                <div className="flex items-center gap-2 mt-4 text-sm">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <span>Meeting: {club.currentBook.meetingDate}</span>
-                </div>
+                <h3 className="text-lg font-bold text-center">{club.current_book?.title || "No current book"}</h3>
+                <p className="text-sm text-muted-foreground text-center">{club.current_book?.author || ""}</p>
+                {club.meetings && club.meetings.length > 0 && (
+                  <div className="flex items-center gap-2 mt-4 text-sm">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span>Meeting: {new Date(club.meetings[0].meeting_date).toLocaleDateString()}</span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

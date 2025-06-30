@@ -15,6 +15,7 @@ import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useSession } from "next-auth/react";
 
 // Simple loading component
 function LoadingClubs() {
@@ -27,6 +28,7 @@ function LoadingClubs() {
 }
 
 export default function ProfileSetupPage() {
+  const { data: session, status } = useSession();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [name, setName] = useState("")
@@ -183,13 +185,20 @@ export default function ProfileSetupPage() {
     
     setIsSubmitting(true);
 
+    if (!session?.supabaseAccessToken) {
+      setError("Please log in to send invitation");
+      return;
+    }
+
     try {
       const res = await fetch('/api/profile', {
         method: 'POST',
         credentials: 'include',                 // ← sends Supabase cookies
         headers: {
-          'Content-Type': 'application/json'
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+          'Content-Type': 'application/json',
         },
+        
         body: JSON.stringify({
           display_name: name.trim(),
           about: bio.trim(),
@@ -216,6 +225,16 @@ export default function ProfileSetupPage() {
       }
 
       setSuccess('Profile saved successfully! Redirecting...');
+      
+      // Refresh NextAuth session to update profile completion status
+      try {
+        const { refreshSessionAfterProfileSetup } = await import('@/lib/auth-utils');
+        await refreshSessionAfterProfileSetup();
+        console.log('Session refreshed after profile completion');
+      } catch (sessionError) {
+        console.warn('Failed to refresh session, but profile was saved:', sessionError);
+        // Don't block the redirect if session refresh fails
+      }
       
       // Small delay to show success message before redirect
       setTimeout(() => {

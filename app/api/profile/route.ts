@@ -4,21 +4,46 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { formatProfileWithAvatarUrlServer } from '@/lib/supabase-server-utils'
 import { prisma } from '@/lib/prisma';
+import { createClient } from '@supabase/supabase-js';
 
-export async function GET(req: NextRequest) {
-  const cookieStore = await cookies()
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-  const { data: { user } } = await supabase.auth.getUser();
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!user) {
-    return NextResponse.json(
-      { error: 'Not authenticated', details: 'No active user session.' },
-      { status: 401 }
-    )
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing for books API.");
+}
+
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+
+export async function GET(request: NextRequest) {
+
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
   }
+
+ 
 
   
   try {
+    // Bearer token authentication (consistent with other APIs)
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API profile GET] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error('[API profile GET] Auth error:', userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
+    }
+
+
+
+
     const profile = await prisma.profile.findUnique({
       where: { id: user.id },
       select: {
@@ -57,7 +82,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Format the profile with proper avatar URL
-    const formattedProfile = await formatProfileWithAvatarUrlServer(profile)
+    const formattedProfile = await formatProfileWithAvatarUrlServer(supabase!, profile)
 
     return NextResponse.json(formattedProfile, { status: 200 });
   } catch (error: any) {
@@ -71,20 +96,33 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req:NextRequest){
-// const { display_name, about } = await req.json();
-const cookieStore = cookies()
-const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-const { data: { user } } = await supabase.auth.getUser();
 
-if (!user) {
-    return NextResponse.json(
-      { error: 'Not authenticated', details: 'No active user session.' },
-      { status: 401 }
-    )
+
+export async function POST(req:NextRequest){
+
+
+if (!supabase) {
+    return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
   }
 
-try {
+ 
+
+  
+  try {
+    // Bearer token authentication (consistent with other APIs)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API Profile POST] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error('[API Profile POST] Auth error:', userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
+    }
   const payload = await req.json()
   const {
     display_name,
@@ -111,7 +149,7 @@ try {
   })
 
   // Format the profile with proper avatar URL for consistency with GET endpoint
-  const formattedProfile = await formatProfileWithAvatarUrlServer(profile)
+  const formattedProfile = await formatProfileWithAvatarUrlServer(supabase!, profile)
 
   return NextResponse.json(formattedProfile, { status:201 });
 } catch (error: any) {

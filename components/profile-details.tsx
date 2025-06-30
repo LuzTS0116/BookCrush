@@ -15,6 +15,8 @@ import { BookDetails, BookFile, UserBook, StatusDisplay, TabDisplay } from "@/ty
 import Link from "next/link";
 import { useRouter } from "next/navigation"
 import { useParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+
 // Re-define these with consistent types matching Prisma enums
 const statuses: StatusDisplay[] = [
   { label: "⏳ In Progress", value: "in_progress", color: "bg-accent-variant text-bookWhite" },
@@ -43,6 +45,11 @@ const getMediaTypeDisplay = (mediaType: UserBook['media_type']) => {
   return readingOptions.find(option => option.value === mediaType) || readingOptions[1]; // Default to E-Reader
 };
 
+// Helper function to get comment display info
+const getCommentDisplay = (comment: UserBook['comment']) => {
+  return comment;
+};
+
 // Add interface for profile data
 interface ProfileData {
   id: string;
@@ -61,6 +68,7 @@ interface ProfileData {
 }
 
 export default function ProfileDetailsView({ params }: { params: { id: string } }) {
+  const { data: session } = useSession();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [currentlyReadingBooks, setCurrentlyReadingBooks] = useState<UserBook[]>([]);
   const [queueBooks, setQueueBooks] = useState<UserBook[]>([]);
@@ -78,8 +86,15 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
+        if (!session?.supabaseAccessToken) {
+          throw new Error('No access token found');
+        }
         setIsLoading(true);
-        const response = await fetch(`/api/profile/${id}`);
+        const response = await fetch(`/api/profile/${id}`, {
+          headers: {
+            'Authorization': `Bearer ${session?.supabaseAccessToken}`
+          }
+        });
         
         if (!response.ok) {
           throw new Error(`Failed to fetch profile: ${response.statusText}`);
@@ -246,6 +261,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                   {currentlyReadingBooks.map((userBook) => {
                     const currentStatusDisplay = getStatusDisplay(userBook.status);
                     const currentMediaTypeDisplay = getMediaTypeDisplay(userBook.media_type);
+                    const currentCommentDisplay = getCommentDisplay(userBook.comment);
                     return (
                       <Card key={userBook.book_id} className="relative overflow-hidden bg-bookWhite py-3">
                         <div className="flex flex-row gap-3 px-4">
@@ -263,9 +279,9 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                           <div className="flex flex-col justify-between flex-1">
                             <CardHeader className="pb-0 px-0 pt-0">
                               <Link href={`/books/${userBook.book_id}`}>
-                                <CardTitle>{userBook.book.title}</CardTitle>
+                                <CardTitle className="leading-4">{userBook.book.title}</CardTitle>
                               </Link>
-                              <CardDescription>{userBook.book.author}</CardDescription>
+                              <CardDescription className="text-xs">{userBook.book.author}</CardDescription>
                             </CardHeader>
 
                             <CardContent className="pb-0 px-0">
@@ -309,12 +325,10 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                                 </div>
 
                                 {/* Personal Note/Comment - Display only for friends */}
-                                {userBook.comment && (
-                                  <div className="flex items-center gap-1 px-2 py-0.5 text-xs font-regular bg-accent/80 text-secondary rounded-full max-w-[180px]">
-                                    <span className="truncate">
-                                      "{userBook.comment}"
-                                    </span>
-                                  </div>
+                                {currentCommentDisplay && (
+                                  <p className="flex items-center gap-1 px-2 py-0.5 text-xs font-regular bg-accent/80 text-secondary rounded-full text-wrap leading-3">
+                                    "{currentCommentDisplay}"
+                                  </p>
                                 )}
                               </div>
                             </CardContent>
@@ -348,14 +362,29 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                           </Link>
                         </div>
                         {/* Content */}
-                        <div className="flex flex-col justify-between flex-1">
+                        <div className="flex flex-col flex-1">
                           <CardHeader className="pb-2 px-0 pt-0">
                             <Link href={`/books/${userBook.book_id}`}>
-                              <CardTitle>{userBook.book.title}</CardTitle>
+                              <CardTitle className="leading-4">{userBook.book.title}</CardTitle>
                             </Link>
-                            <CardDescription>{userBook.book.author}</CardDescription>
+                            <CardDescription className="text-xs">{userBook.book.author}</CardDescription>
                           </CardHeader>
                           <CardContent className="pb-0 px-0">
+                            {/* Genre Tags */}
+                            <div className="flex flex-wrap gap-1">
+                              {userBook.book.genres?.slice(0, 1).map((genre: string) => (
+                                <span
+                                  key={genre}
+                                  className="bg-accent/30 text-secondary/40 text-xs/3 font-medium px-2 py-1 rounded-full"
+                                >
+                                  {genre}
+                                </span>
+                              ))}
+                            </div>
+                            {/* Pages & Time */}
+                            <div className="flex-1">
+                              <p className="text-secondary/80 font-sans font-normal text-sm inline-block">{userBook.book.pages} pages • {userBook.book.reading_time}</p>
+                            </div>
                             {userBook.added_at && (
                               <span className="px-2 py-0.5 text-xs font-regular bg-primary-dark/50 text-secondary rounded-full">
                                 Added: {new Date(userBook.added_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -385,7 +414,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                             <img
                               src={userBook.book.cover_url || "/placeholder.svg"}
                               alt={userBook.book.title || "Book cover"}
-                              className="h-auto w-full shadow-md rounded object-cover"
+                              className="h-full w-full shadow-md rounded object-cover"
                             />
                           </Link>
                           

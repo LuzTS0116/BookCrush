@@ -10,10 +10,20 @@ interface Profile {
   email?: string
 }
 
+
+
+
 // Fetcher function for SWR
-const profileFetcher = async (url: string): Promise<Profile> => {
+const profileFetcher = async (url: string, session: any): Promise<Profile> => {
+  
+  if (!session?.supabaseAccessToken) {
+      throw new Error('No Session found')
+    }
   const response = await fetch(url, {
-    credentials: 'include'
+    headers: {
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+          'Content-Type': 'application/json',
+        },
   })
   
   if (!response.ok) {
@@ -38,7 +48,7 @@ export function useProfile() {
   
   const { data: profile, error, mutate, isLoading } = useSWR<Profile>(
     shouldFetch ? '/api/profile' : null,
-    profileFetcher,
+    (url: string) => profileFetcher(url, session),
     {
       // Cache for 5 minutes - good balance for nav component
       dedupingInterval: 5 * 60 * 1000,
@@ -136,9 +146,11 @@ export function useProfileMutations() {
  * Perfect for displaying club members, friends, etc.
  */
 export function useUserAvatar(userId: string | null | undefined) {
+  const { data: session, status } = useSession()
+
   const { data: userProfile, error, isLoading } = useSWR<Profile>(
     userId ? `/api/profile/${userId}` : null,
-    profileFetcher,
+    (url: string) => profileFetcher(url, session),
     {
       // Cache for longer since other users' data changes less frequently
       dedupingInterval: 10 * 60 * 1000, // 10 minutes

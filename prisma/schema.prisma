@@ -54,6 +54,14 @@ model Profile {
   // Feedback relation
   feedback Feedback[] @relation("UserFeedback")
 
+  // Book recommendation relations
+  sentRecommendations     BookRecommendation[] @relation("SentRecommendations")
+  receivedRecommendations BookRecommendation[] @relation("ReceivedRecommendations")
+
+  // Book suggestion relations
+  bookSuggestions     ClubBookSuggestion[]     @relation("BookSuggestions")
+  bookSuggestionVotes ClubBookSuggestionVote[] @relation("BookSuggestionVotes")
+
   @@map("profiles")
   @@schema("public")
 }
@@ -85,6 +93,13 @@ model Book {
   ClubDiscussion   ClubDiscussion[]
   club_meetings    ClubMeeting[]    // New relation for meetings about this book
   book_reactions   Reaction[]
+  
+  // Book recommendation relation
+  recommendations BookRecommendation[] @relation("BookRecommendations")
+  
+  // Book suggestion relation
+  suggestions ClubBookSuggestion[] @relation("BookSuggestions")
+  
   @@map("books")
   @@schema("public")
 }
@@ -153,6 +168,7 @@ model Club {
   updated_at      DateTime @updatedAt @db.Timestamptz(6)
   is_private      Boolean
   current_book_id String?  @db.Uuid
+  genres          String[]
 
   owner          Profile          @relation("ClubOwner", fields: [owner_id], references: [id], onDelete: Restrict)
   memberships    ClubMembership[]
@@ -161,6 +177,7 @@ model Club {
   ClubDiscussion ClubDiscussion[]
   meetings       ClubMeeting[]    // New relation for club meetings
   invitations    ClubInvitation[] // New relation for club invitations
+  bookSuggestions ClubBookSuggestion[] @relation("ClubBookSuggestions") // New relation for book suggestions
 
   @@map("clubs")
   @@schema("public")
@@ -381,6 +398,11 @@ enum ActivityType {
   CLUB_NEW_MEMBER      // A new member joined a club the user is part of
   POSTED_CLUB_DISCUSSION // User posted a discussion in a club
 
+  // Book Recommendations
+  SENT_BOOK_RECOMMENDATION     // User recommended a book to a friend
+  RECEIVED_BOOK_RECOMMENDATION // User received a book recommendation
+  ACCEPTED_BOOK_RECOMMENDATION // User added recommended book to shelf
+
   // Milestones / Achievements
   FINISHED_BOOKS_MONTHLY_MILESTONE // e.g., "User finished X books this month"
   FRIENDSHIP_ANNIVERSARY
@@ -395,6 +417,7 @@ enum ActivityTargetEntityType {
   CLUB
   CLUB_DISCUSSION // Represents a ClubDiscussion entry
   FRIEND_REQUEST
+  BOOK_RECOMMENDATION // Represents a BookRecommendation entry
   // REVIEW // if you add reviews
   // GENERIC // For activities not tied to a specific DB entity ID e.g. monthly milestone
   @@schema("public")
@@ -556,5 +579,90 @@ enum UserRole {
   ADMIN
   SUPER_ADMIN
 
+  @@schema("public")
+}
+
+enum BookRecommendationStatus {
+  PENDING     // Sent but not yet read by recipient
+  READ        // Recipient has seen the recommendation
+  ADDED       // Recipient added book to their shelf
+  DISMISSED   // Recipient dismissed the recommendation
+  
+  @@schema("public")
+}
+
+model BookRecommendation {
+  id            String                    @id @default(uuid()) @db.Uuid
+  book_id       String                    @db.Uuid
+  from_user_id  String                    @db.Uuid // Who sent the recommendation
+  to_user_id    String                    @db.Uuid // Who received it
+  note          String?                   @db.Text // Optional personal note
+  status        BookRecommendationStatus  @default(PENDING)
+  created_at    DateTime                  @default(now()) @db.Timestamptz(6)
+  read_at       DateTime?                 @db.Timestamptz(6) // When recipient first viewed it
+  responded_at  DateTime?                 @db.Timestamptz(6) // When recipient took action
+  
+  // Relations
+  book      Book    @relation("BookRecommendations", fields: [book_id], references: [id], onDelete: Cascade)
+  from_user Profile @relation("SentRecommendations", fields: [from_user_id], references: [id], onDelete: Cascade)
+  to_user   Profile @relation("ReceivedRecommendations", fields: [to_user_id], references: [id], onDelete: Cascade)
+  
+  // Prevent duplicate recommendations (same book from same person to same person)
+  @@unique([book_id, from_user_id, to_user_id])
+  @@index([to_user_id, status]) // For fetching user's inbox
+  @@index([from_user_id, created_at]) // For fetching sent recommendations
+  @@map("book_recommendations")
+  @@schema("public")
+}
+
+// Club Book Suggestion system
+enum ClubBookSuggestionStatus {
+  ACTIVE      // Currently open for voting
+  SELECTED    // This book was chosen
+  REJECTED    // This book was not chosen
+  EXPIRED     // Voting period ended without selection
+  
+  @@schema("public")
+}
+
+model ClubBookSuggestion {
+  id            String                    @id @default(uuid()) @db.Uuid
+  club_id       String                    @db.Uuid
+  book_id       String                    @db.Uuid
+  suggested_by  String                    @db.Uuid // Profile ID of who suggested it
+  reason        String?                   @db.Text // Why they're suggesting this book
+  status        ClubBookSuggestionStatus  @default(ACTIVE)
+  voting_ends   DateTime?                 @db.Timestamptz(6) // When voting period ends
+  created_at    DateTime                  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime                  @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  club          Club     @relation("ClubBookSuggestions", fields: [club_id], references: [id], onDelete: Cascade)
+  book          Book     @relation("BookSuggestions", fields: [book_id], references: [id], onDelete: Cascade)
+  suggested_by_user Profile @relation("BookSuggestions", fields: [suggested_by], references: [id], onDelete: Cascade)
+  votes         ClubBookSuggestionVote[]
+  
+  // Prevent duplicate suggestions (same book in same club)
+  @@unique([club_id, book_id])
+  @@index([club_id, status]) // For fetching active suggestions by club
+  @@index([club_id, created_at]) // For ordering suggestions
+  @@map("club_book_suggestions")
+  @@schema("public")
+}
+
+model ClubBookSuggestionVote {
+  id            String   @id @default(uuid()) @db.Uuid
+  suggestion_id String   @db.Uuid
+  user_id       String   @db.Uuid // Profile ID of who voted
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  suggestion ClubBookSuggestion @relation(fields: [suggestion_id], references: [id], onDelete: Cascade)
+  user       Profile            @relation("BookSuggestionVotes", fields: [user_id], references: [id], onDelete: Cascade)
+  
+  // One vote per user per suggestion
+  @@unique([suggestion_id, user_id])
+  @@index([suggestion_id]) // For counting votes
+  @@map("club_book_suggestion_votes")
   @@schema("public")
 }

@@ -1,21 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import { prisma } from '@/lib/prisma';
+
+// Initialize Supabase client - credentials should be in environment variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing. Check environment variables.");
+}
+
+// Create a single Supabase client instance
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 // GET /api/clubs/[id]/members/book-status - Get book shelf status for all members
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!supabase) {
+    console.error('[API clubs/[id]/members/book-status] Supabase client not initialized');
+    return NextResponse.json({ error: "Supabase client not initialized. Check server configuration." }, { status: 500 });
+  }
+
   const { id } = await params;
   
   try {
-    const supabase = createRouteHandlerClient({ cookies });
-    const { data: { user } } = await supabase.auth.getUser();
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API clubs/[id]/members/book-status] Missing or invalid Authorization header:', authHeader?.substring(0, 20));
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
+    const token = authHeader.split(' ')[1];
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error("Auth error or no user:", userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
     }
 
     // Get the club and its current book

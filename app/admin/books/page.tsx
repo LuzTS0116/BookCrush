@@ -230,9 +230,9 @@ export default function AdminBooksPage() {
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button variant="ghost" asChild>
+      <div className="flex flex-col items-start">
+        <div className="flex flex-col items-start">
+          <Button variant="ghost" asChild className='p-0 mb-2'>
             <Link href="/admin">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Dashboard
@@ -245,7 +245,7 @@ export default function AdminBooksPage() {
             </p>
           </div>
         </div>
-        <Button onClick={handleCreateBook}>
+        <Button onClick={handleCreateBook} className='mt-2'>
           <Plus className="h-4 w-4 mr-2" />
           Add Book
         </Button>
