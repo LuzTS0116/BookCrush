@@ -393,7 +393,11 @@ export default function DashboardReading() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/shelf?shelf=${shelf}`);
+      const response = await fetch(`/api/shelf?shelf=${shelf}`, {
+        headers: {
+          'Authorization': `Bearer ${session?.supabaseAccessToken}`
+        }
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `Failed to fetch ${shelf} books`);
@@ -1168,12 +1172,12 @@ export default function DashboardReading() {
                                       <Textarea
                                         value={noteText}
                                         onChange={(e) => setNoteText(e.target.value)}
-                                        placeholder="Share your thoughts so far - no spoilers!!!"
+                                        placeholder="Share a short thought - no spoilers!!!"
                                         className="min-h-[60px] text-xs bg-bookWhite p-1.5 border-secondary/20 resize-none"
-                                        maxLength={60}
+                                        maxLength={32}
                                       />
                                       <div className="absolute bottom-1 right-1.5 text-xs text-muted-foreground">
-                                        {noteText.length}/60
+                                        {noteText.length}/32
                                       </div>
                                     </div>
                                     <div className="flex gap-2 justify-end">

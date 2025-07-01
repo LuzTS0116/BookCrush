@@ -759,7 +759,8 @@ export default function EditableProfileMain() {
       // Call your API to update the book's status
       const response = await fetch('/api/shelf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${session?.supabaseAccessToken}` },
         body: JSON.stringify({ bookId, shelf: currentShelf, status: newStatus })
       });
 
@@ -848,7 +849,8 @@ export default function EditableProfileMain() {
       // Update book status to finished
       const statusResponse = await fetch('/api/shelf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${session?.supabaseAccessToken}` },
         body: JSON.stringify({ 
           bookId: finishedBookDialog.bookId, 
           shelf: finishedBookDialog.currentShelf, 
@@ -944,7 +946,8 @@ export default function EditableProfileMain() {
       // Call API to move book to currently_reading shelf
       const response = await fetch('/api/shelf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${session?.supabaseAccessToken}` },
         body: JSON.stringify({ 
           bookId, 
           shelf: 'currently_reading', 
@@ -961,7 +964,11 @@ export default function EditableProfileMain() {
       toast.success('Started reading! Book moved to Currently Reading.');
 
       // Refresh currently reading books to show the newly moved book
-      const updatedResponse = await fetch('/api/shelf?shelf=currently_reading');
+      const updatedResponse = await fetch('/api/shelf?shelf=currently_reading', {
+        headers: {
+          'Authorization': `Bearer ${session?.supabaseAccessToken}`
+        }
+      });
       if (updatedResponse.ok) {
         const updatedBooks = await updatedResponse.json();
         setCurrentlyReadingBooks(updatedBooks);
@@ -971,7 +978,11 @@ export default function EditableProfileMain() {
       console.error("Error starting book:", err);
       toast.error(`Failed to start reading: ${err.message}`);
       // Rollback UI update if API fails
-      const rollbackResponse = await fetch('/api/shelf?shelf=queue');
+      const rollbackResponse = await fetch('/api/shelf?shelf=queue', {
+        headers: {
+          'Authorization': `Bearer ${session?.supabaseAccessToken}`
+        }
+      });
       if (rollbackResponse.ok) {
         const rollbackBooks = await rollbackResponse.json();
         setQueueBooks(rollbackBooks);
@@ -1031,7 +1042,11 @@ export default function EditableProfileMain() {
 
       // Refresh the target shelf to show the newly moved book
       if (shelf === "queue") {
-        const updatedResponse = await fetch('/api/shelf?shelf=queue');
+        const updatedResponse = await fetch('/api/shelf?shelf=queue', {
+          headers: {
+            'Authorization': `Bearer ${session?.supabaseAccessToken}`
+          }
+        });
         if (updatedResponse.ok) {
           const updatedBooks = await updatedResponse.json();
           setQueueBooks(updatedBooks);
@@ -1043,7 +1058,11 @@ export default function EditableProfileMain() {
       toast.error(`Failed to move book: ${err.message}`);
       
       // Rollback optimistic updates on error
-      const rollbackResponse = await fetch('/api/shelf?shelf=currently_reading');
+      const rollbackResponse = await fetch('/api/shelf?shelf=currently_reading', {
+        headers: {
+          'Authorization': `Bearer ${session?.supabaseAccessToken}`
+        }
+      });
       if (rollbackResponse.ok) {
         const rollbackBooks = await rollbackResponse.json();
         setCurrentlyReadingBooks(rollbackBooks);
@@ -1072,7 +1091,8 @@ export default function EditableProfileMain() {
       // Call API to remove book from queue shelf
       const response = await fetch('/api/shelf', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${session?.supabaseAccessToken}` },
         body: JSON.stringify({ 
           bookId, 
           shelf: 'queue'
@@ -1091,7 +1111,11 @@ export default function EditableProfileMain() {
       console.error("Error removing book from queue:", err);
       toast.error(`Failed to remove book: ${err.message}`);
       // Rollback UI update if API fails
-      const rollbackResponse = await fetch('/api/shelf?shelf=queue');
+      const rollbackResponse = await fetch('/api/shelf?shelf=queue', {
+        headers: {
+          'Authorization': `Bearer ${session?.supabaseAccessToken}`
+        }
+      });
       if (rollbackResponse.ok) {
         const rollbackBooks = await rollbackResponse.json();
         setQueueBooks(rollbackBooks);
@@ -1110,7 +1134,8 @@ export default function EditableProfileMain() {
       // Call API to remove book from currently reading shelf
       const response = await fetch('/api/shelf', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${session?.supabaseAccessToken}` },
         body: JSON.stringify({ 
           bookId, 
           shelf: 'currently_reading'
@@ -1129,7 +1154,11 @@ export default function EditableProfileMain() {
       console.error("Error removing book from currently reading:", err);
       toast.error(`Failed to remove book: ${err.message}`);
       // Rollback UI update if API fails
-      const rollbackResponse = await fetch('/api/shelf?shelf=currently_reading');
+      const rollbackResponse = await fetch('/api/shelf?shelf=currently_reading', {
+        headers: {
+          'Authorization': `Bearer ${session?.supabaseAccessToken}`
+        }
+      });
       if (rollbackResponse.ok) {
         const rollbackBooks = await rollbackResponse.json();
         setCurrentlyReadingBooks(rollbackBooks);
@@ -1167,7 +1196,8 @@ export default function EditableProfileMain() {
 
       const response = await fetch('/api/shelf/reorder', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${session?.supabaseAccessToken}` },
         body: JSON.stringify({ updates, shelf: 'queue' })
       });
 
@@ -1180,7 +1210,11 @@ export default function EditableProfileMain() {
       console.error('Error updating book order:', error);
       toast.error('Failed to save new order');
       // Revert to original order on error
-      const originalResponse = await fetch('/api/shelf?shelf=queue');
+      const originalResponse = await fetch('/api/shelf?shelf=queue', {
+        headers: {
+          'Authorization': `Bearer ${session?.supabaseAccessToken}`
+        }
+      });
       if (originalResponse.ok) {
         const originalBooks = await originalResponse.json();
         setQueueBooks(originalBooks);
@@ -1251,7 +1285,8 @@ export default function EditableProfileMain() {
       // Call API to move book to target shelf
       const response = await fetch('/api/shelf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${session?.supabaseAccessToken}` },
         body: JSON.stringify({ 
           bookId, 
           shelf: targetShelf, 
@@ -1270,13 +1305,21 @@ export default function EditableProfileMain() {
 
       // Refresh the target shelf to show the newly moved book
       if (targetShelf === 'currently_reading') {
-        const updatedResponse = await fetch('/api/shelf?shelf=currently_reading');
+        const updatedResponse = await fetch('/api/shelf?shelf=currently_reading', {
+          headers: {
+            'Authorization': `Bearer ${session?.supabaseAccessToken}`
+          }
+        });
         if (updatedResponse.ok) {
           const updatedBooks = await updatedResponse.json();
           setCurrentlyReadingBooks(updatedBooks);
         }
       } else if (targetShelf === 'queue') {
-        const updatedResponse = await fetch('/api/shelf?shelf=queue');
+        const updatedResponse = await fetch('/api/shelf?shelf=queue', {
+          headers: {
+            'Authorization': `Bearer ${session?.supabaseAccessToken}`
+          }
+        });
         if (updatedResponse.ok) {
           const updatedBooks = await updatedResponse.json();
           setQueueBooks(updatedBooks);
@@ -1288,7 +1331,11 @@ export default function EditableProfileMain() {
       toast.error(`Failed to move book: ${err.message}`);
       
       // Rollback optimistic update on error
-      const rollbackResponse = await fetch('/api/shelf?shelf=history');
+      const rollbackResponse = await fetch('/api/shelf?shelf=history', {
+        headers: {
+          'Authorization': `Bearer ${session?.supabaseAccessToken}`
+        }
+      });
       if (rollbackResponse.ok) {
         const rollbackBooks = await rollbackResponse.json();
         setHistoryBooks(rollbackBooks.sort((a: UserBook, b: UserBook) => 
@@ -1309,7 +1356,8 @@ export default function EditableProfileMain() {
       // Call API to remove book from history shelf
       const response = await fetch('/api/shelf', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${session?.supabaseAccessToken}` },
         body: JSON.stringify({ 
           bookId, 
           shelf: 'history'
@@ -1329,7 +1377,11 @@ export default function EditableProfileMain() {
       toast.error(`Failed to remove book: ${err.message}`);
       
       // Rollback optimistic update on error
-      const rollbackResponse = await fetch('/api/shelf?shelf=history');
+      const rollbackResponse = await fetch('/api/shelf?shelf=history', {
+        headers: {
+          'Authorization': `Bearer ${session?.supabaseAccessToken}`
+        }
+      });
       if (rollbackResponse.ok) {
         const rollbackBooks = await rollbackResponse.json();
         setHistoryBooks(rollbackBooks.sort((a: UserBook, b: UserBook) => 
@@ -1877,12 +1929,12 @@ export default function EditableProfileMain() {
                                       <Textarea
                                         value={noteText}
                                         onChange={(e) => setNoteText(e.target.value)}
-                                        placeholder="Share your thoughts so far - no spoilers!!!"
+                                        placeholder="Share short thought - no spoilers!!!"
                                         className="min-h-[60px] text-xs bg-bookWhite p-1.5 border-secondary/20 resize-none"
-                                        maxLength={60}
+                                        maxLength={32}
                                       />
                                       <div className="absolute bottom-1 right-1.5 text-xs text-muted-foreground">
-                                        {noteText.length}/60
+                                        {noteText.length}/32
                                       </div>
                                     </div>
                                     <div className="flex gap-2 justify-end">

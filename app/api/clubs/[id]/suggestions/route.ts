@@ -3,9 +3,10 @@ import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { prisma } from '@/lib/prisma';
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const cookieStore = await cookies();
+    const { id } = await params;
+    const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const clubId = params.id;
+    const clubId = id;
 
     // Verify user is a member of the club
     const membership = await prisma.clubMembership.findFirst({
@@ -89,9 +90,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 // POST - Create a new book suggestion
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const cookieStore = await cookies();
+    const { id } = await params;
+    const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -99,7 +101,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const clubId = params.id;
+    const clubId = id;
     const { book_id, reason } = await req.json();
 
     if (!book_id) {

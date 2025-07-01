@@ -4,9 +4,10 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { prisma } from '@/lib/prisma';
 
 // POST - Vote for a suggestion
-export async function POST(req: NextRequest, { params }: { params: { id: string, suggestionId: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string, suggestionId: string }> }) {
   try {
-    const cookieStore = await cookies();
+    const { id, suggestionId } = await params;
+    const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -14,8 +15,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string,
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const clubId = params.id;
-    const suggestionId = params.suggestionId;
+    const clubId = id;
 
     // Verify user is a member of the club
     const membership = await prisma.clubMembership.findFirst({
@@ -87,9 +87,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string,
 }
 
 // DELETE - Remove vote for a suggestion
-export async function DELETE(req: NextRequest, { params }: { params: { id: string, suggestionId: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string, suggestionId: string }> }) {
   try {
-    const cookieStore = await cookies();
+    const { id, suggestionId } = await params;
+    const cookieStore = cookies();
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -97,8 +98,7 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const clubId = params.id;
-    const suggestionId = params.suggestionId;
+    const clubId = id;
 
     // Verify user is a member of the club
     const membership = await prisma.clubMembership.findFirst({

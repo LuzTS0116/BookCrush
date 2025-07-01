@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { BookMarked, ArrowLeft, Smartphone, BookOpen, Headphones, CircleCheckBig, CircleAlert, Star } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { ProfileBookHistory } from "./profile-book-history";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Heart, Books, Bookmark, CheckCircle } from "@phosphor-icons/react"
 import { BookDetails, BookFile, UserBook, StatusDisplay, TabDisplay } from "@/types/book";
@@ -22,6 +23,7 @@ const statuses: StatusDisplay[] = [
   { label: "⏳ In Progress", value: "in_progress", color: "bg-accent-variant text-bookWhite" },
   { label: "💫 Almost Done", value: "almost_done", color: "bg-accent-variant text-bookWhite" },
   { label: "🔥 Finished", value: "finished", color: "bg-accent-variant text-bookWhite" },
+  { label: "😑 Unfinished", value: "unfinished", color: "bg-accent-variant text-bookWhite" },
 ];
 
 const TABS: TabDisplay[] = [
@@ -257,7 +259,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                   No books currently reading.
                 </p>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                   {currentlyReadingBooks.map((userBook) => {
                     const currentStatusDisplay = getStatusDisplay(userBook.status);
                     const currentMediaTypeDisplay = getMediaTypeDisplay(userBook.media_type);
@@ -347,7 +349,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                   No books in reading queue.
                 </p>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                   {queueBooks.map((userBook) => (
                     <Card key={userBook.book_id} className="relative overflow-hidden bg-bookWhite py-3">
                       <div className="flex flex-row gap-3 px-4">
@@ -401,40 +403,25 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
 
             <TabsContent value="history">
               <Card>
-                <CardContent className="p-1 ">
+                {/* <CardContent className="p-1 ">
                   {historyBooks.length === 0 ? (
                     <p className="text-center text-muted-foreground py-8">
                       No books in reading history.
                     </p>
                   ) : (
                     <div className="grid grid-cols-4 gap-1">
-                      {historyBooks.map((userBook) => (
-                        <div key={userBook.book_id} className="relative w-auto">
-                          <Link href={`/books/${userBook.book_id}`}>
-                            <img
-                              src={userBook.book.cover_url || "/placeholder.svg"}
-                              alt={userBook.book.title || "Book cover"}
-                              className="h-full w-full shadow-md rounded object-cover"
-                            />
-                          </Link>
-                          
-                          {userBook.status === 'finished' && (
-                            <span className="absolute bottom-1 right-1 bg-green-600/50 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
-                            <CircleCheckBig className="h-4 w-4" />
-                            </span>
-                          )
-                          }
-                          {userBook.status === 'unfinished' && (
-                            <span className="absolute bottom-1 right-1 bg-accent/70 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
-                            <CircleAlert className="h-4 w-4" />
-                            </span>
-                          )}
-                          
-                        </div>
-                      ))}
+                      {historyBooks.map((userBook) => {
+                        const currentStatusDisplay = getStatusDisplay(userBook.status);
+                        const currentMediaTypeDisplay = getMediaTypeDisplay(userBook.media_type);
+                        return (
+                          <ProfileBookHistory
+
+                          />
+                        )
+                      })}
                     </div>
                   )}
-                </CardContent>
+                </CardContent> */}
               </Card>
             </TabsContent>
 

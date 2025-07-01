@@ -114,9 +114,9 @@ export default function ProfileSetupPage() {
       // Get presigned URL
       const presignResponse = await fetch('/api/profile/presign', {
         method: 'POST',
-        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.supabaseAccessToken}`
         },
         body: JSON.stringify({
           filename: file.name,
