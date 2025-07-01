@@ -22,6 +22,24 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Create a single Supabase client instance
 const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
+// Optimized avatar URL processing function - SYNCHRONOUS, NO ASYNC CALLS
+function processAvatarUrl(avatarPath: string | null | undefined): string | null {
+  if (!avatarPath) return null;
+  
+  // If already a full URL (Google avatars, etc.), return as-is
+  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
+    return avatarPath;
+  }
+  
+  // Convert relative path to public URL synchronously
+  if (supabase) {
+    const { data } = supabase.storage.from('profiles').getPublicUrl(avatarPath);
+    return data.publicUrl;
+  }
+  
+  return null;
+}
+
 export async function GET(req: NextRequest) {
   // console.log('[API my-clubs] Request received:', {
   //   method: req.method,
@@ -62,7 +80,7 @@ export async function GET(req: NextRequest) {
 
     // console.log('[API my-clubs] User authenticated successfully, fetching clubs...');
 
-    // Fetch all memberships for the current user that are ACTIVE
+    // Revert to original working query structure but with optimized processing
     const userMemberships = await prisma.clubMembership.findMany({
       where: {
         user_id: user.id,
@@ -124,12 +142,8 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    //console.log('[API my-clubs] Database query completed:', { membershipCount: userMemberships.length });
-
-    //get the a single meeting with status scheduled from userMemberships.club.meetings
-    // const nextMeeting = userMemberships.map(membership => membership.club.meetings.find(meeting => meeting.status === 'SCHEDULED'));
-
-    const clubsWithStatus = await Promise.all(userMemberships.map(async membership => ({
+    // PERFORMANCE FIX: Process data synchronously - NO MORE ASYNC OPERATIONS!
+    const clubsWithStatus = userMemberships.map(membership => ({
       id: membership.club.id,
       name: membership.club.name,
       description: membership.club.description,
@@ -142,16 +156,16 @@ export async function GET(req: NextRequest) {
       admin: membership.club.owner_id === user.id,
       current_book: membership.club.current_book,
       meetings: membership.club.meetings,
-      // Include members data for avatars
-      members: await Promise.all(membership.club.memberships.map(async member => ({
+      // PERFORMANCE FIX: Process member avatars synchronously instead of async
+      members: membership.club.memberships.map(member => ({
         id: member.user.id,
         display_name: member.user.display_name,
         nickname: member.user.nickname,
-        avatar_url: await getAvatarPublicUrlServer(supabase!, member.user.avatar_url),
+        avatar_url: processAvatarUrl(member.user.avatar_url), // Synchronous processing!
         role: member.role,
         joined_at: member.joined_at,
-      }))),
-    })));
+      })),
+    }));
 
     // console.log('[API my-clubs] Returning response:', { clubCount: clubsWithStatus.length });
     return NextResponse.json(clubsWithStatus, { status: 200 });

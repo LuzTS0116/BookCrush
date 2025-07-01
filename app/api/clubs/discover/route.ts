@@ -17,26 +17,45 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
+// Optimized avatar URL processing function - SYNCHRONOUS, NO ASYNC CALLS
+function processAvatarUrl(avatarPath: string | null | undefined): string | null {
+  if (!avatarPath) return null;
+  
+  // If already a full URL (Google avatars, etc.), return as-is
+  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
+    return avatarPath;
+  }
+  
+  // Convert relative path to public URL synchronously
+  if (supabase) {
+    const { data } = supabase.storage.from('profiles').getPublicUrl(avatarPath);
+    return data.publicUrl;
+  }
+  
+  return null;
+}
+
 export async function GET(req: NextRequest) {
   if (!supabase) {
     return NextResponse.json({ error: "Supabase client not initialized. Check server configuration." }, { status: 500 });
   }
+
   try {
     const authHeader = req.headers.get('Authorization');
     let user = null;
 
-    // User can be optionally authenticated. If token is present, use it.
+    // Optional authentication - improved error handling
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       const { data: { user: authenticatedUser }, error: userError } = await supabase.auth.getUser(token);
-      if (userError) {
-        console.warn("Token validation error for discover clubs (user might be unauthenticated or token invalid):", userError.message);
-        // Don't fail the request, just proceed as unauthenticated
+      if (!userError) {
+        user = authenticatedUser;
+      } else {
+        console.warn("Token validation error for discover clubs:", userError.message);
       }
-      user = authenticatedUser;
     }
 
-    // 1. Fetch all clubs
+    // Revert to original working query structure but with optimized processing
     const allClubs = await prisma.club.findMany({
       select: {
         id: true,
@@ -75,7 +94,7 @@ export async function GET(req: NextRequest) {
     });
 
     if (!user) {
-      // If no user is authenticated (or token was invalid), return all clubs with null membershipStatus
+      // PERFORMANCE FIX: Process all clubs synchronously for unauthenticated users
       const publicClubs = allClubs.map(club => ({
         id: club.id,
         name: club.name,
@@ -84,12 +103,12 @@ export async function GET(req: NextRequest) {
         memberCount: club.memberCount,
         membershipStatus: null,
         genres: club.genres,
-        // Include members data for avatars
+        // Include members data for avatars with synchronous processing
         members: club.memberships.map(member => ({
           id: member.user.id,
           display_name: member.user.display_name,
           nickname: member.user.nickname,
-          avatar_url: member.user.avatar_url,
+          avatar_url: processAvatarUrl(member.user.avatar_url), // Synchronous!
           role: member.role,
           joined_at: member.joined_at,
         })),
@@ -112,14 +131,12 @@ export async function GET(req: NextRequest) {
       userMemberships.map(m => [m.club_id, m.status])
     );
 
-  
     const discoverableClubs = allClubs.filter(club => {
       const status = userClubMembershipMap.get(club.id);
-      
-     
       return status !== ClubMembershipStatus.ACTIVE;
     });
 
+    // PERFORMANCE FIX: Process data synchronously instead of async
     const clubsForDiscovery = discoverableClubs.map(club => {
         const userStatus = userClubMembershipMap.get(club.id);
         return {
@@ -128,14 +145,14 @@ export async function GET(req: NextRequest) {
             description: club.description,
             ownerId: club.owner_id,
             memberCount: club.memberCount,
-            membershipStatus: userStatus || null,
             genres: club.genres,
-            // Include members data for avatars
+            membershipStatus: userStatus || null,
+            // Include members data for avatars with synchronous processing
             members: club.memberships.map(member => ({
               id: member.user.id,
               display_name: member.user.display_name,
               nickname: member.user.nickname,
-              avatar_url: member.user.avatar_url,
+              avatar_url: processAvatarUrl(member.user.avatar_url), // Synchronous!
               role: member.role,
               joined_at: member.joined_at,
             })),
@@ -147,7 +164,5 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error("Error fetching discoverable clubs:", error);
     return NextResponse.json({ error: error.message || "Failed to fetch discoverable clubs" }, { status: 500 });
-  } finally {
-    
   }
 }

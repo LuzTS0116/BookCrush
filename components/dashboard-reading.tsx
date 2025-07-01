@@ -519,7 +519,8 @@ export default function DashboardReading() {
       // Call your API to update the book's status
       const response = await fetch('/api/shelf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${session?.supabaseAccessToken}` },
         body: JSON.stringify({ bookId, shelf: currentShelf, status: newStatus })
       });
 
@@ -590,7 +591,8 @@ export default function DashboardReading() {
       // Update book status to finished
       const statusResponse = await fetch('/api/shelf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${session?.supabaseAccessToken}` },
         body: JSON.stringify({ 
           bookId: finishedBookDialog.bookId, 
           shelf: finishedBookDialog.currentShelf, 
@@ -683,7 +685,8 @@ export default function DashboardReading() {
       // Call API to move book to currently_reading shelf
       const response = await fetch('/api/shelf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${session?.supabaseAccessToken}` },
         body: JSON.stringify({ 
           bookId, 
           shelf: 'currently_reading', 
@@ -883,7 +886,8 @@ export default function DashboardReading() {
       // Call API to remove book from queue shelf
       const response = await fetch('/api/shelf', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${session?.supabaseAccessToken}` },
         body: JSON.stringify({ 
           bookId, 
           shelf: 'queue'
@@ -917,7 +921,8 @@ export default function DashboardReading() {
       // Call API to remove book from currently reading shelf
       const response = await fetch('/api/shelf', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${session?.supabaseAccessToken}` },
         body: JSON.stringify({ 
           bookId, 
           shelf: 'currently_reading'

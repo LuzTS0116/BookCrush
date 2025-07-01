@@ -616,7 +616,8 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
       // Your API call to add/move the book
       const response = await fetch('/api/shelf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 
+          'Authorization': `Bearer ${session?.supabaseAccessToken}` },
         body: JSON.stringify({ bookId, shelf, status: 'in_progress' }) // Default status for new additions
       });
       

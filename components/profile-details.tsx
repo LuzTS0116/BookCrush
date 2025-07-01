@@ -69,6 +69,36 @@ interface ProfileData {
   };
 }
 
+// History Book Item Component - simplified without external menu
+interface HistoryBookItemProps {
+  userBook: UserBook;
+  bookStatus: UserBook['status'];
+  bookMediaType: UserBook['media_type'];
+}
+
+function ProfileBookHistoryItem({ userBook, bookStatus, bookMediaType }: HistoryBookItemProps) {
+  return (
+    <div className="relative w-auto">
+      <ProfileBookHistory
+        historyBooks={userBook} 
+        bookStatus={bookStatus}
+        bookMediaType={bookMediaType}
+      />
+      {/* Status indicators */}
+      {userBook.status === 'finished' && (
+        <span className="absolute bottom-1 right-1 bg-green-600/50 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
+          <CircleCheckBig className="h-4 w-4" />
+        </span>
+      )}
+      {userBook.status === 'unfinished' && (
+        <span className="absolute bottom-1 right-1 bg-accent/70 text-bookWhite text-xs font-bold px-1 py-1 rounded-full shadow-md">
+          <CircleAlert className="h-4 w-4" />
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function ProfileDetailsView({ params }: { params: { id: string } }) {
   const { data: session } = useSession();
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -403,25 +433,25 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
 
             <TabsContent value="history">
               <Card>
-                {/* <CardContent className="p-1 ">
+                <CardContent className="p-1 ">
                   {historyBooks.length === 0 ? (
                     <p className="text-center text-muted-foreground py-8">
                       No books in reading history.
                     </p>
                   ) : (
                     <div className="grid grid-cols-4 gap-1">
-                      {historyBooks.map((userBook) => {
-                        const currentStatusDisplay = getStatusDisplay(userBook.status);
-                        const currentMediaTypeDisplay = getMediaTypeDisplay(userBook.media_type);
-                        return (
-                          <ProfileBookHistory
-
+                      {historyBooks.map((userBook) => (
+                          <ProfileBookHistoryItem
+                            key={userBook.book_id}
+                            userBook={userBook}
+                            bookStatus={userBook.status}
+                            bookMediaType={userBook.media_type}
                           />
                         )
-                      })}
+                      )}
                     </div>
                   )}
-                </CardContent> */}
+                </CardContent>
               </Card>
             </TabsContent>
 

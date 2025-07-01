@@ -28,7 +28,7 @@ function LoadingClubs() {
 }
 
 export default function ProfileSetupPage() {
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [name, setName] = useState("")
@@ -186,7 +186,7 @@ export default function ProfileSetupPage() {
     setIsSubmitting(true);
 
     if (!session?.supabaseAccessToken) {
-      setError("Please log in to send invitation");
+      setError("Please log in to complete your profile");
       return;
     }
 
@@ -228,12 +228,20 @@ export default function ProfileSetupPage() {
       
       // Refresh NextAuth session to update profile completion status
       try {
-        const { refreshSessionAfterProfileSetup } = await import('@/lib/auth-utils');
-        await refreshSessionAfterProfileSetup();
-        console.log('Session refreshed after profile completion');
+        console.log('Profile completed successfully, updating session...');
+        
+        // Use NextAuth's update function to trigger JWT callback with 'update' trigger
+        await update();
+        console.log('Session updated after profile completion');
+        
+        // Small delay to ensure the session update is processed
+        setTimeout(() => {
+          router.push(redirectedFrom || '/dashboard');
+        }, 500);
+        return;
       } catch (sessionError) {
-        console.warn('Failed to refresh session, but profile was saved:', sessionError);
-        // Don't block the redirect if session refresh fails
+        console.warn('Failed to update session, but profile was saved:', sessionError);
+        // Continue with normal redirect as fallback
       }
       
       // Small delay to show success message before redirect

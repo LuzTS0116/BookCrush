@@ -22,8 +22,8 @@ interface UserReactionReview {
 
 interface HistoryBookDialogProps {
   historyBooks: UserBook;
-  bookStatus: string;
-  bookMediaType: string;
+  bookStatus: UserBook['status'];
+  bookMediaType: UserBook['media_type'];
 }
 
 export function ProfileBookHistory({ historyBooks, bookStatus, bookMediaType }: HistoryBookDialogProps) {
@@ -89,9 +89,9 @@ export function ProfileBookHistory({ historyBooks, bookStatus, bookMediaType }: 
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <img
-          src={historyBooks.book.cover_url || "/placeholder.svg"}
-          alt={historyBooks.book.title || "Book cover"}
-          className="h-full w-full shadow-md rounded object-cover"
+        src={historyBooks.book.cover_url || "/placeholder.svg"}
+        alt={historyBooks.book.title || "Book cover"}
+        className="h-full w-full shadow-md rounded object-cover"
         />
       </DialogTrigger>
       <DialogContent className="w-[90vw] bg-bookWhite text-secondary rounded-2xl p-3">
@@ -117,7 +117,7 @@ export function ProfileBookHistory({ historyBooks, bookStatus, bookMediaType }: 
             <div className="pb-0 px-0">
               <div className="flex flex-wrap gap-1.5 items-center mb-2">
                 <span className="text-xs font-medium text-secondary-light/85 bg-primary/50 px-2 py-1 rounded-full">
-                  {historyBooks.status.replace('_', ' ')}
+                  {bookStatus}
                 </span>
                 <span className="text-xs font-medium py-1 px-2 bg-accent/40 rounded-full text-secondary/80">
                   {new Date(historyBooks.added_at).toLocaleDateString('en-US', {
@@ -126,9 +126,9 @@ export function ProfileBookHistory({ historyBooks, bookStatus, bookMediaType }: 
                     year: "numeric"
                   })}
                 </span>
-                {historyBooks.media_type && (
+                {bookMediaType && (
                   <span className="p-1.5 bg-secondary/10 rounded-full text-xs text-secondary-light">
-                  {(historyBooks.media_type === "e_reader") ? <Smartphone className="w-4 h-4"/> : (historyBooks.media_type === "audio_book") ? <Headphones className="w-4 h-4"/> : <BookOpen className="w-4 h-4"/>}
+                  {(bookMediaType === "e_reader") ? <Smartphone className="w-4 h-4"/> : (bookMediaType === "audio_book") ? <Headphones className="w-4 h-4"/> : <BookOpen className="w-4 h-4"/>}
                 </span>
                 )}
             </div>
@@ -170,5 +170,4 @@ export function ProfileBookHistory({ historyBooks, bookStatus, bookMediaType }: 
       </DialogContent>
     </Dialog>
   )
-
 }

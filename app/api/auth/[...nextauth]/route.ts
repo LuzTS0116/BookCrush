@@ -243,21 +243,32 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-      // Check profile status only when token is first created or explicitly updated
-      if (token.id && (user || trigger === 'update') && token.profileComplete === undefined) {
-        try {
-          console.log('[Auth JWT Callback] Checking profile status for user:', token.id);
-          const profile = await prisma.profile.findUnique({
-            where: { id: token.id as string },
-            select: { id: true, display_name: true }
-          });
-          
-          token.profileComplete = !!profile && !!profile.display_name;
-          console.log('[Auth JWT Callback] Profile status set:', token.profileComplete);
-        } catch (error) {
-          console.error('[Auth JWT Callback] Error checking profile status:', error);
-          // Default to false if we can't check
-          token.profileComplete = false;
+      // Check profile status when token is first created or explicitly updated
+      if (token.id && (user || trigger === 'update')) {
+        // Always check profile status on initial creation or when explicitly updating
+        const shouldCheckProfile = user || trigger === 'update' || token.profileComplete === undefined;
+        
+        if (shouldCheckProfile) {
+          try {
+            console.log('[Auth JWT Callback] Checking profile status for user:', token.id);
+            const profile = await prisma.profile.findUnique({
+              where: { id: token.id as string },
+              select: { id: true, display_name: true }
+            });
+            
+            const newProfileComplete = !!profile && !!profile.display_name;
+            
+            // Only log if status actually changed
+            if (token.profileComplete !== newProfileComplete) {
+              console.log('[Auth JWT Callback] Profile status changed from', token.profileComplete, 'to', newProfileComplete);
+            }
+            
+            token.profileComplete = newProfileComplete;
+          } catch (error) {
+            console.error('[Auth JWT Callback] Error checking profile status:', error);
+            // Default to false if we can't check
+            token.profileComplete = false;
+          }
         }
       }
       
