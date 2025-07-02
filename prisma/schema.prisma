@@ -399,6 +399,7 @@ enum ActivityType {
   CLUB_SELECTED_BOOK   // A club the user is a member of selected a new current book
   CLUB_NEW_MEMBER      // A new member joined a club the user is part of
   POSTED_CLUB_DISCUSSION // User posted a discussion in a club
+  CLUB_BOOK_STATUS
 
   // Book Recommendations
   SENT_BOOK_RECOMMENDATION     // User recommended a book to a friend

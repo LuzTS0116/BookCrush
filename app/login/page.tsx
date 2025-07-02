@@ -221,13 +221,13 @@ export default function LoginPage() {
       // Check if the session has valid Supabase tokens
       if (!session?.supabaseAccessToken) {
         console.warn('Session exists but missing Supabase tokens, signing out...');
-        setError("Invalid session detected. Please sign in again.");
+        setError("Session expired. Please log in again.");
         signOut({ redirect: false }); // Sign out without redirect
         setIsGoogleLoading(false);
         setIsRedirecting(false);
         localStorage.removeItem('googleSignInInProgress');
         return;
-      }
+       }
       
       console.log('Valid session found, redirecting...');
       setIsRedirecting(true);
@@ -311,7 +311,7 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             {error && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+              <div className="px-2 py-2 text-sm mb-2 text-center text-red-400 bg-bookWhite/10 rounded-md leading-none">
                 {error}
               </div>
             )}

@@ -323,33 +323,49 @@ export async function PUT(
     }
     
     // --- Create ActivityLog Entries for CLUB_SELECTED_BOOK ---
-    const activeMembers = await prisma.clubMembership.findMany({
-        where: {
-            club_id: id,
-            status: ClubMembershipStatus.ACTIVE
-        },
-        select: { user_id: true }
-    });
+    // const activeMembers = await prisma.clubMembership.findMany({
+    //     where: {
+    //         club_id: id,
+    //         status: ClubMembershipStatus.ACTIVE
+    //     },
+    //     select: { user_id: true }
+    // });
 
-    const activityPromises = activeMembers.map(member => 
-        prisma.activityLog.create({
-            data: {
-                user_id: member.user_id,
-                activity_type: ActivityType.CLUB_SELECTED_BOOK,
-                target_entity_type: ActivityTargetEntityType.CLUB,
-                target_entity_id: id,
-                details: {
-                    club_id: id,
-                    club_name: clubForActivity?.name || 'A club',
-                    book_id: bookToSet.id,
-                    book_title: bookToSet.title,
-                    set_by_user_id: user.id
-                }
-            }
-        })
-    );
-    await Promise.all(activityPromises);
+    // const activityPromises = activeMembers.map(member => 
+    //     prisma.activityLog.create({
+    //         data: {
+    //             user_id: member.user_id,
+    //             activity_type: ActivityType.CLUB_SELECTED_BOOK,
+    //             target_entity_type: ActivityTargetEntityType.CLUB,
+    //             target_entity_id: id,
+    //             details: {
+    //                 club_id: id,
+    //                 club_name: clubForActivity?.name || 'A club',
+    //                 book_id: bookToSet.id,
+    //                 book_title: bookToSet.title,
+    //                 set_by_user_id: user.id
+    //             }
+    //         }
+    //     })
+    // );
+    // await Promise.all(activityPromises);
     // --- End ActivityLog Entries ---
+
+    await prisma.activityLog.create({
+              data: {
+                  user_id: user.id,
+                  activity_type: ActivityType.CLUB_SELECTED_BOOK,
+                  target_entity_type: ActivityTargetEntityType.CLUB,
+                  target_entity_id: id,
+                  details: {
+                      club_id: id,
+                      club_name: clubForActivity?.name || 'A club',
+                      book_id: bookToSet.id,
+                      book_title: bookToSet.title,
+                      set_by_user_id: user.id
+                  }
+              }
+          })
 
     return NextResponse.json(bookToSet);
 

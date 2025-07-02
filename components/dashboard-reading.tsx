@@ -430,7 +430,7 @@ export default function DashboardReading() {
     if (status === "authenticated" && session?.supabaseAccessToken) {
       fetchBooks(activeTab);
     }
-  }, [activeTab, status, session?.supabaseAccessToken]); // Dependency array: re-run when activeTab, session status, or token changes
+  }, [ status, session?.supabaseAccessToken]); // Dependency array: re-run when activeTab, session status, or token changes
 
   // Function to handle personal note updates
   const handleNoteUpdate = async (bookId: string, shelf: UserBook['shelf']) => {

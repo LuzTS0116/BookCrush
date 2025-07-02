@@ -16,7 +16,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { DropdownMenu as UIDropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Heart as PhosphorHeart } from "@phosphor-icons/react";
-import { Heart, ThumbsUp, ArrowLeft, ThumbsDown, Plus, Send, BookOpen, Calendar, User, Clock, ChevronLeft, MessageSquare, Loader2, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown, CheckCircle, Edit, Trash2, MoreVertical } from "lucide-react"
+import { Heart, ThumbsUp, ArrowLeft, ThumbsDown, Plus, Send, BookOpen, Calendar, User, Clock, ChevronLeft, MessageSquare, Loader2, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown, CheckCircle, Edit, Trash2, MoreVertical, BookMarked } from "lucide-react"
 import { Progress } from "@/components/ui/progress"
 import { BookDetails, UserBook } from "@/types/book";
 import { toast } from "sonner";
@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dialog"
 import { useParams } from "next/navigation";
 import BookFileUpload from "@/components/book-file-upload";
+import { RecommendBookDialog } from "@/components/recommendations/RecommendBookDialog";
 
 // Define types for our data
 interface BookReview {
@@ -98,9 +99,14 @@ interface BookData {
 
 // Define the available shelf types for the dropdown
 const SHELF_OPTIONS = [
-  { label: "Currently Reading", value: "currently_reading" },
-  { label: "Reading Queue", value: "queue" },
-  { label: "Finished", value: "history" },
+  { label: "add to Currently Reading", value: "currently_reading" },
+  { label: "add to Reading Queue", value: "queue" },
+  { label: "marked as Finished", value: "history" },
+];
+
+// Define the additional actions for the dropdown
+const ADDITIONAL_ACTIONS = [
+  { label: "Recommend to Friends", value: "recommend", icon: BookMarked },
 ];
 
 // Add a separate KindleEmailDialog component
@@ -204,6 +210,15 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
   const [editReviewRating, setEditReviewRating] = useState<"HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null>(null);
   const [isUpdatingReview, setIsUpdatingReview] = useState(false);
   const [isDeletingReview, setIsDeletingReview] = useState<Record<string, boolean>>({});
+
+  // State for recommend book dialog
+  const [recommendDialog, setRecommendDialog] = useState<{
+    isOpen: boolean;
+    book: any | null;
+  }>({
+    isOpen: false,
+    book: null
+  });
 
   // Add a function to fetch book files
   const fetchBookFiles = async () => {
@@ -660,6 +675,28 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
     }));
   };
 
+  // Handle recommend book action
+  const handleRecommendBook = (book: any) => {
+    setRecommendDialog({
+      isOpen: true,
+      book: book
+    });
+  };
+
+  // Handle recommend dialog close
+  const handleRecommendDialogClose = () => {
+    setRecommendDialog({
+      isOpen: false,
+      book: null
+    });
+  };
+
+  // Handle successful recommendation
+  const handleRecommendSuccess = () => {
+    // Optionally refresh the books or show success message
+    toast.success('Book recommendation sent successfully!');
+  };
+
   // Update the hasFileOfLanguage function to check the language field
   const hasFileOfLanguage = (files: any[], language: string): boolean => {
     return files.some(file => 
@@ -819,9 +856,28 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                           <DropdownMenu.Item
                             key={shelf.value}
                             onSelect={() => handleAddToShelf(book.id, shelf.value)}
-                            className="px-3 py-2 text-xs text-center bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
+                            className="px-3 py-2 text-xs text-end bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
                           >
                             {shelf.label}
+                          </DropdownMenu.Item>
+                        ))}
+                        {/* Additional Actions */}
+                        {ADDITIONAL_ACTIONS.map((action) => (
+                          <DropdownMenu.Item
+                            key={action.value}
+                            onSelect={() => {
+                              if (action.value === 'recommend') {
+                                handleRecommendBook({
+                                  id: book.id,
+                                  title: book.title,
+                                  author: book.author,
+                                  cover_url: book.cover
+                                });
+                              }
+                            }}
+                            className="px-3 py-2 text-xs text-end bg-accent/90 my-2 text-secondary rounded-md cursor-pointer hover:bg-accent-variant hover:text-bookWhite focus:bg-accent-variant focus:outline-none transition-colors flex justify-center gap-2"
+                          >
+                            {action.label}
                           </DropdownMenu.Item>
                         ))}
                       </DropdownMenu.Content>
@@ -1726,6 +1782,19 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
           onOpenChange={setKindleEmailDialogOpen}
           selectedFileId={selectedFileId}
           onSend={handleSendToKindleWithEmail}
+        />
+
+        {/* Recommend Book Dialog */}
+        <RecommendBookDialog
+          open={recommendDialog.isOpen}
+          onOpenChange={handleRecommendDialogClose}
+          book={recommendDialog.book ? {
+            id: recommendDialog.book.id,
+            title: recommendDialog.book.title,
+            author: recommendDialog.book.author,
+            cover_url: recommendDialog.book.cover_url
+          } : null}
+          onSuccess={handleRecommendSuccess}
         />
     </div>
   )

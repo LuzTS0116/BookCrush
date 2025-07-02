@@ -22,14 +22,16 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { BookOpen, CalendarDays, Plus, Search, Settings, Send, MessageSquare, Clock, Loader2, Check, ArrowLeft, MapPin, Reply, Edit, Trash2, MoreVertical, ChevronDown, ChevronUp } from "lucide-react" // Added icons for replies and actions
+import { BookOpen, CalendarDays, Plus, Search, Settings, Send, MessageSquare, Clock, Loader2, Check, ArrowLeft, MapPin, Reply, Edit, Trash2, MoreVertical, ChevronDown, ChevronUp, BookMarked } from "lucide-react" // Added BookMarked icon
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { toast } from "sonner"; // Assuming sonner for toasts
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu"; // Add Radix DropdownMenu for the book actions
 import { BookSelectionDialog } from '@/components/BookSelectionDialog'
+import { RecommendBookDialog } from './recommendations/RecommendBookDialog' // Add RecommendBookDialog import
 import { useRouter } from "next/navigation"
 import { formatRelativeDate } from "@/lib/utils";
 import { useAvatarUrl } from "@/hooks/use-profile"
@@ -225,10 +227,10 @@ const DiscussionItem: React.FC<DiscussionItemProps> = ({
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">ME</AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <Textarea
-                    placeholder="Write a reply..."
-                    value={replyContent[discussion.id] || ''}
-                    onChange={(e) => onReplyContentChange(discussion.id, e.target.value)}
+                                      <Textarea
+                      placeholder="Write a reply..."
+                      value={replyContent[discussion.id] || ''}
+                      onChange={(e) => onReplyContentChange(discussion.id, e.target.value)}
                     className="min-h-[60px] bg-bookWhite border-secondary-light/30 text-sm"
                     disabled={isLoading}
                     autoFocus
@@ -469,6 +471,18 @@ interface ClubData {
 }
 
 
+// Define the available shelf types for the dropdown
+const SHELF_OPTIONS = [
+  { label: "add to Currently Reading", value: "currently_reading" },
+  { label: "add to Reading Queue", value: "queue" },
+  { label: "marked as Finished", value: "history" },
+];
+
+// Define the additional actions for the dropdown
+const ADDITIONAL_ACTIONS = [
+  { label: "Recommend to Friends", value: "recommend", icon: BookMarked },
+];
+
 export default function ClubDetailsView({ params }: { params: { id: string } }) {
   const { data: session, status } = useSession();
   const [comment, setComment] = useState("");
@@ -478,6 +492,18 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   const [loadingBookAction, setLoadingBookAction] = useState(false);
   const [bookDialogOpen, setBookDialogOpen] = useState(false)
   const [loadingPostComment, setLoadingPostComment] = useState(false);
+  
+  // State to manage per-book loading/feedback for adding to shelf
+  const [shelfActionsStatus, setShelfActionsStatus] = useState<Record<string, { isLoading: boolean, message: string | null }>>({});
+
+  // State for recommend book dialog
+  const [recommendDialog, setRecommendDialog] = useState<{
+    isOpen: boolean;
+    book: CurrentBookDetails | null;
+  }>({
+    isOpen: false,
+    book: null
+  });
   
   // Complete book state
   const [bookRating, setBookRating] = useState<string>("");
@@ -802,6 +828,74 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
       "10": "Other"
     };
     return reasons[reasonValue as keyof typeof reasons] || "Unknown reason";
+  };
+
+  // Function to add/move a book to a shelf
+  const handleAddToShelf = async (bookId: string, shelf: string) => {
+    if (!session?.supabaseAccessToken) {
+      toast.error('Authentication required');
+      return;
+    }
+
+    setShelfActionsStatus(prev => ({
+      ...prev,
+      [bookId]: { isLoading: true, message: null }
+    }));
+    
+    try {
+      // Your API call to add/move the book
+      const response = await fetch('/api/shelf', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
+        body: JSON.stringify({ bookId, shelf, status: 'in_progress' }) // Default status for new additions
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to add book to shelf');
+      }
+      
+      const result = await response.json();
+      console.log('Book added/moved to shelf:', result);
+
+      // Show success toast
+      const shelfDisplayName = shelf.replace(/_/g, ' ');
+      toast.success(`📚 Added to ${shelfDisplayName}!`);
+
+    } catch (err: any) {
+      console.error("Error adding book to shelf:", err);
+      toast.error(`Failed to add book: ${err.message}`);
+    } finally {
+      setShelfActionsStatus(prev => ({
+        ...prev,
+        [bookId]: { isLoading: false, message: null }
+      }));
+    }
+  };
+
+  // Handle recommend book action
+  const handleRecommendBook = (book: CurrentBookDetails) => {
+    setRecommendDialog({
+      isOpen: true,
+      book: book
+    });
+  };
+
+  // Handle recommend dialog close
+  const handleRecommendDialogClose = () => {
+    setRecommendDialog({
+      isOpen: false,
+      book: null
+    });
+  };
+
+  // Handle successful recommendation
+  const handleRecommendSuccess = () => {
+    // Optionally refresh the books or show success message
+    toast.success('Book recommendation sent successfully!');
   };
 
   // --- NEW: Function to handle posting a comment ---
@@ -1282,6 +1376,24 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     setReplyContent({});
   };
 
+  // Helper function to get shelf badge display info
+  const getRatingInfo = (rating: number): string => {
+      switch (rating) {
+      case 1:
+        return "1/5 DNF. Frustrating Read";
+      case 2:
+        return "2/5 Underwhelming";
+      case 3:
+        return "3/5 Decent, not memorable";
+      case 4:
+        return "4/5 Like it. Great discussion pick";
+      case 5:
+        return "5/5 Masterpiece. Instant favorite";
+      default:
+        return "No rating";
+    }
+  };
+
   // --- Loading State and Error Handling for UI ---
   if (loadingClub) {
     return (
@@ -1378,9 +1490,61 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                       </Link>
                     </div>
                     <div className="flex-1">
-                      <Link href={`/books/${club.current_book.id}`}>
-                        <h3 className="text-xl/4 font-semibold">{club.current_book.title}</h3>
-                      </Link>
+                      <div className="flex flex-row justify-between">
+                        <div className="flex-1 min-w-0">
+                          <Link href={`/books/${club.current_book.id}`}>
+                            <h3 className="text-xl/4 font-semibold">{club.current_book.title}</h3>
+                          </Link>
+                        </div>
+                        {/* --- NEW: Add to Shelf Dropdown --- */}
+                        {club.current_book.id && (
+                          <div className="flex items-start">
+                            <RadixDropdownMenu.Root>
+                              <RadixDropdownMenu.Trigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none"
+                                  disabled={shelfActionsStatus[club.current_book.id]?.isLoading} // Disable while action is loading
+                                >
+                                  <Plus className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                              </RadixDropdownMenu.Trigger>
+
+                              <RadixDropdownMenu.Portal>
+                                <RadixDropdownMenu.Content
+                                  className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                                  sideOffset={5}
+                                >
+                                  {SHELF_OPTIONS.map((shelf) => (
+                                    <RadixDropdownMenu.Item
+                                      key={shelf.value}
+                                      onSelect={() => handleAddToShelf(club.current_book!.id, shelf.value)}
+                                      className="px-3 py-2 text-xs text-end bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
+                                    >
+                                      {shelf.label}
+                                    </RadixDropdownMenu.Item>
+                                  ))}
+                                  {/* Additional Actions */}
+                                  {ADDITIONAL_ACTIONS.map((action) => (
+                                    <RadixDropdownMenu.Item
+                                      key={action.value}
+                                      onSelect={() => {
+                                        if (action.value === 'recommend') {
+                                          handleRecommendBook(club.current_book!);
+                                        }
+                                      }}
+                                      className="px-3 py-2 text-xs text-end bg-accent/90 my-2 text-secondary rounded-md cursor-pointer hover:bg-accent-variant hover:text-bookWhite focus:bg-accent-variant focus:outline-none transition-colors flex justify-end gap-2"
+                                    >
+                                      {action.label}
+                                    </RadixDropdownMenu.Item>
+                                  ))}
+                                </RadixDropdownMenu.Content>
+                              </RadixDropdownMenu.Portal>
+                            </RadixDropdownMenu.Root>
+                          </div>
+                        )}
+                      </div>
                       <p className="text-sm text-secondary-light/70">{club.current_book.author}</p>
 
                       {/* Genre Tags */}
@@ -1562,10 +1726,10 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                               </div>
                           </div>
                           <div className="grid gap-2">
-                              <Label htmlFor="rating">Book Rating (1-5)</Label>
+                              <Label htmlFor="rating">Book Rating</Label>
                               <Select value={bookRating} onValueChange={setBookRating}>
                               <SelectTrigger id="rating" className="font-medium">
-                                  <SelectValue placeholder="Select rating" className="font-medium"/>
+                                  <SelectValue placeholder="Select rating" className="font-medium text-secondary"/>
                               </SelectTrigger>
                               <SelectContent className="font-medium">
                                 <SelectItem value="1">1 - DNF / Frustrating Read</SelectItem>
@@ -1583,7 +1747,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                               placeholder="Summarize the key points from your discussion"
                               value={discussionNotes}
                               onChange={(e) => setDiscussionNotes(e.target.value)}
-                              className="bg-bookWhite font-serif font-medium text-secondary placeholder:font-serif placeholder:italic placeholder:text-sm"
+                              className="bg-bookWhite font-serif font-medium text-secondary text-sm leading-none placeholder:font-serif placeholder:italic placeholder:text-sm"
                               rows={4}
                               />
                           </div>
@@ -1784,6 +1948,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                     <div className="space-y-3">
                       {club?.book_history?.length > 0 ? (
                         club.book_history.map((entry) => (
+                          
                           <div key={entry.id} className="flex flex-row gap-2 p-2 bg-secondary-light/10 rounded-lg">
                             <div className="w-24 h-36 bg-muted/30 rounded-md flex items-center justify-center overflow-hidden mx-auto md:mx-0">
                               <Link href={`/books/${entry.book.id}`}>
@@ -1816,27 +1981,52 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                                 </div>
                               </div>  
                               
-                              <p className="text-xs font-serif text-secondary/50">
-                                Started: {new Date(entry.started_at).toLocaleDateString()}
-                                {entry.finished_at && ` • Finished: ${new Date(entry.finished_at).toLocaleDateString()}`}
+                              <p className="text-xs font-serif text-secondary/55">
+                                Started:  {(() => {
+                                  const date = new Date(club.meetings[0].meeting_date);
+                                  const month = date.toLocaleString('en-US', { month: 'short' });
+                                  const day = date.getDate();
+                                  const year = date.getFullYear().toString().slice(-2); // get last 2 digits
+
+                                  return `${month} ${day}, ${year}`;
+                                })()}
+                                {entry.finished_at && (
+                                  <span>
+                                  {" "}• Finished:  {(() => {
+                                    const date = new Date(club.meetings[0].meeting_date);
+                                    const month = date.toLocaleString('en-US', { month: 'short' });
+                                    const day = date.getDate();
+                                    const year = date.getFullYear().toString().slice(-2); // get last 2 digits
+
+                                    return `${month} ${day}, ${year}`;
+                                  })()}
+                                  </span>
+                                )}
                               </p>
                               
-                                                            {entry.rating && (
-                                 <p className="text-xs mt-2">
-                                   Club Rating: <span className="italic font-serif font-normal">
-                                     {entry.rating}/5 stars
-                                   </span>
-                                 </p>
-                               )}
+                              {entry.rating && (
+                                <p className="text-xs leading-none font-medium mt-2">
+                                  Rating: <span className="font-serif font-normal">
+                                    {getRatingInfo(entry.rating)}
+                                  </span>
+                                </p>
+                              )}
                                
-                               {entry.discussion_notes && (
+                               {(entry.status === 'COMPLETED') ? (
                                  <>
-                                   <p className="text-xs mt-1 font-medium">Meeting Discussion Notes:</p>
-                                   <p className="text-xs font-serif font-normal text-secondary/80 mt-0.5">
+                                   <p className="text-xs mt-1 font-medium">Meeting Notes:</p>
+                                   <p className="text-xs leading-none font-serif font-normal text-secondary/80 mt-0.5">
                                      {entry.discussion_notes}
                                    </p>
                                  </>
-                               )}
+                                ) : (
+                                  <>
+                                   <p className="text-xs leading-4 font-light text-secondary/80 mt-0.5">
+                                     {entry.discussion_notes}
+                                   </p>
+                                  </>
+                                )
+                                }
 
                               {/* {club.currentUserIsAdmin && entry.status === 'IN_PROGRESS' && (
                                 <div className="mt-4 flex gap-2">
@@ -1900,7 +2090,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                                    club.memberships[i].role === 'ADMIN' ? 'Admin' : '';
                   
                   // Get book status display
-                  const bookStatus = memberStatus?.book_status || (loadingMemberStatuses ? 'Loading...' : 'Current Book Status: Not in Library');
+                  const bookStatus = memberStatus?.book_status || (loadingMemberStatuses ? 'Loading...' : 'Not in Library');
                   const statusDisplay = rolePrefix ? `${rolePrefix} - Current Book Status: ${bookStatus}` : `Current Book Status: ${bookStatus}`;
 
                   return (
@@ -2229,6 +2419,19 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
           </Card>
         </div>
       </div>
+
+      {/* Recommend Book Dialog */}
+      <RecommendBookDialog
+        open={recommendDialog.isOpen}
+        onOpenChange={handleRecommendDialogClose}
+        book={recommendDialog.book ? {
+          id: recommendDialog.book.id,
+          title: recommendDialog.book.title,
+          author: recommendDialog.book.author,
+          cover_url: recommendDialog.book.cover_url
+        } : null}
+        onSuccess={handleRecommendSuccess}
+      />
     </div>
   )
 }

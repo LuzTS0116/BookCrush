@@ -92,12 +92,12 @@ export function BookSelectionDialog({
         </DialogHeader>
 
         <div className="relative">
-          <Search className="absolute left-3 top-2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-2 h-4 w-4 text-bookWhite" />
           <Input
             placeholder="Search books by title or author..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-bookWhite/15 pt-0.5"
+            className="pl-9 bg-bookWhite/15 text-bookWhite placeholder:text-bookWhite/60 pt-0.5"
           />
         </div>
 
@@ -138,7 +138,7 @@ export function BookSelectionDialog({
                         >
                           {selecting && selectedBookId === book.id ? (
                             <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              <Loader2 className="h-4 w-4 animate-spin" />
                               Selecting...
                             </>
                           ) : (

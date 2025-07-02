@@ -197,6 +197,25 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
             book club.
           </span>
         );
+      case ActivityType.CLUB_SELECTED_BOOK:
+        return (
+          <span className='font-thin'>
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
+              <Link href={`/profile/${activity.user?.id}`}>{actor}</Link>
+            </span>{' '}
+            selected{' '}
+            <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
+              <Link href={`/books/${activity.target_entity_id}`}>
+                {activity.details?.book_title || 'a book'}
+              </Link>
+            </span>{' '}
+            as the next book for the club <span className={compact ? 'font-medium' : 'text-bookWhite font-medium'}>
+              <Link href={`/clubs/${activity.details?.club_id}`}>
+                {targetName || activity.details?.club_name}
+              </Link>
+            </span>.
+          </span>
+        );
       case ActivityType.CLUB_NEW_MEMBER:
         return (
           <span className='font-thin'>
@@ -558,6 +577,8 @@ export function ActivityFeed({ compact = false, maxItems, showHeader = false, on
   }
 
   const displayedActivities = maxItems ? activityFeed.slice(0, maxItems) : activityFeed;
+
+  console.log('displayedActivities', displayedActivities)
 
   if (displayedActivities.length === 0) {
     return (
