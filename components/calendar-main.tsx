@@ -562,7 +562,9 @@ export default function CalendarMain() {
                               {meeting.club.name && (
                               <>  
                                 <p className="font-serif font-medium leading-none text-sm">book club</p>
-                                <p className="text-lg leading-none text-secondary font-bold mb-2">{meeting.club.name}</p>
+                                <Link href={`/clubs/${meeting.club?.id}`}>
+                                  <p className="text-lg leading-none text-secondary font-bold mb-2">{meeting.club.name}</p>
+                                </Link>
                               </>
                               )}
                               </div>

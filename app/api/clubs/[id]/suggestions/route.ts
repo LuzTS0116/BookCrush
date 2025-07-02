@@ -44,6 +44,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             cover_url: true,
             genres: true,
             pages: true,
+            reading_time: true,
             published_date: true
           }
         },
@@ -171,6 +172,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             cover_url: true,
             genres: true,
             pages: true,
+            reading_time: true,
             published_date: true
           }
         },

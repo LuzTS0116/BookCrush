@@ -39,6 +39,7 @@ export default function ProfileSetupPage() {
   const [kindleEmail, setKindleEmail] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [isWaitingForStatusChange, setIsWaitingForStatusChange] = useState(false);
   
   // Profile picture states
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -234,10 +235,17 @@ export default function ProfileSetupPage() {
         await update();
         console.log('Session updated after profile completion');
         
-        // Small delay to ensure the session update is processed
+        // Set waiting state to monitor for status change
+        setIsWaitingForStatusChange(true);
+        
+        // Fallback timeout in case the status doesn't change
         setTimeout(() => {
-          router.push(redirectedFrom || '/dashboard');
-        }, 500);
+          if (isWaitingForStatusChange) {
+            console.log('Fallback redirect after timeout');
+            setIsWaitingForStatusChange(false);
+            router.push(redirectedFrom || '/dashboard');
+          }
+        }, 5000); // 5 second fallback
         return;
       } catch (sessionError) {
         console.warn('Failed to update session, but profile was saved:', sessionError);
@@ -287,6 +295,15 @@ export default function ProfileSetupPage() {
       return () => clearTimeout(timer);
     }
   }, [success]);
+
+  // Monitor session status change for redirect after profile completion
+  useEffect(() => {
+    if (isWaitingForStatusChange && session?.profileComplete === true) {
+      console.log('Profile status changed to true, redirecting to dashboard...');
+      setIsWaitingForStatusChange(false);
+      router.push(redirectedFrom || '/dashboard');
+    }
+  }, [session?.profileComplete, isWaitingForStatusChange, router, redirectedFrom]);
 
   return (
     <div className="relative w-full h-auto overflow-hidden px-4 pt-9 pb-8">

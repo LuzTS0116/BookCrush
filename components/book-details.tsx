@@ -85,6 +85,14 @@ interface BookData {
     name: string;
     members: number;
     meetingDate: string;
+    status: string;
+  }>;
+  clubHistory?: Array<{
+    id: string;
+    name: string;
+    members: number;
+    completedDate: string;
+    status: string;
   }>;
 }
 
@@ -1451,46 +1459,102 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
               </TabsContent>
 
               <TabsContent value="book-clubs" className="mt-3">
-                <Card className="p-3">
-                  <CardHeader className="p-0">
-                    <CardTitle className="">Book Clubs Reading This</CardTitle>
-                    <CardDescription className="font-serif font-medium">Join a club to discuss this book</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6 px-0 pt-3 pb-2">
-                    <div className="space-y-3">
+                <div className="space-y-4">
+                  {/* Currently Reading Section */}
+                  <Card className="p-3">
+                    <CardHeader className="p-0">
+                      <CardTitle className="">Currently Reading</CardTitle>
+                      <CardDescription className="font-serif font-medium">Clubs currently discussing this book</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3 px-0 pt-3 pb-2">
                       {book.clubs && book.clubs.length > 0 ? (
                         book.clubs.map((club) => (
-                          <div key={club.id} className="p-3 bg-secondary/5 rounded-lg flex flex-col">
-                            <div>
-                              <div className="flex flex-wrap justify-between">
-                                  <h3 className="font-medium">{club.name}</h3>
-                                  <Button variant="outline" className="rounded-full bg-primary/20 border-none hover:bg-primary/35 hover:text-secondary">View Club</Button>
-                              </div>
-                              <div className="flex flex-row gap-2 mt-0 text-sm text-muted-foreground">
-                                <div className="flex items-center gap-1 font-serif text-secondary-light/60">
-                                  <User className="h-4 w-4" />
-                                  <span>{club.members} members</span>
+                          <div key={club.id} className="p-3 bg-accent-variant/10 rounded-lg border-l-4 border-accent-variant">
+                            <div className="flex flex-wrap justify-between items-start">
+                              <div className="flex-1">
+                                <h3 className="font-medium text-secondary">{club.name}</h3>
+                                <div className="flex flex-row gap-3 mt-1 text-sm">
+                                  <div className="flex items-center gap-1 font-serif text-secondary-light/60">
+                                    <User className="h-4 w-4" />
+                                    <span>{club.members} members</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 font-serif text-secondary-light/60">
+                                    <Calendar className="h-4 w-4" />
+                                    <span>Next meeting: {club.meetingDate}</span>
+                                  </div>
                                 </div>
-                                <div className="flex items-center gap-1 font-serif text-secondary-light/60">
-                                  <Calendar className="h-4 w-4" />
-                                  <span>Meeting: {club.meetingDate}</span>
-                                </div>
                               </div>
+                              <Button 
+                                variant="outline" 
+                                className="rounded-full bg-accent-variant/20 border-none hover:bg-accent-variant/35 hover:text-secondary"
+                                onClick={() => router.push(`/clubs/${club.id}`)}
+                              >
+                                View Club
+                              </Button>
                             </div>
                           </div>
                         ))
                       ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <BookOpen className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                          <p>No book clubs are currently reading this book.</p>
-                          {/* <Button variant="outline" className="mt-3 rounded-full">
-                            Browse Clubs
-                          </Button> */}
+                        <div className="text-center py-6 text-muted-foreground">
+                          <BookOpen className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">No clubs are currently reading this book.</p>
                         </div>
                       )}
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+
+                  {/* Reading History Section */}
+                  <Card className="p-3">
+                    <CardHeader className="p-0">
+                      <CardTitle className="">Reading History</CardTitle>
+                      <CardDescription className="font-serif font-medium">Clubs that have finished reading this book</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3 px-0 pt-3 pb-2">
+                                             {book.clubHistory && book.clubHistory.length > 0 ? (
+                         book.clubHistory.map((club: { id: string; name: string; members: number; completedDate: string; status: string }) => (
+                          <div key={club.id} className="p-3 bg-secondary/5 rounded-lg border-l-4 border-gray-300">
+                            <div className="flex flex-wrap justify-between items-start">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <h3 className="font-medium text-secondary">{club.name}</h3>
+                                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                    club.status === 'completed' 
+                                      ? 'bg-green-100 text-green-700' 
+                                      : 'bg-gray-100 text-gray-700'
+                                  }`}>
+                                    {club.status === 'completed' ? '✅ Completed' : '❌ Abandoned'}
+                                  </span>
+                                </div>
+                                <div className="flex flex-row gap-3 text-sm">
+                                  <div className="flex items-center gap-1 font-serif text-secondary-light/60">
+                                    <User className="h-4 w-4" />
+                                    <span>{club.members} members</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 font-serif text-secondary-light/60">
+                                    <Calendar className="h-4 w-4" />
+                                    <span>Finished: {club.completedDate}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <Button 
+                                variant="outline" 
+                                className="rounded-full bg-primary/20 border-none hover:bg-primary/35 hover:text-secondary"
+                                onClick={() => router.push(`/clubs/${club.id}`)}
+                              >
+                                View Club
+                              </Button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-6 text-muted-foreground">
+                          <BookOpen className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">No clubs have finished reading this book yet.</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
               </TabsContent>
 
               <TabsContent value="friends" className="mt-3">

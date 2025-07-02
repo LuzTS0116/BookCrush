@@ -23,8 +23,7 @@ export async function GET(
       return NextResponse.json({ error: "Club ID is required" }, { status: 400 });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = createRouteHandlerClient({ cookies });
     const { data: { user } } = await supabase.auth.getUser();
 
     // Although authentication is not strictly required to *view* a public club,
@@ -57,14 +56,23 @@ export async function GET(
           },
         },
         book_history: {
+          where: {
+            status: {
+              in: ['COMPLETED', 'ABANDONED']
+            }
+          },
           select: {
             id: true,
             status: true,
             started_at: true,
             finished_at: true,
+            rating: true,
+            discussion_notes: true,
             book: true,
           },
-
+          orderBy: {
+            finished_at: 'desc'
+          }
         },
         memberships: {
           select: {

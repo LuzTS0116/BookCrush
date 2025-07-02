@@ -330,12 +330,14 @@ model UserBook {
 
 // New model to track book reading history in clubs
 model ClubBook {
-  id          String           @id @default(uuid()) @db.Uuid
-  club_id     String           @db.Uuid
-  book_id     String           @db.Uuid
-  started_at  DateTime         @default(now()) @db.Timestamptz(6)
-  finished_at DateTime?        @db.Timestamptz(6)
-  status      club_book_status @default(IN_PROGRESS)
+  id               String           @id @default(uuid()) @db.Uuid
+  club_id          String           @db.Uuid
+  book_id          String           @db.Uuid
+  started_at       DateTime         @default(now()) @db.Timestamptz(6)
+  finished_at      DateTime?        @db.Timestamptz(6)
+  status           club_book_status @default(IN_PROGRESS)
+  rating           Int?             // 1-5 star rating
+  discussion_notes String?          @db.Text // Meeting discussion notes
 
   club Club @relation(fields: [club_id], references: [id])
   book Book @relation(fields: [book_id], references: [id])

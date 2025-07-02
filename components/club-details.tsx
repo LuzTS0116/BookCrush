@@ -370,6 +370,8 @@ interface BookHistoryEntry {
   started_at: string;
   finished_at: string | null;
   status: 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED';
+  rating?: number | null;  // 1-5 star rating
+  discussion_notes?: string | null;  // Meeting notes
   book: {
     id: string;
     title: string;
@@ -476,6 +478,14 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   const [loadingBookAction, setLoadingBookAction] = useState(false);
   const [bookDialogOpen, setBookDialogOpen] = useState(false)
   const [loadingPostComment, setLoadingPostComment] = useState(false);
+  
+  // Complete book state
+  const [bookRating, setBookRating] = useState<string>("");
+  const [discussionNotes, setDiscussionNotes] = useState("");
+  
+  // Not completed book state
+  const [notCompletedReason, setNotCompletedReason] = useState<string>("");
+  const [notCompletedNotes, setNotCompletedNotes] = useState("");
 
   // Invitation-related state
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -687,6 +697,111 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     } finally {
       setLoadingBookAction(false);
     }
+  };
+
+  // Function to complete current book with rating and notes
+  const handleCompleteBook = async () => {
+    if (!bookRating || !discussionNotes.trim()) {
+      toast.error("Please provide both a rating and discussion notes.");
+      return;
+    }
+
+    setLoadingBookAction(true);
+    try {
+      const response = await fetch(`/api/clubs/${id}/complete-book`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'COMPLETED',
+          rating: parseInt(bookRating),
+          discussionNotes: discussionNotes.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to complete book.");
+      }
+
+      const result = await response.json();
+      toast.success("Book completed successfully and moved to history!");
+      
+      // Reset form state
+      setBookRating("");
+      setDiscussionNotes("");
+      
+      // Refresh club data
+      await fetchClubDetails();
+    } catch (err: any) {
+      toast.error(`Error completing book: ${err.message}`);
+      console.error("Error completing book:", err);
+    } finally {
+      setLoadingBookAction(false);
+    }
+  };
+
+  // Function to mark current book as not completed
+  const handleNotCompleteBook = async () => {
+    if (!notCompletedReason || !notCompletedNotes.trim()) {
+      toast.error("Please provide both a reason and explanation notes.");
+      return;
+    }
+
+    setLoadingBookAction(true);
+    try {
+      // Combine reason and notes for discussionNotes
+      const combinedNotes = `Reason: ${getReasonText(notCompletedReason)}\n\nNotes: ${notCompletedNotes.trim()}`;
+      
+      const response = await fetch(`/api/clubs/${id}/complete-book`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          status: 'ABANDONED',
+          discussionNotes: combinedNotes,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to mark book as not completed.");
+      }
+
+      const result = await response.json();
+      toast.success("Book marked as not completed and moved to history!");
+      
+      // Reset form state
+      setNotCompletedReason("");
+      setNotCompletedNotes("");
+      
+      // Refresh club data
+      await fetchClubDetails();
+    } catch (err: any) {
+      toast.error(`Error marking book as not completed: ${err.message}`);
+      console.error("Error marking book as not completed:", err);
+    } finally {
+      setLoadingBookAction(false);
+    }
+  };
+
+  // Helper function to get reason text
+  const getReasonText = (reasonValue: string) => {
+    const reasons = {
+      "1": "Lost interest in the story",
+      "2": "Didn't have enough time",
+      "3": "Too confusing or hard to follow",
+      "4": "Not in the right mood for this book",
+      "5": "Planning to finish later",
+      "6": "Didn't connect with the characters or style",
+      "7": "Offensive or uncomfortable content",
+      "8": "Too slow-paced or boring",
+      "9": "Overwhelmed by other reads",
+      "10": "Other"
+    };
+    return reasons[reasonValue as keyof typeof reasons] || "Unknown reason";
   };
 
   // --- NEW: Function to handle posting a comment ---
@@ -1309,7 +1424,13 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               <CardFooter className="flex justify-end flex-wrap gap-2 pb-3 px-3">
                 {club.current_book ? (
                   <div>
-                    <Dialog>
+                    <Dialog onOpenChange={(open) => {
+                      if (!open) {
+                        // Reset form when dialog closes
+                        setNotCompletedReason("");
+                        setNotCompletedNotes("");
+                      }
+                    }}>
                       <DialogTrigger asChild>
                           <Button
                             variant="outline"
@@ -1348,10 +1469,10 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                               </div>
                           </div>
                           <div className="grid gap-2">
-                              <Label htmlFor="rating">Reason for not completing</Label>
-                              <Select>
-                              <SelectTrigger id="rating" className="font-medium">
-                                  <SelectValue placeholder="Select rating" className="font-medium"/>
+                              <Label htmlFor="not-completed-reason">Reason for not completing</Label>
+                              <Select value={notCompletedReason} onValueChange={setNotCompletedReason}>
+                              <SelectTrigger id="not-completed-reason" className="font-medium">
+                                  <SelectValue placeholder="Select reason" className="font-medium"/>
                               </SelectTrigger>
                               <SelectContent className="font-medium">
                                 <SelectItem value="1">📖 Lost interest in the story</SelectItem>
@@ -1368,11 +1489,14 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                               </Select>
                           </div>
                           <div className="grid gap-2">
-                              <Label htmlFor="discussion-notes">Notes or Thoughts</Label>
+                              <Label htmlFor="not-completed-notes">Notes or Thoughts</Label>
                               <Textarea
-                              id="discussion-notes"
+                              id="not-completed-notes"
                               placeholder="Summarize the reasons for this book to be not completed"
+                              value={notCompletedNotes}
+                              onChange={(e) => setNotCompletedNotes(e.target.value)}
                               className="bg-bookWhite font-serif font-medium text-secondary placeholder:text-secondary/50 placeholder:font-serif placeholder:italic placeholder:text-sm"
+                              rows={4}
                               />
                           </div>
                           </div>
@@ -1380,16 +1504,30 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                             <Button
                               variant="outline"
                               type="submit"
-                              onClick={handleDeleteCurrentBook}
+                              onClick={handleNotCompleteBook}
+                              disabled={loadingBookAction || !notCompletedReason || !notCompletedNotes.trim()}
                               className="bg-secondary-light hover:bg-secondary text-bookWhite rounded-full"
                             >
-                              Book Not Completed
+                              {loadingBookAction ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Processing...
+                                </>
+                              ) : (
+                                "Book Not Completed"
+                              )}
                             </Button>
                           </DialogFooter>
                       </DialogContent>
                     </Dialog>
 
-                    <Dialog>
+                    <Dialog onOpenChange={(open) => {
+                      if (!open) {
+                        // Reset form when dialog closes
+                        setBookRating("");
+                        setDiscussionNotes("");
+                      }
+                    }}>
                       <DialogTrigger asChild>
                           <Button variant="outline" className="ml-2 text-secondary rounded-full bg-primary hover:bg-primary-dark hover:text-secondary border-none">
                           Complete Meeting
@@ -1425,16 +1563,16 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                           </div>
                           <div className="grid gap-2">
                               <Label htmlFor="rating">Book Rating (1-5)</Label>
-                              <Select>
+                              <Select value={bookRating} onValueChange={setBookRating}>
                               <SelectTrigger id="rating" className="font-medium">
                                   <SelectValue placeholder="Select rating" className="font-medium"/>
                               </SelectTrigger>
                               <SelectContent className="font-medium">
-                                <SelectItem value="1">DNF / Frustrating Read</SelectItem>
-                                <SelectItem value="2">Underwhelming</SelectItem>
-                                <SelectItem value="3">Decent, not memorable</SelectItem>
-                                <SelectItem value="4">Like it / Great discussion pick</SelectItem>
-                                <SelectItem value="5">Masterpiece / Instant favorite</SelectItem>
+                                <SelectItem value="1">1 - DNF / Frustrating Read</SelectItem>
+                                <SelectItem value="2">2 - Underwhelming</SelectItem>
+                                <SelectItem value="3">3 - Decent, not memorable</SelectItem>
+                                <SelectItem value="4">4 - Like it / Great discussion pick</SelectItem>
+                                <SelectItem value="5">5 - Masterpiece / Instant favorite</SelectItem>
                               </SelectContent>
                               </Select>
                           </div>
@@ -1443,13 +1581,28 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                               <Textarea
                               id="discussion-notes"
                               placeholder="Summarize the key points from your discussion"
+                              value={discussionNotes}
+                              onChange={(e) => setDiscussionNotes(e.target.value)}
                               className="bg-bookWhite font-serif font-medium text-secondary placeholder:font-serif placeholder:italic placeholder:text-sm"
+                              rows={4}
                               />
                           </div>
                           </div>
                           <DialogFooter>
-                          <Button type="submit" className="bg-primary hover:bg-primary-light text-primary-foreground rounded-full">
-                              Complete & Archive
+                          <Button 
+                            type="submit" 
+                            onClick={handleCompleteBook}
+                            disabled={loadingBookAction || !bookRating || !discussionNotes.trim()}
+                            className="bg-primary hover:bg-primary-light text-primary-foreground rounded-full"
+                          >
+                            {loadingBookAction ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Completing...
+                              </>
+                            ) : (
+                              "Complete & Archive"
+                            )}
                           </Button>
                           </DialogFooter>
                       </DialogContent>
@@ -1667,10 +1820,23 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                                 Started: {new Date(entry.started_at).toLocaleDateString()}
                                 {entry.finished_at && ` • Finished: ${new Date(entry.finished_at).toLocaleDateString()}`}
                               </p>
-                              <p className="text-xs mt-2">Meeting Rating:<span className="italic font-serif font-normal">this is a test</span></p>
-                              <p className="text-xs mt-1">Meeting Discussion Notes</p>
-                              <p className="text-xs font-serif font-normal">If it's after the meeting and you want to emphasize that it was a result of discussion, 
-                                Club Rating or Final Rating are clean and intuitive</p>
+                              
+                                                            {entry.rating && (
+                                 <p className="text-xs mt-2">
+                                   Club Rating: <span className="italic font-serif font-normal">
+                                     {entry.rating}/5 stars
+                                   </span>
+                                 </p>
+                               )}
+                               
+                               {entry.discussion_notes && (
+                                 <>
+                                   <p className="text-xs mt-1 font-medium">Meeting Discussion Notes:</p>
+                                   <p className="text-xs font-serif font-normal text-secondary/80 mt-0.5">
+                                     {entry.discussion_notes}
+                                   </p>
+                                 </>
+                               )}
 
                               {/* {club.currentUserIsAdmin && entry.status === 'IN_PROGRESS' && (
                                 <div className="mt-4 flex gap-2">

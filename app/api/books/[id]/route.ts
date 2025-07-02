@@ -56,11 +56,13 @@ export async function GET(
       return NextResponse.json({ error: 'Book not found' }, { status: 404 })
     }
 
-    // Get clubs that are currently reading this book (filtered by user membership if logged in)
-    let userClubs;
+    // Get clubs that are currently reading this book
+    let currentClubs;
+    let completedClubs;
     
     if (currentUser) {
-      userClubs = await prisma.club.findMany({
+      // Clubs currently reading this book (where user is a member)
+      currentClubs = await prisma.club.findMany({
         where: {
           current_book_id: bookId,
           memberships: {
@@ -77,13 +79,37 @@ export async function GET(
                 where: { status: 'ACTIVE' as const }
               }
             }
+          },
+          meetings: {
+            where: {
+              book_id: bookId,
+              status: 'SCHEDULED'
+            },
+            orderBy: {
+              meeting_date: 'asc'
+            },
+            take: 1
           }
         }
       })
-    } else {
-      userClubs = await prisma.club.findMany({
+
+      // Clubs that have completed reading this book (where user is a member)
+      completedClubs = await prisma.club.findMany({
         where: {
-          current_book_id: bookId
+          book_history: {
+            some: {
+              book_id: bookId,
+              status: {
+                in: ['COMPLETED', 'ABANDONED']
+              }
+            }
+          },
+          memberships: {
+            some: {
+              user_id: currentUser.id,
+              status: 'ACTIVE' as const
+            }
+          }
         },
         include: {
           _count: {
@@ -92,6 +118,81 @@ export async function GET(
                 where: { status: 'ACTIVE' as const }
               }
             }
+          },
+          book_history: {
+            where: {
+              book_id: bookId,
+              status: {
+                in: ['COMPLETED', 'ABANDONED']
+              }
+            },
+            orderBy: {
+              finished_at: 'desc'
+            },
+            take: 1
+          }
+        }
+      })
+    } else {
+      // Public clubs currently reading this book
+      currentClubs = await prisma.club.findMany({
+        where: {
+          current_book_id: bookId,
+          is_private: false
+        },
+        include: {
+          _count: {
+            select: {
+              memberships: {
+                where: { status: 'ACTIVE' as const }
+              }
+            }
+          },
+          meetings: {
+            where: {
+              book_id: bookId,
+              status: 'SCHEDULED'
+            },
+            orderBy: {
+              meeting_date: 'asc'
+            },
+            take: 1
+          }
+        }
+      })
+
+      // Public clubs that have completed reading this book
+      completedClubs = await prisma.club.findMany({
+        where: {
+          book_history: {
+            some: {
+              book_id: bookId,
+              status: {
+                in: ['COMPLETED', 'ABANDONED']
+              }
+            }
+          },
+          is_private: false
+        },
+        include: {
+          _count: {
+            select: {
+              memberships: {
+                where: { status: 'ACTIVE' as const }
+              }
+            }
+          },
+          book_history: {
+            where: {
+              book_id: bookId,
+              status: {
+                in: ['COMPLETED', 'ABANDONED']
+              }
+            },
+            orderBy: {
+              finished_at: 'desc'
+            },
+            take: 1
           }
         }
       })
@@ -112,11 +213,31 @@ export async function GET(
       userProgress: 0, // You might want to calculate this based on UserBook status
       userBooks: book.UserBook || [],
       files: book.file || [],
-      clubs: userClubs.map(club => ({
+      clubs: currentClubs.map((club: any) => ({
         id: club.id,
         name: club.name,
         members: club._count.memberships,
-        meetingDate: 'TBD' // You might want to fetch actual meeting dates
+        meetingDate: club.meetings?.[0]?.meeting_date 
+          ? new Date(club.meetings[0].meeting_date).toLocaleDateString('en-US', { 
+              month: 'short', 
+              day: 'numeric', 
+              year: 'numeric' 
+            })
+          : 'TBD',
+        status: 'currently_reading'
+      })),
+      clubHistory: completedClubs.map((club: any) => ({
+        id: club.id,
+        name: club.name,
+        members: club._count.memberships,
+        completedDate: club.book_history?.[0]?.finished_at 
+          ? new Date(club.book_history[0].finished_at).toLocaleDateString('en-US', { 
+              month: 'short', 
+              day: 'numeric', 
+              year: 'numeric' 
+            })
+          : 'Unknown',
+        status: club.book_history?.[0]?.status?.toLowerCase() || 'completed'
       }))
     }
 

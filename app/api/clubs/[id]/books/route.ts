@@ -18,9 +18,9 @@ const addBookSchema = z.object({
 const updateBookSchema = z.object({
   clubBookId: z.string().uuid(),
   status: z.enum(['IN_PROGRESS', 'COMPLETED', 'ABANDONED']),
-  //make finishedAt nullable or datetime
   finishedAt: z.union([z.string().nullable(), z.string().datetime()]).optional(),
-  
+  rating: z.number().int().min(1).max(5).optional(),
+  discussionNotes: z.string().optional(),
 })
 
 // GET /api/clubs/[id]/books - Get club's book history
@@ -148,7 +148,7 @@ export async function PATCH(
     
     // Parse body
     const body = await request.json()
-    const { clubBookId, status, finishedAt } = updateBookSchema.parse(body)
+    const { clubBookId, status, finishedAt, rating, discussionNotes } = updateBookSchema.parse(body)
 
     // Get current user
     const { data: { user } } = await supabase.auth.getUser()
@@ -180,7 +180,7 @@ export async function PATCH(
       );
     }
 
-    //do a swtich depending on status and perform supabase update accordingly
+    //do a switch depending on status and perform update accordingly
     switch (status) {
       case 'COMPLETED':
         await prisma.clubBook.update({
@@ -191,6 +191,8 @@ export async function PATCH(
           data: {
             status: 'COMPLETED',
             finished_at: finishedAt || new Date(),
+            rating: rating || null,
+            discussion_notes: discussionNotes || null,
           },
         })
         break

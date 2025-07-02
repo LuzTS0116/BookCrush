@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import Link from "next/link";
+import Image from "next/image";
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -16,6 +17,8 @@ import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import {useParams} from "next/navigation";
+import { AddBookDialog } from "@/components/add-book-dialog"
+import { BookDetails } from "@/types/book"
 
 export default function PostulateBooksPage({ params }: { params: { id: string } }) {
   const [searchQuery, setSearchQuery] = useState("")
@@ -31,6 +34,10 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
   const [suggestions, setSuggestions] = useState<any[]>([])
   const [loadingClub, setLoadingClub] = useState(true)
   const [loadingSuggestions, setLoadingSuggestions] = useState(true)
+
+  // Add Book Dialog state
+  const [addBookDialogOpen, setAddBookDialogOpen] = useState(false)
+  const [allBooks, setAllBooks] = useState<BookDetails[]>([]) // For AddBookDialog
 
   const {id} = useParams();
 
@@ -85,24 +92,6 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
       return
     }
 
-    const searchBooks = async () => {
-      setLoading(true)
-      try {
-        const response = await fetch(`/api/books/search?q=${encodeURIComponent(searchQuery)}&limit=10`)
-        if (response.ok) {
-          const results = await response.json()
-          setSearchResults(results || [])
-        } else {
-          setSearchResults([])
-        }
-      } catch (error) {
-        toast.error("Error searching books")
-        setSearchResults([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
     const timeoutId = setTimeout(searchBooks, 300)
     return () => clearTimeout(timeoutId)
   }, [searchQuery])
@@ -111,6 +100,11 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
     if (selectedBooks.includes(id)) {
       setSelectedBooks(selectedBooks.filter((bookId) => bookId !== id))
     } else {
+      // Check if user is trying to add more than 2 books
+      if (selectedBooks.length >= 2) {
+        toast.error("You can only suggest up to 2 books per cycle.")
+        return
+      }
       setSelectedBooks([...selectedBooks, id])
     }
   }
@@ -179,22 +173,6 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
     }
   }
 
-  const formatVotingEndDate = (votingEnds: string) => {
-    const endDate = new Date(votingEnds)
-    const now = new Date()
-    const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-    
-    if (daysLeft > 1) {
-      return `Voting ends in ${daysLeft} days`
-    } else if (daysLeft === 1) {
-      return "Voting ends tomorrow"
-    } else if (daysLeft === 0) {
-      return "Voting ends today"
-    } else {
-      return "Voting has ended"
-    }
-  }
-
   const calculateVoteProgress = (voteCount: number) => {
     // Use club memberCount if available, otherwise use max votes from suggestions as fallback
     let totalMembers = club?.memberCount || club?.members?.length || 1
@@ -211,6 +189,57 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
     return {
       percentage: Math.round(percentage),
       totalMembers
+    }
+  }
+
+  // Add Book Dialog callback functions
+  const handleBookAdded = (newBook: BookDetails) => {
+    // Add the new book to our local state
+    setAllBooks(prev => [...prev, newBook])
+    // Optionally refresh search to include the newly added book
+    if (searchQuery.trim()) {
+      // Re-run the search to potentially include the newly added book
+      searchBooks()
+    }
+    toast.success('Book added successfully! You can now suggest it to the club.')
+  }
+
+  const searchBooks = async () => {
+    if (!searchQuery.trim()) {
+      setSearchResults([])
+      return
+    }
+
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/books/search?q=${encodeURIComponent(searchQuery)}&limit=10`)
+      if (response.ok) {
+        const results = await response.json()
+        setSearchResults(results || [])
+      } else {
+        setSearchResults([])
+      }
+    } catch (error) {
+      toast.error("Error searching books")
+      setSearchResults([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const formatVotingEndDate = (votingEnds: string) => {
+    const endDate = new Date(votingEnds)
+    const now = new Date()
+    const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    
+    if (daysLeft > 1) {
+      return `Voting ends in ${daysLeft} days`
+    } else if (daysLeft === 1) {
+      return "Voting ends tomorrow"
+    } else if (daysLeft === 0) {
+      return "Voting ends today"
+    } else {
+      return "Voting has ended"
     }
   }
 
@@ -239,362 +268,407 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
   }
 
   return (
-    <div className="container mx-auto pt-8 pb-16">
-      <div className="flex flex-col md:flex-row justify-between mb-4">
-        <div>
-          <h1 className="text-2xl font-semibold leading-none mb-2">{club.name}: Next Book Selection</h1>
-          <p className="text-bookWhite leading-none font-serif">Recommend books or vote on favorites — your voice helps shape our next club read.</p>
+    <div className="min-h-screen relative w-full h-auto overflow-hidden">
+      <Image 
+        src="/images/background.png"
+        alt="Create and Manage your Book Clubs | BookCrush"
+        width={1622}
+        height={2871}
+        className="absolute inset-0 w-auto h-full md:w-full md:h-auto object-cover z-[-1]"
+      />
+      <div className="container mx-auto px-4 py-6 pb-20">
+        <div className="flex flex-col md:flex-row justify-between mb-3">
+          <div>
+            <h1 className="text-2xl font-semibold leading-none mb-1">{club.name}:<span className="font-normal">{" "}Next Book Selection</span></h1>
+            <p className="text-bookWhite leading-none font-serif">Recommend books or vote on favorites — your voice helps shape our next club read.</p>
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="md:col-span-2">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
-            <TabsList className="grid w-full grid-cols-2 bg-secondary-light text-primary rounded-full">
-              <TabsTrigger value="search" className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full">Suggest a Book</TabsTrigger>
-              <TabsTrigger value="postulated" className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full">Current Suggestions</TabsTrigger>
-            </TabsList>
+        <Card className="my-3 p-0 bg-bookWhite/10">
+          <CardContent className="px-3 py-3">
+            <ul className="space-y-1.5 text-sm">
+              <li className="flex items-start gap-2">
+                <div className="rounded-full bg-primary/40 p-0.5">
+                  <Check className="h-2 w-2 text-bookWhite" />
+                </div>
+                <span className="text-bookWhite/85 text-sm leading-none font-thin">Aim for books around 250–500 pages.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <div className="rounded-full bg-primary/40 p-0.5">
+                  <Check className="h-2 w-2 text-bookWhite" />
+                </div>
+                <span className="text-bookWhite/85 text-sm leading-none font-thin">Pick stories that could spark great conversation.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <div className="rounded-full bg-primary/40 p-0.5">
+                  <Check className="h-2 w-2 text-bookWhite" />
+                </div>
+                <span className="text-bookWhite/85 text-sm leading-none font-thin">Suggest books you haven't read yet, so we can explore them together.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <div className="rounded-full bg-primary/40 p-0.5">
+                  <Check className="h-2 w-2 text-bookWhite" />
+                </div>
+                <span className="text-bookWhite/85 text-sm leading-none font-thin">You can submit up to 2 books per cycle.</span>
+              </li>
+            </ul>
+          </CardContent>
+        </Card>
 
-            <TabsContent value="search" className="space-y-3">
-              <Card className="p-0 bg-bookWhite">
-                <CardHeader className="px-3 pt-3 pb-0 gap-1">
-                  <CardTitle>Book Selection</CardTitle>
-                  <CardDescription className="text-sm leading-4 font-normal text-secondary/60">Share a book you think deserves the spotlight. Your suggestion could be our next club pick!</CardDescription>
-                </CardHeader>
-                <CardContent className="px-3 pt-2 pb-3">
-                  <div className="relative mb-3">
-                    <Search className="absolute left-3 top-2 h-4 w-4 text-secondary" />
-                    <Input
-                      placeholder="Search by title or author"
-                      className="pl-10 bg-secondary/10 text-secondary placeholder:text-secondary/50"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                  </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="md:col-span-2">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
+              <TabsList className="grid w-full grid-cols-2 bg-secondary-light text-primary rounded-full">
+                <TabsTrigger value="search" className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full">Suggest a Book</TabsTrigger>
+                <TabsTrigger value="postulated" className="data-[state=active]:bg-bookWhite data-[state=active]:text-primary-foreground rounded-full">Current Suggestions</TabsTrigger>
+              </TabsList>
 
-                  {loading && (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                      <span>Searching...</span>
-                    </div>
-                  )}
-                  
-                  <div className="space-y-2">
-                    {searchResults.map((book) => (
-                      <div
-                        key={book.id}
-                        className={`p-2 rounded-lg flex gap-2 ${
-                          selectedBooks.includes(book.id) ? "border-primary bg-secondary/5" : "bg-secondary/10"
-                        }`}
-                      >
-                        <div className="w-16 h-auto bg-secondary/10 rounded flex items-center justify-center overflow-hidden">
-                          <img src={book.cover_url || "/placeholder.svg"} alt={book.title} className="max-h-full" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex flex-row justify-between">
-                            <div>
-                              <h3 className="font-medium leading-none">{book.title}</h3>
-                              <p className="text-xs font-serif leading-none text-secondary/70">{book.author}</p>
-                            </div>
-                            <Button
-                              variant={selectedBooks.includes(book.id) ? "default" : "outline"}
-                              size="icon"
-                              className={selectedBooks.includes(book.id) ? "bg-primary text-primary-foreground border-none h-6 w-6 px-2" : "bg-accent text-secondary border-none h-6 w-6 px-2"}
-                              onClick={() => toggleBookSelection(book.id)}
-                            >
-                              {selectedBooks.includes(book.id) ? (
-                                <Check className="h-4 w-4" />
-                              ) : (
-                                <Plus className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </div>
-                          {/* Genre Tags */}
-                          <div className="flex flex-wrap mt-1">
-                            {book.genres?.slice(0, 1).map((genre: string) => (
-                              <span
-                                key={genre}
-                                className="bg-accent/30 text-secondary/40 text-xs/3 font-medium px-2 py-1 rounded-full"
-                              >
-                                {genre}
-                              </span>
-                            ))}
-                          </div>
-                          {/* Pages & Time */}
-                          <div className="flex-1">
-                            <p className="text-secondary/80 font-sans font-normal text-sm inline-block">{book.pages} pages • {book.reading_time}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {selectedBooks.length > 0 && (
+              <TabsContent value="search" className="space-y-3">
                 <Card className="p-0 bg-bookWhite">
-                  <CardHeader className="px-3 pt-3 pb-0 gap-2">
-                    <CardTitle>Why This Book?</CardTitle>
-                    <CardDescription className="text-sm leading-4 font-normal text-secondary/60">Tell the club why you're suggesting this book(s)</CardDescription>
+                  <CardHeader className="px-3 pt-3 pb-0 gap-1">
+                    <CardTitle className="flex justify-between items-center">
+                      <span>Book Selection</span>
+                      <span className="text-sm font-normal text-secondary/60">
+                        {selectedBooks.length}/2 selected
+                      </span>
+                    </CardTitle>
+                    <CardDescription className="text-sm leading-4 font-normal text-secondary/60">Share a book you think deserves the spotlight. Your suggestion could be our next club pick!</CardDescription>
                   </CardHeader>
                   <CardContent className="px-3 pt-2 pb-3">
+                    <div className="relative mb-3">
+                      <Search className="absolute left-3 top-2 h-4 w-4 text-secondary" />
+                      <Input
+                        placeholder="Search by title or author"
+                        className="pl-10 bg-secondary/10 text-secondary placeholder:text-secondary/50"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                      />
+                    </div>
+
+                    {loading && (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                        <span>Searching...</span>
+                      </div>
+                    )}
+
+                    {/* Show Add Book option when no results found */}
+                    {!loading && searchQuery.trim() && searchResults.length === 0 && (
+                      <div className="text-center py-8">
+                        <p className="text-secondary/60 mb-4">No books found matching "{searchQuery}"</p>
+                        <p className="text-sm text-secondary/50 mb-4">
+                          Add the book to our collection and suggest it to the club!
+                        </p>
+                        <div className="flex justify-center">
+                          <AddBookDialog
+                            open={addBookDialogOpen}
+                            onOpenChange={setAddBookDialogOpen}
+                            books={allBooks}
+                            setBooks={setAllBooks}
+                            onBookAdded={handleBookAdded}
+                            initialSearchQuery={searchQuery}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="space-y-2">
-                      <div className="flex flex-wrap gap-2">
-                        {selectedBooks.map((id) => {
-                          const book = searchResults.find((b) => b.id === id)
-                          if (!book) return null
-                          return (
-                            <div key={id} className="flex items-center gap-2 py-1 pr-1 pl-2 bg-accent-variant/30 text-secondary-light rounded-xl">
-                              <span className="text-sm font-medium">{book.title}</span>
+                      {searchResults.map((book) => (
+                        <div
+                          key={book.id}
+                          className={`p-2 rounded-lg flex gap-2 ${
+                            selectedBooks.includes(book.id) ? "border-primary bg-secondary/5" : "bg-secondary/10"
+                          }`}
+                        >
+                          <div className="w-16 h-auto bg-secondary/10 rounded flex items-center justify-center overflow-hidden">
+                            <img src={book.cover_url || "/placeholder.svg"} alt={book.title} className="max-h-full" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex flex-row justify-between">
+                              <div>
+                                <h3 className="font-medium leading-none">{book.title}</h3>
+                                <p className="text-xs font-serif leading-none text-secondary/70">{book.author}</p>
+                              </div>
                               <Button
-                                variant="ghost"
+                                variant={selectedBooks.includes(book.id) ? "default" : "outline"}
                                 size="icon"
-                                className="h-5 w-5"
-                                onClick={() => toggleBookSelection(id)}
+                                className={selectedBooks.includes(book.id) ? "bg-primary text-primary-foreground border-none h-6 w-6 px-2" : "bg-accent text-secondary border-none h-6 w-6 px-2"}
+                                onClick={() => toggleBookSelection(book.id)}
+                                disabled={!selectedBooks.includes(book.id) && selectedBooks.length >= 2}
+                                title={!selectedBooks.includes(book.id) && selectedBooks.length >= 2 ? "Maximum 2 books allowed" : ""}
                               >
-                                <X className="h-3 w-3" />
+                                {selectedBooks.includes(book.id) ? (
+                                  <Check className="h-4 w-4" />
+                                ) : (
+                                  <Plus className="h-4 w-4" />
+                                )}
                               </Button>
                             </div>
-                          )
-                        })}
-                      </div>
-                      <div className="space-y-2">
-                        <Textarea
-                          id="reason"
-                          placeholder="Share why you think the club would enjoy this book..."
-                          value={reason}
-                          onChange={(e) => setReason(e.target.value)}
-                          className="min-h-[80px] bg-secondary/10 border-none text-secondary placeholder:text-secondary/50 text-sm leading-4 p-2"
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                  <CardFooter className="px-3 pt-0 pb-3 flex justify-end">
-                    <Button
-                      onClick={handlePostulate}
-                      disabled={selectedBooks.length === 0 || !reason.trim() || submitting}
-                      className="rounded-full bg-primary hover:bg-primary-light"
-                    >
-                      {submitting ? (
-                        <>
-                          <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                          Submitting...
-                        </>
-                      ) : (
-                        "Submit Suggestion"
-                      )}
-                    </Button>
-                  </CardFooter>
-                </Card>
-              )}
-            </TabsContent>
-
-            <TabsContent value="postulated" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Current Suggestions</CardTitle>
-                  <CardDescription>Vote for the book you'd like to read next</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {loadingSuggestions ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                      <span>Loading suggestions...</span>
-                    </div>
-                  ) : suggestions.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">No book suggestions yet. Be the first to suggest a book!</p>
-                      <Button 
-                        variant="outline" 
-                        className="mt-4" 
-                        onClick={() => setActiveTab("search")}
-                      >
-                        Suggest a Book
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-6">
-                      {suggestions.map((suggestion: any) => (
-                        <div key={suggestion.id} className="border rounded-lg overflow-hidden">
-                          <div className="p-4">
-                            <div className="flex gap-4">
-                              <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
-                                <img src={suggestion.book.cover_url || "/placeholder.svg"} alt={suggestion.book.title} className="max-h-full" />
-                              </div>
-                              <div className="flex-1">
-                                <div className="flex justify-between">
-                                  <div>
-                                    <h3 className="font-medium">{suggestion.book.title}</h3>
-                                    <p className="text-sm text-muted-foreground">{suggestion.book.author}</p>
-                                  </div>
-                                  <Button
-                                    variant={suggestion.has_voted ? "default" : "outline"}
-                                    size="sm"
-                                    className={suggestion.has_voted ? "bg-primary text-primary-foreground" : ""}
-                                    onClick={() => handleVote(suggestion.id, suggestion.has_voted)}
-                                  >
-                                    <ThumbsUp className="mr-2 h-4 w-4" />
-                                    {suggestion.has_voted ? "Voted" : "Vote"} ({suggestion.vote_count})
-                                  </Button>
-                                </div>
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                  {suggestion.book.genres?.map((g: string) => (
-                                    <Badge key={g} variant="secondary" className="bg-primary/10 text-primary">
-                                      {g}
-                                    </Badge>
-                                  ))}
-                                </div>
-                                <div className="grid grid-cols-2 gap-4 mt-2 text-sm">
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-muted-foreground">Year:</span>
-                                    <span>{suggestion.book.published_date}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-muted-foreground">Pages:</span>
-                                    <span>{suggestion.book.pages}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <Separator className="my-4" />
-                            <div className="flex items-start gap-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage
-                                  src={suggestion.suggested_by.avatar_url || "/placeholder.svg"}
-                                  alt={suggestion.suggested_by.display_name}
-                                />
-                                <AvatarFallback>{suggestion.suggested_by.display_name.charAt(0)}</AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="text-sm">
-                                  <span className="font-medium">{suggestion.suggested_by.display_name}</span> suggested this book:
-                                </p>
-                                <p className="text-sm mt-1 text-muted-foreground italic">"{suggestion.reason}"</p>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="bg-muted/20 p-3">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm font-medium">Votes: {suggestion.vote_count}</span>
-                              <div className="flex items-center gap-2 w-2/3">
-                                <Progress 
-                                  value={calculateVoteProgress(suggestion.vote_count).percentage} 
-                                  className="flex-1 h-2" 
-                                />
-                                <span className="text-xs text-muted-foreground">
-                                  {calculateVoteProgress(suggestion.vote_count).percentage}%
+                            {/* Genre Tags */}
+                            <div className="flex flex-wrap mt-1">
+                              {book.genres?.slice(0, 1).map((genre: string) => (
+                                <span
+                                  key={genre}
+                                  className="bg-accent/30 text-secondary/40 text-xs/3 font-medium px-2 py-1 rounded-full"
+                                >
+                                  {genre}
                                 </span>
-                              </div>
+                              ))}
+                            </div>
+                            {/* Pages & Time */}
+                            <div className="flex-1">
+                              <p className="text-secondary/80 font-sans font-normal text-sm inline-block">{book.pages} pages • {book.reading_time}</p>
                             </div>
                           </div>
                         </div>
                       ))}
                     </div>
-                  )}
-                </CardContent>
-                <CardFooter className="flex justify-between">
-                  <p className="text-sm text-muted-foreground">
-                    {suggestions.length > 0 && suggestions[0].voting_ends 
-                      ? formatVotingEndDate(suggestions[0].voting_ends)
-                      : "No active voting period"
-                    }
-                  </p>
-                  <Button variant="outline" onClick={() => setActiveTab("search")}>
-                    Suggest Another Book
-                  </Button>
-                </CardFooter>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
+                  </CardContent>
+                </Card>
 
-        <div>
-          <Card className="p-0">
-            <CardHeader className="px-3 pt-3 pb-2 gap-2">
-              <CardTitle>Current Book</CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 pt-0 pb-3">
-              <div className="flex flex-row gap-2 bg-secondary/5 p-2.5 rounded-md">
-                <div className="w-[80px] flex-shrink-0">                      
-                  <Link href={`/books/${club.current_book.id}`}>
-                    <img
-                      src={club.current_book.cover_url || "/placeholder.svg"}
-                      alt={`${club.current_book.title} cover` || "Book cover"}
-                      className="h-full w-full rounded-md shadow-md object-cover"
-                    />
-                  </Link>
-                </div>
-                <div className="flex-1">
-                  <Link href={`/books/${club.current_book.id}`}>
-                    <h3 className="text-base leading-none font-medium">{club.current_book.title}</h3>
-                  </Link>
-                  <p className="text-sm text-secondary-light/70">{club.current_book.author}</p>
-                  {/* Genre Tags */}
-                  {club.current_book.genres && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {club.current_book.genres?.slice(0, 1).map((genre: string) => (
-                      <span
-                        key={genre}
-                        className="bg-accent/30 text-secondary/40 text-xs/3 font-medium px-2 py-1 rounded-full"
-                      >
-                        {genre}
-                      </span>
-                    ))}
-                  </div>
-                  )}
-                  {/* Pages & Time */}
-                  {club.current_book.pages && (
-                  <div className="flex-1">
-                    <p className="text-secondary/80 font-sans font-normal text-xs inline-block">{club.current_book.pages} pages • {club.current_book.reading_time}</p>
-                  </div>
-                  )}
-                  {club.meetings && club.meetings.length > 0 && (
-                    <div className="inline-block">
-                      <div className="flex items-center gap-1 bg-accent-variant/75 px-1.5 py-1 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
-                        <Calendar className="h-3 w-3 text-bookWhite" />
-                        <span>Meeting: {new Date(club.meetings[0].meeting_date).toLocaleDateString()}</span>
+                {selectedBooks.length > 0 && (
+                  <Card className="p-0 bg-bookWhite">
+                    <CardHeader className="px-3 pt-3 pb-0 gap-2">
+                      <CardTitle className="flex justify-between items-center">
+                        <span>Why This Book?</span>
+                        <span className={`text-sm font-normal px-2 py-1 rounded-full ${
+                          selectedBooks.length === 2 
+                            ? 'bg-green-100 text-green-700' 
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {selectedBooks.length}/2 books
+                        </span>
+                      </CardTitle>
+                      <CardDescription className="text-sm leading-4 font-normal text-secondary/60">Tell the club why you're suggesting {selectedBooks.length === 1 ? 'this book' : 'these books'}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="px-3 pt-2 pb-3">
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap gap-2">
+                          {selectedBooks.map((id) => {
+                            const book = searchResults.find((b) => b.id === id)
+                            if (!book) return null
+                            return (
+                              <div key={id} className="flex items-center gap-2 py-1 pr-1 pl-2 bg-accent-variant/30 text-secondary-light rounded-xl">
+                                <span className="text-sm font-medium">{book.title}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5"
+                                  onClick={() => toggleBookSelection(id)}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <div className="space-y-2">
+                          <Textarea
+                            id="reason"
+                            placeholder={`Share why you think the club would enjoy ${selectedBooks.length === 1 ? 'this book' : 'these books'}...`}
+                            value={reason}
+                            onChange={(e) => setReason(e.target.value)}
+                            className="min-h-[80px] bg-secondary/10 border-none text-secondary placeholder:text-secondary/50 text-sm leading-4 p-2"
+                          />
+                          {selectedBooks.length === 2 && (
+                            <p className="text-xs text-green-600 bg-green-50 p-2 rounded-md">
+                              ✅ Perfect! You've reached the maximum of 2 book suggestions per cycle.
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                    </CardContent>
+                    <CardFooter className="px-3 pt-0 pb-3 flex justify-end">
+                      <Button
+                        onClick={handlePostulate}
+                        disabled={selectedBooks.length === 0 || !reason.trim() || submitting}
+                        className="rounded-full bg-primary hover:bg-primary-light"
+                      >
+                        {submitting ? (
+                          <>
+                            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          `Submit ${selectedBooks.length === 1 ? 'Suggestion' : 'Suggestions'} (${selectedBooks.length})`
+                        )}
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                )}
+              </TabsContent>
 
-          <Card className="mt-3 p-0">
-            <CardHeader className="px-3 pt-3 pb-2">
-              <CardTitle>Suggestion Guidelines</CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 pt-0 pb-3">
-              <ul className="space-y-1 text-sm">
-                <li className="flex items-center gap-2">
-                  <div className="rounded-full bg-primary/20 p-0.5">
-                    <Check className="h-3 w-3 text-primary-dark" />
+              <TabsContent value="postulated" className="space-y-6">
+                <Card className="p-0">
+                  <CardHeader className="px-3 pt-3 pb-2 gap-1">
+                    <CardTitle>Current Suggestions</CardTitle>
+                    <CardDescription className="text-sm leading-4 font-normal text-secondary/60">Vote for the book you'd like to read next</CardDescription>
+                  </CardHeader>
+                  <CardContent className="px-3 pt-0 pb-3">
+                    {loadingSuggestions ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                        <span>Loading suggestions...</span>
+                      </div>
+                    ) : suggestions.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-muted-foreground">No book suggestions yet. Be the first to suggest a book!</p>
+                        <Button 
+                          variant="outline" 
+                          className="mt-4" 
+                          onClick={() => setActiveTab("search")}
+                        >
+                          Suggest a Book
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {suggestions.map((suggestion: any) => (
+                          <div key={suggestion.id} className="rounded-lg overflow-hidden bg-secondary/10">
+                            <div className="">
+                              <div className="flex gap-2 p-2">
+                                <div className="w-16 h-auto rounded flex justify-center overflow-hidden">
+                                  <img src={suggestion.book.cover_url || "/placeholder.svg"} alt={suggestion.book.title} className="max-h-full" />
+                                </div>
+                                <div className="flex-1">
+                                  <div className="flex flex-row justify-between">
+                                    <div>
+                                      <h3 className="font-medium leading-none">{suggestion.book.title}</h3>
+                                      <p className="text-xs font-serif leading-none text-secondary/70">{suggestion.book.author}</p>
+                                    </div>
+                                    <div className="">
+                                      <Button
+                                        variant={suggestion.has_voted ? "default" : "outline"}
+                                        size="sm"
+                                        className={suggestion.has_voted ? "bg-primary text-primary-foreground rounded-full h-6" : "text-bookWhite bg-secondary-light rounded-full h-6"}
+                                        onClick={() => handleVote(suggestion.id, suggestion.has_voted)}
+                                      >
+                                        <ThumbsUp className="h-2 w-2" />
+                                        {suggestion.has_voted ? "Voted" : "Vote"}
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  {/* Genre Tags */}
+                                  <div className="flex flex-wrap mt-1">
+                                    {suggestion.book.genres?.slice(0, 1).map((genre: string) => (
+                                      <span
+                                        key={genre}
+                                        className="bg-accent/30 text-secondary/40 text-xs/3 font-medium px-2 py-1 rounded-full"
+                                      >
+                                        {genre}
+                                      </span>
+                                    ))}
+                                  </div>
+                                  {/* Pages & Time */}
+                                  <div className="flex-1">
+                                    <p className="text-secondary/80 font-sans font-normal text-sm inline-block">{suggestion.book.pages} pages • {suggestion.book.reading_time}</p>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex items-start gap-1 mt-1 px-2 pt-1 pb-1 border-t border-secondary/30">
+                                <Avatar className="h-5 w-5">
+                                  <AvatarImage
+                                    src={suggestion.suggested_by.avatar_url || "/placeholder.svg"}
+                                    alt={suggestion.suggested_by.display_name}
+                                  />
+                                  <AvatarFallback>{suggestion.suggested_by.display_name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="text-sm">
+                                    <span className="font-medium">{suggestion.suggested_by.display_name}</span> suggested this book
+                                  </p>
+                                  <p className="text-xs text-secondary/70 leading-none">"{suggestion.reason}"</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="bg-secondary/15 p-2">
+                              <div className="flex justify-between items-center">
+                                <span className="text-sm font-medium">Votes: {suggestion.vote_count}</span>
+                                <div className="flex items-center gap-2 w-2/3">
+                                  <Progress 
+                                    value={calculateVoteProgress(suggestion.vote_count).percentage} 
+                                    className="flex-1 h-2" 
+                                  />
+                                  <span className="text-xs text-secondary/50">
+                                    {calculateVoteProgress(suggestion.vote_count).percentage}%
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                  <CardFooter className="flex flex-col items-end px-3 pt-0 pb-3 gap-0.5">
+                    <p className="text-sm text-secondary/60">
+                      {suggestions.length > 0 && suggestions[0].voting_ends 
+                        ? formatVotingEndDate(suggestions[0].voting_ends)
+                        : "No active voting period"
+                      }
+                    </p>
+                    <Button variant="outline" onClick={() => setActiveTab("search")} className="rounded-full bg-accent text-secondary border-none h-8">
+                      Suggest Another Book
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          <div>
+            <Card className="p-0">
+              <CardHeader className="px-3 pt-3 pb-2 gap-2">
+                <CardTitle>Current Book</CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 pt-0 pb-3">
+                <div className="flex flex-row gap-2 bg-secondary/5 p-2.5 rounded-md">
+                  <div className="w-[90px] flex-shrink-0">                      
+                    <Link href={`/books/${club.current_book.id}`}>
+                      <img
+                        src={club.current_book.cover_url || "/placeholder.svg"}
+                        alt={`${club.current_book.title} cover` || "Book cover"}
+                        className="h-full w-full rounded-md shadow-md object-cover"
+                      />
+                    </Link>
                   </div>
-                  <span>Aim for books around 250–500 pages.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="rounded-full bg-primary/20 p-1 mt-0.5">
-                    <Check className="h-3 w-3 text-primary-dark" />
+                  <div className="flex-1">
+                    <Link href={`/books/${club.current_book.id}`}>
+                      <h3 className="text-base leading-none font-medium">{club.current_book.title}</h3>
+                    </Link>
+                    <p className="text-sm text-secondary-light/70">{club.current_book.author}</p>
+                    {/* Genre Tags */}
+                    {club.current_book.genres && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {club.current_book.genres?.slice(0, 1).map((genre: string) => (
+                        <span
+                          key={genre}
+                          className="bg-accent/30 text-secondary/40 text-xs/3 font-medium px-2 py-1 rounded-full"
+                        >
+                          {genre}
+                        </span>
+                      ))}
+                    </div>
+                    )}
+                    {/* Pages & Time */}
+                    {club.current_book.pages && (
+                    <div className="flex-1">
+                      <p className="text-secondary/80 font-sans font-normal text-xs inline-block">{club.current_book.pages} pages • {club.current_book.reading_time}</p>
+                    </div>
+                    )}
+                    {club.meetings && club.meetings.length > 0 && (
+                      <div className="inline-block">
+                        <div className="flex items-center gap-1 bg-accent-variant/75 px-1.5 py-1 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
+                          <Calendar className="h-3 w-3 text-bookWhite" />
+                          <span>Meeting: {new Date(club.meetings[0].meeting_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <span>Pick stories that could spark great conversation.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="rounded-full bg-primary/20 p-1 mt-0.5">
-                    <Check className="h-3 w-3 text-primary-dark" />
-                  </div>
-                  <span>Suggest books you haven’t read yet, so we can explore them together.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="rounded-full bg-primary/20 p-1 mt-0.5">
-                    <Check className="h-3 w-3 text-primary-dark" />
-                  </div>
-                  <span>You can submit up to 2 books per cycle.</span>
-                </li>
-              </ul>
-              <p>Let your next favorite read find you!</p>
-            </CardContent>
-          </Card>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>
