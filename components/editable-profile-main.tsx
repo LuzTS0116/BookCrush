@@ -528,8 +528,8 @@ export default function EditableProfileMain() {
       // Get presigned URL
       const presignResponse = await fetch('/api/profile/presign', {
         method: 'POST',
-        credentials: 'include',
         headers: {
+          'Authorization': `Bearer ${session?.supabaseAccessToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({

@@ -392,11 +392,11 @@ const handleClickShare = async () => {
               className="relative group h-full col-span-2"
             >
               <div ref={quoteImageRef} className="h-full flex flex-col justify-between bg-[url('/images/quote-img1.png')] bg-cover rounded-t-lg rounded-bl-lg rounded-br-3xl">
-                <div className="flex-1 flex flex-col justify-center pt-4 px-3">
+                <div className="flex-1 flex flex-col justify-center py-3 px-3">
                   <blockquote className="text-[13px]/4 text-center font-semibold text-bookBlack">
                     {quote}
                   </blockquote>
-                  <p className="text-xs mt-2 text-center text-bookBlack">{author}</p>
+                  <p className="text-xs mt-2 text-center leading-none text-bookBlack">{author}</p>
                 </div>
               </div>
               

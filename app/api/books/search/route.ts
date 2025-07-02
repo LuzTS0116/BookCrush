@@ -22,6 +22,7 @@ export async function GET(request: Request) {
         author,
         cover_url,
         description,
+        genres,
         reading_time,
         pages
       `)

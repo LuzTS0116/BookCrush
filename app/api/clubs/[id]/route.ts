@@ -49,6 +49,7 @@ export async function GET(
             description: true,
             id: true,
             title: true,
+            genres: true,
             reading_time: true,
             pages: true,
             
