@@ -24,66 +24,84 @@ interface HistoryBookDialogProps {
   historyBooks: UserBook;
   bookStatus: UserBook['status'];
   bookMediaType: UserBook['media_type'];
+  profileUserId: string;
+  profileDisplayName: string | null;
 }
 
-export function ProfileBookHistory({ historyBooks, bookStatus, bookMediaType }: HistoryBookDialogProps) {
+export function ProfileBookHistory({ historyBooks, bookStatus, bookMediaType, profileUserId, profileDisplayName }: HistoryBookDialogProps) {
     const [open, setOpen] = React.useState(false)
-    const [userReactionReview, setUserReactionReview] = useState<UserReactionReview | null>(null)
+    // const [bookReviews, setBookReviews] = useState<any[]>([]);
+    const [userReaction, setUserReaction] = useState<any>(null);
     const [loading, setLoading] = useState(false)
   
-    // Fetch user's reaction and review when dialog opens
-    useEffect(() => {
-      if (open) {
-        fetchUserReactionReview()
-      }
-    }, [open, historyBooks.book_id])
-  
-    const fetchUserReactionReview = async () => {
-      setLoading(true)
+    // Fetch book reviews and user's reaction when dialog opens
+    const fetchBookDetails = async () => {
+      if (!open) return;
+      
+      setLoading(true);
       try {
-        const response = await fetch(`/api/books/${historyBooks.book_id}/user-reaction-review`)
-        if (response.ok) {
-          const data = await response.json()
-          setUserReactionReview(data)
-        } else {
-          console.error('Failed to fetch user reaction and review')
+        // Fetch reviews
+        // const reviewsResponse = await fetch(`/api/books/${historyBooks.book_id}/reviews`);
+        // if (reviewsResponse.ok) {
+        //   const reviews = await reviewsResponse.json();
+        //   setBookReviews(reviews);
+        // }
+  
+        // Fetch user's reaction and review
+        const reactionResponse = await fetch(`/api/books/${historyBooks.book_id}/user-reaction-review?userId=${profileUserId}`);
+        if (reactionResponse.ok) {
+          const data = await reactionResponse.json();
+          // Combine reaction and review data for easier display
+          const combined = {
+            type: data.reaction?.type || data.review?.rating,
+            content: data.review?.content,
+            created_at: data.reaction?.created_at || data.review?.created_at
+          };
+          setUserReaction(combined.type ? combined : null);
         }
       } catch (error) {
-        console.error('Error fetching user reaction and review:', error)
+        console.error('Error fetching book details:', error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
   
-    const getReactionIcon = (type: string) => {
-      switch (type) {
-        case 'HEART':
-          return <Heart className="h-4 w-4 text-red-500 fill-red-500" />
-        case 'THUMBS_UP':
-          return <ThumbsUp className="h-4 w-4 text-green-500 fill-green-500" />
-        case 'THUMBS_DOWN':
-          return <ThumbsDown className="h-4 w-4 text-red-500 fill-red-500" />
-        case 'LIKE':
-          return <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-        default:
-          return null
-      }
-    }
+    useEffect(() => {
+      fetchBookDetails();
+    }, [open, historyBooks.book_id]);
   
-    const getReactionLabel = (type: string) => {
-      switch (type) {
-        case 'HEART':
-          return 'Loved it'
-        case 'THUMBS_UP':
-          return 'Liked it'
-        case 'THUMBS_DOWN':
-          return 'Disliked it'
-        case 'LIKE':
-          return 'Enjoyed it'
-        default:
-          return 'Unknown'
-      }
+
+  const getReactionIcon = (type: string) => {
+    switch (type) {
+      case 'HEART':
+        return <Heart className="h-4 w-4 text-red-500 fill-red-500" />
+      case 'THUMBS_UP':
+        return <ThumbsUp className="h-4 w-4 text-green-500 fill-green-500" />
+      case 'THUMBS_DOWN':
+        return <ThumbsDown className="h-4 w-4 text-red-500 fill-red-500" />
+      case 'LIKE':
+        return <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+      default:
+        return null
     }
+  }
+
+  const getReactionLabel = (type: string) => {
+    switch (type) {
+      case 'HEART':
+        return 'Loved it'
+      case 'THUMBS_UP':
+        return 'Liked it'
+      case 'THUMBS_DOWN':
+        return 'Disliked it'
+      case 'LIKE':
+        return 'Enjoyed it'
+      default:
+        return 'Unknown'
+    }
+  }
+
+  const firstName = profileDisplayName.split(" ")[0]
 
     return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -109,7 +127,7 @@ export function ProfileBookHistory({ historyBooks, bookStatus, bookMediaType }: 
             <div className="pb-2 px-0 pt-0">
               <div className="flex flex-row justify-between items-start">
                 <Link href={`/books/${historyBooks.book_id}`}>
-                  <h1 className="text-base leading-5 max-w-40">{historyBooks.book.title}</h1>
+                  <h1 className="text-base leading-4 font-semibold max-w-40">{historyBooks.book.title}</h1>
                 </Link>
               </div>
               <div className="text-xs text-secondary/50">{historyBooks.book.author}</div>
@@ -128,42 +146,41 @@ export function ProfileBookHistory({ historyBooks, bookStatus, bookMediaType }: 
                 </span>
                 {bookMediaType && (
                   <span className="p-1.5 bg-secondary/10 rounded-full text-xs text-secondary-light">
-                  {(bookMediaType === "e_reader") ? <Smartphone className="w-4 h-4"/> : (bookMediaType === "audio_book") ? <Headphones className="w-4 h-4"/> : <BookOpen className="w-4 h-4"/>}
-                </span>
+                    {(bookMediaType === "e_reader") ? <Smartphone className="w-4 h-4"/> : (bookMediaType === "audio_book") ? <Headphones className="w-4 h-4"/> : <BookOpen className="w-4 h-4"/>}
+                  </span>
+                )}
+                {/* Personal Comment */}
+                {historyBooks.comment && (
+                  <div className="p-2 bg-accent/20 rounded-lg">
+                    <p className="text-sm italic">"{historyBooks.comment}"</p>
+                  </div>
                 )}
             </div>
-              
-              {/* User's Reaction and Review Section */}
+
+            {/* User's Reaction */}
               {loading ? (
-                <div className="mt-3 p-2 bg-bookBlack/5 rounded-lg">
-                  <div className="text-xs text-secondary/60">Loading your review...</div>
+                <div className="mt-3 p-2 bg-secondary/5 rounded-lg">
+                  <div className="text-xs text-secondary/60">Loading review...</div>
                 </div>
-              ) : userReactionReview && (userReactionReview.reaction || userReactionReview.review) ? (
-                <div className="mt-3 p-2 bg-bookBlack/5 rounded-lg space-y-0">
-                  {/* User's Reaction */}
-                  {userReactionReview.reaction && (
-                    <div className="flex items-center gap-2">
-                      {getReactionIcon(userReactionReview.reaction.type)}
-                      <span className="text-xs font-bold text-secondary/70">
-                         {getReactionLabel(userReactionReview.reaction.type)}
-                      </span>
-                    </div>
-                  )}
-                  
-                  {/* User's Review */}
-                  {userReactionReview.review && (
-                    <div className="space-y-1">
-                      <p className="text-xs text-secondary/70 italic leading-relaxed">
-                        "{userReactionReview.review.content}"
-                      </p>
+              ) : userReaction && (userReaction.type) ? (
+                <div className="mt-2 max-h-40 overflow-y-auto">
+                  <div className="flex items-center gap-2 mb-1">
+                    {getReactionIcon(userReaction.type)}
+                    <span className="text-sm font-medium">
+                      {getReactionLabel(userReaction.type)}
+                    </span>
+                  </div>
+                  {userReaction.content && (
+                    <div className="bg-secondary/5 p-2 rounded-lg">
+                      <p className="text-xs text-secondary/60 leading-4">{userReaction.content}</p>
                     </div>
                   )}
                 </div>
               ) : open && !loading ? (
-                <div className="mt-3 p-2 bg-bookBlack/5 rounded-lg">
-                  <div className="text-xs text-secondary/60">You haven't left a review for this book.</div>
+                <div className="mt-3 p-2 bg-secondary/5 rounded-lg">
+                  <div className="text-xs leading-none text-secondary/60">{firstName} hasn't left a review for this book.</div>
                 </div>
-              ) : null}
+              ) : null }
             </div>
           </div>
         </div>

@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/app/api/auth/[...nextauth]/route'
 import { prisma } from '@/lib/prisma'
 
-// GET /api/books/[id]/user-reaction-review - Get current user's reaction and review for a specific book
+// GET /api/books/[id]/user-reaction-review - Get user's reaction and review for a specific book
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -17,26 +17,38 @@ export async function GET(
     }
 
     const bookId = id
-
     if (!bookId) {
       return NextResponse.json({ error: 'Book ID is required' }, { status: 400 })
     }
 
-    // Get current user
-    const currentUser = await prisma.profile.findUnique({
-      where: { email: session.user.email },
-      select: { id: true }
-    })
+    // Get userId from query parameters (for viewing other users' profiles)
+    const url = new URL(request.url)
+    const queryUserId = url.searchParams.get('userId')
 
-    if (!currentUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    let targetUserId: string
+
+    if (queryUserId) {
+      // If userId is provided, get that specific user's reaction/review
+      targetUserId = queryUserId
+    } else {
+      // Default to current user (backward compatibility)
+      const currentUser = await prisma.profile.findUnique({
+        where: { email: session.user.email },
+        select: { id: true }
+      })
+
+      if (!currentUser) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      }
+      
+      targetUserId = currentUser.id
     }
 
     // Get user's reaction and review in parallel
     const [userReaction, userReview] = await Promise.all([
       prisma.reaction.findFirst({
         where: {
-          user_id: currentUser.id,
+          user_id: targetUserId,
           target_type: 'BOOK',
           target_id: bookId
         },
@@ -45,7 +57,7 @@ export async function GET(
       prisma.bookReview.findUnique({
         where: {
           user_id_book_id: {
-            user_id: currentUser.id,
+            user_id: targetUserId,
             book_id: bookId
           }
         },

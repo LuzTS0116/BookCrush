@@ -351,7 +351,7 @@ export default function DashboardReading() {
   // State for active tab (should match shelf_type enum values)
   const [activeTab, setActiveTab] = useState<UserBook['shelf']>("currently_reading"); 
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // State to manage per-book loading/feedback for adding to shelf
@@ -390,12 +390,19 @@ export default function DashboardReading() {
 
   // Function to fetch books from the API
   const fetchBooks = async (shelf: UserBook['shelf']) => {
+    // Don't make API call if we don't have authentication
+    if (!session?.supabaseAccessToken) {
+      console.log("Skipping fetch - no access token available");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
+   
     try {
       const response = await fetch(`/api/shelf?shelf=${shelf}`, {
         headers: {
-          'Authorization': `Bearer ${session?.supabaseAccessToken}`
+          'Authorization': `Bearer ${session.supabaseAccessToken}`
         }
       });
       if (!response.ok) {
@@ -419,8 +426,11 @@ export default function DashboardReading() {
 
   // useEffect to fetch books when the component mounts or the activeTab changes
   useEffect(() => {
-    fetchBooks(activeTab);
-  }, [activeTab]); // Dependency array: re-run when activeTab changes
+    // Only fetch books if session is loaded and we have an access token
+    if (status === "authenticated" && session?.supabaseAccessToken) {
+      fetchBooks(activeTab);
+    }
+  }, [activeTab, status, session?.supabaseAccessToken]); // Dependency array: re-run when activeTab, session status, or token changes
 
   // Function to handle personal note updates
   const handleNoteUpdate = async (bookId: string, shelf: UserBook['shelf']) => {
@@ -1004,8 +1014,10 @@ export default function DashboardReading() {
 
             {/* Content for "Currently Reading" Tab */}
             <TabsContent value="currently_reading" className="space-y-1">
-              {isLoading ? (
+              {status === "loading" || isLoading ? (
                 <div className="text-center py-8">Loading books...</div>
+              ) : status === "unauthenticated" ? (
+                <div className="text-center py-8 text-muted-foreground">Please sign in to view your books.</div>
               ) : error ? (
                 <div className="text-center py-8 text-red-500">Error: {error}</div>
               ) : currentlyReadingBooks.length === 0 ? (
@@ -1258,8 +1270,10 @@ export default function DashboardReading() {
 
             {/* Content for "Reading Queue" Tab */}
             <TabsContent value="queue" className="space-y-1">
-              {isLoading ? (
+              {status === "loading" || isLoading ? (
                 <div className="text-center py-8">Loading books...</div>
+              ) : status === "unauthenticated" ? (
+                <div className="text-center py-8 text-muted-foreground">Please sign in to view your books.</div>
               ) : error ? (
                 <div className="text-center py-8 text-red-500">Error: {error}</div>
               ) : queueBooks.length === 0 ? (

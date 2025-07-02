@@ -15,6 +15,24 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
+// Optimized avatar URL processing function - SYNCHRONOUS, NO ASYNC CALLS
+function processAvatarUrl(avatarPath: string | null | undefined): string | null {
+  if (!avatarPath) return null;
+  
+  // If already a full URL (Google avatars, etc.), return as-is
+  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
+    return avatarPath;
+  }
+  
+  // Convert relative path to public URL synchronously
+  if (supabase) {
+    const { data } = supabase.storage.from('profiles').getPublicUrl(avatarPath);
+    return data.publicUrl;
+  }
+  
+  return null;
+}
+
 export async function GET(req: NextRequest) {
   try {
     if (!supabase) {
@@ -43,27 +61,36 @@ export async function GET(req: NextRequest) {
     switch (type) {
       case 'friends':
         // Get active friendships
-        result = await prisma.friendship.findMany({
+        const friendships = await prisma.friendship.findMany({
           where: {
             OR: [
               { userId1: user.id },
               { userId2: user.id },
             ],
           },
-          // You might want to include the other user's profile here
           include: {
-            user_one:  true  ,
-            user_two:   true  
-            
-            // Need to include user models for sender/receiver if you want their profiles
-            // Make sure your Prisma client is configured to allow joins across schemas
-            // e.g. sender: { include: { profile: true } }
+            user_one: true,
+            user_two: true  
           },
         });
+
+        // Process avatar URLs for friendships
+        result = friendships.map(friendship => ({
+          ...friendship,
+          user_one: {
+            ...friendship.user_one,
+            avatar_url: processAvatarUrl(friendship.user_one.avatar_url)
+          },
+          user_two: {
+            ...friendship.user_two,
+            avatar_url: processAvatarUrl(friendship.user_two.avatar_url)
+          }
+        }));
         break;
+
       case 'sent':
         // Get pending requests sent by current user
-        result = await prisma.friendRequest.findMany({
+        const sentRequests = await prisma.friendRequest.findMany({
           where: {
             senderId: user.id,
             status: FriendRequestStatus.PENDING,
@@ -71,36 +98,47 @@ export async function GET(req: NextRequest) {
           include: {
             receiver: {
               select: {
+                id: true,
                 display_name: true,
                 email: true,
+                avatar_url: true,
               }
-
             }
-            
-            
-            // Need to include user models for sender/receiver if you want their profiles
-            // Make sure your Prisma client is configured to allow joins across schemas
-            // e.g. sender: { include: { profile: true } }
           }
         });
+
+        // Process avatar URLs for sent requests
+        result = sentRequests.map(request => ({
+          ...request,
+          receiver: {
+            ...request.receiver,
+            avatar_url: processAvatarUrl(request.receiver.avatar_url)
+          }
+        }));
         break;
+
       case 'received':
         // Get pending requests received by current user
-        result = await prisma.friendRequest.findMany({
+        const receivedRequests = await prisma.friendRequest.findMany({
           where: {
             receiverId: user.id,
             status: FriendRequestStatus.PENDING,
           },
-          // You might want to include the other user's profile here
           include: {
             sender: true
-            
-            // Need to include user models for sender/receiver if you want their profiles
-            // Make sure your Prisma client is configured to allow joins across schemas
-            // e.g. sender: { include: { profile: true } }
           }
         });
+
+        // Process avatar URLs for received requests
+        result = receivedRequests.map(request => ({
+          ...request,
+          sender: {
+            ...request.sender,
+            avatar_url: processAvatarUrl(request.sender.avatar_url)
+          }
+        }));
         break;
+
       default:
         return NextResponse.json({ error: "Invalid type parameter. Use 'friends', 'sent', or 'received'." }, { status: 400 });
     }

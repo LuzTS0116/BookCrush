@@ -17,6 +17,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation"
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Loader2 } from "lucide-react"
+import { LucideHeart, LucideThumbsUp, LucideThumbsDown } from "lucide-react"
 
 // Re-define these with consistent types matching Prisma enums
 const statuses: StatusDisplay[] = [
@@ -74,15 +77,19 @@ interface HistoryBookItemProps {
   userBook: UserBook;
   bookStatus: UserBook['status'];
   bookMediaType: UserBook['media_type'];
+  profileUserId: string; // The friend's user ID whose profile we're viewing
+  profileDisplayName: string | null;
 }
 
-function ProfileBookHistoryItem({ userBook, bookStatus, bookMediaType }: HistoryBookItemProps) {
+function ProfileBookHistoryItem({ userBook, bookStatus, bookMediaType, profileUserId, profileDisplayName }: HistoryBookItemProps) {
   return (
-    <div className="relative w-auto">
-      <ProfileBookHistory
+    <div className="relative w-auto cursor-pointer">
+      <ProfileBookHistory 
         historyBooks={userBook} 
         bookStatus={bookStatus}
         bookMediaType={bookMediaType}
+        profileUserId={profileUserId}
+        profileDisplayName={profileDisplayName}
       />
       {/* Status indicators */}
       {userBook.status === 'finished' && (
@@ -446,6 +453,8 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                             userBook={userBook}
                             bookStatus={userBook.status}
                             bookMediaType={userBook.media_type}
+                            profileUserId={profile.id}
+                            profileDisplayName={profile.display_name}
                           />
                         )
                       )}

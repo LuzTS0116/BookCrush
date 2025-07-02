@@ -204,7 +204,7 @@ export function HistoryBookDialog({ historyBooks, onMoveToShelf, onRemoveFromShe
                 <div className="mt-3 p-2 bg-bookBlack/5 rounded-lg space-y-0">
                   {/* User's Reaction */}
                   {userReactionReview.reaction && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mb-1">
                       {getReactionIcon(userReactionReview.reaction.type)}
                       <span className="text-xs font-bold text-secondary/70">
                          {getReactionLabel(userReactionReview.reaction.type)}
@@ -214,8 +214,8 @@ export function HistoryBookDialog({ historyBooks, onMoveToShelf, onRemoveFromShe
                   
                   {/* User's Review */}
                   {userReactionReview.review && (
-                    <div className="space-y-1">
-                      <p className="text-xs text-secondary/70 italic leading-relaxed">
+                    <div className="space-y-1 mt-1">
+                      <p className="text-xs text-secondary/70 leading-3">
                         "{userReactionReview.review.content}"
                       </p>
                     </div>
