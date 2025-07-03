@@ -16,6 +16,7 @@ import {Dialog,
 } from "@/components/ui/dialog"
 import { useSession } from "next-auth/react";
 import Link from "next/link"
+import { useRouter } from "next/navigation";
 
 function useSupabaseTokenExpiry() {
   const { data: session } = useSession();
@@ -171,7 +172,16 @@ export default function DashboardPage({
   const [bookLoading, setBookLoading] = useState(true);
   const [bookError, setBookError] = useState<string | null>(null);
 
+  const router = useRouter();
+
 const { expired, expiryTime, timeUntilExpiry, isExpiringSoon } = useSupabaseTokenExpiry();
+
+//if not authenticated, redirect to login
+useEffect(() => {
+  if (status !== 'authenticated') {
+    router.push('/login');
+  }
+}, [status]);
 
 // Fetch quotes
 useEffect(() => {

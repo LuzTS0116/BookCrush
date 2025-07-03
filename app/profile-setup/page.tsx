@@ -243,7 +243,7 @@ export default function ProfileSetupPage() {
           if (isWaitingForStatusChange) {
             console.log('Fallback redirect after timeout');
             setIsWaitingForStatusChange(false);
-            router.push(redirectedFrom || '/dashboard');
+            router.push('/dashboard');
           }
         }, 5000); // 5 second fallback
         return;
@@ -254,7 +254,7 @@ export default function ProfileSetupPage() {
       
       // Small delay to show success message before redirect
       setTimeout(() => {
-        router.push(redirectedFrom || '/dashboard')
+        router.push('/dashboard')
       }, 1500);
       
     } catch (err) {

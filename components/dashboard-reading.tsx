@@ -391,8 +391,8 @@ export default function DashboardReading() {
   // Function to fetch books from the API
   const fetchBooks = async (shelf: UserBook['shelf']) => {
     // Don't make API call if we don't have authentication
-    if (!session?.supabaseAccessToken) {
-      console.log("Skipping fetch - no access token available");
+    if (status !== 'authenticated' || !session?.supabaseAccessToken) {
+      setIsLoading(false);
       return;
     }
 
@@ -402,7 +402,8 @@ export default function DashboardReading() {
     try {
       const response = await fetch(`/api/shelf?shelf=${shelf}`, {
         headers: {
-          'Authorization': `Bearer ${session.supabaseAccessToken}`
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+          'Content-Type': 'application/json',
         }
       });
       if (!response.ok) {
@@ -427,10 +428,10 @@ export default function DashboardReading() {
   // useEffect to fetch books when the component mounts or the activeTab changes
   useEffect(() => {
     // Only fetch books if session is loaded and we have an access token
-    if (status === "authenticated" && session?.supabaseAccessToken) {
+    
       fetchBooks(activeTab);
-    }
-  }, [ status, session?.supabaseAccessToken]); // Dependency array: re-run when activeTab, session status, or token changes
+    
+  }, [session?.supabaseAccessToken]); // Dependency array: re-run when activeTab, session status, or token changes
 
   // Function to handle personal note updates
   const handleNoteUpdate = async (bookId: string, shelf: UserBook['shelf']) => {
