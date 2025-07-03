@@ -26,10 +26,12 @@ export async function GET(request: NextRequest) {
 
     const profile = await prisma.profile.findUnique({
       where: { id: user.id },
-      select: { id: true }
+      select: { id: true, display_name: true }
     });
 
-    return NextResponse.json({ hasProfile: !!profile });
+    const profileComplete = !!profile && !!profile.display_name;
+
+    return NextResponse.json({ profileComplete });
   } catch (error) {
     console.error('Error checking profile status:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

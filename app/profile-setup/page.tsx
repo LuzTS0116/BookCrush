@@ -39,7 +39,6 @@ export default function ProfileSetupPage() {
   const [kindleEmail, setKindleEmail] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [isWaitingForStatusChange, setIsWaitingForStatusChange] = useState(false);
   
   // Profile picture states
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -194,19 +193,18 @@ export default function ProfileSetupPage() {
     try {
       const res = await fetch('/api/profile', {
         method: 'POST',
-        credentials: 'include',                 // ← sends Supabase cookies
+        credentials: 'include',
         headers: {
           'Authorization': `Bearer ${session.supabaseAccessToken}`,
           'Content-Type': 'application/json',
         },
-        
         body: JSON.stringify({
           display_name: name.trim(),
           about: bio.trim(),
-          favorite_genres: favoriteGenres,      // array of strings
+          favorite_genres: favoriteGenres,
           nickname: nickname.trim(),
           kindle_email: kindleEmail.trim() || null,
-          avatar_url: avatarUrl       // include avatar URL path
+          avatar_url: avatarUrl
         })
       })
 
@@ -226,36 +224,17 @@ export default function ProfileSetupPage() {
       }
 
       setSuccess('Profile saved successfully! Redirecting...');
+      console.log('Profile completed successfully, triggering session update...');
       
-      // Refresh NextAuth session to update profile completion status
-      try {
-        console.log('Profile completed successfully, updating session...');
-        
-        // Use NextAuth's update function to trigger JWT callback with 'update' trigger
-        await update();
-        console.log('Session updated after profile completion');
-        
-        // Set waiting state to monitor for status change
-        setIsWaitingForStatusChange(true);
-        
-        // Fallback timeout in case the status doesn't change
-        setTimeout(() => {
-          if (isWaitingForStatusChange) {
-            console.log('Fallback redirect after timeout');
-            setIsWaitingForStatusChange(false);
-            router.push('/dashboard');
-          }
-        }, 5000); // 5 second fallback
-        return;
-      } catch (sessionError) {
-        console.warn('Failed to update session, but profile was saved:', sessionError);
-        // Continue with normal redirect as fallback
-      }
+      // Update the session to reflect profile completion
+      await update();
       
-      // Small delay to show success message before redirect
+      // Small delay to ensure session propagation, then redirect
       setTimeout(() => {
-        router.push('/dashboard')
-      }, 1500);
+        const redirectPath = redirectedFrom || '/dashboard';
+        console.log('Redirecting to:', redirectPath);
+        window.location.href = redirectPath; // Use window.location for more reliable redirect
+      }, 1000);
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save profile';
@@ -296,14 +275,7 @@ export default function ProfileSetupPage() {
     }
   }, [success]);
 
-  // Monitor session status change for redirect after profile completion
-  useEffect(() => {
-    if (isWaitingForStatusChange && session?.profileComplete === true) {
-      console.log('Profile status changed to true, redirecting to dashboard...');
-      setIsWaitingForStatusChange(false);
-      router.push(redirectedFrom || '/dashboard');
-    }
-  }, [session?.profileComplete, isWaitingForStatusChange, router, redirectedFrom]);
+
 
   return (
     <div className="relative w-full h-auto overflow-hidden px-4 pt-9 pb-8">

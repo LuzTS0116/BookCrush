@@ -83,20 +83,53 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Check for profile completion bypass cookie (temporary after profile creation)
+  const profileCompleteBypassed = request.cookies.get('profile-complete-bypass')?.value === 'true';
+  
   // Check profile completion status from JWT token (no API call needed!)
-  if (token.profileComplete === false) {
+  if (token.profileComplete === false && !profileCompleteBypassed) {
     console.log('[Main Middleware] Profile incomplete, redirecting to /profile-setup.');
     const redirectUrl = new URL('/profile-setup', request.url);
     redirectUrl.searchParams.set('redirectedFrom', pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
+  // If we have a bypass cookie and profile is complete, clear the cookie
+  if (profileCompleteBypassed && token.profileComplete === true) {
+    const response = NextResponse.next();
+    response.cookies.delete('profile-complete-bypass');
+    return response;
+  }
+
   // If profileComplete is undefined, it means we need to check once
   // This can happen during token refresh or edge cases
-  if (token.profileComplete === undefined) {
-    // console.log('[Main Middleware] Profile status unknown, allowing but logging warning.');
-    console.warn('[Main Middleware] Profile status is undefined for user:', token.id);
-    // Allow access but the JWT callback should handle this on next token refresh
+  if (token.profileComplete === undefined && !profileCompleteBypassed) {
+    // console.log('[Main Middleware] Profile status unknown, checking via API...');
+    
+    // For undefined status, make a quick API check
+    try {
+      const profileResponse = await fetch(`${request.nextUrl.origin}/api/user/profile-status`, {
+        headers: {
+          'Authorization': `Bearer ${token.supa.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (profileResponse.ok) {
+        const { profileComplete } = await profileResponse.json();
+        if (!profileComplete) {
+          console.log('[Main Middleware] API check: Profile incomplete, redirecting to /profile-setup.');
+          const redirectUrl = new URL('/profile-setup', request.url);
+          redirectUrl.searchParams.set('redirectedFrom', pathname);
+          return NextResponse.redirect(redirectUrl);
+        }
+      } else {
+        console.warn('[Main Middleware] Failed to check profile status via API, allowing access');
+      }
+    } catch (error) {
+      console.warn('[Main Middleware] Error checking profile status:', error);
+      // Allow access on API error to prevent infinite redirects
+    }
   }
   
   // console.log('[Main Middleware] Profile complete, allowing access to:', pathname);

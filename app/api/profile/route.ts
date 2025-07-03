@@ -151,7 +151,16 @@ if (!supabase) {
   // Format the profile with proper avatar URL for consistency with GET endpoint
   const formattedProfile = await formatProfileWithAvatarUrlServer(supabase!, profile)
 
-  return NextResponse.json(formattedProfile, { status:201 });
+  // Set a temporary cookie to bypass middleware profile check for smooth redirect
+  const response = NextResponse.json(formattedProfile, { status: 201 });
+  response.cookies.set('profile-complete-bypass', 'true', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 60 // 1 minute - enough time for the redirect to happen
+  });
+
+  return response;
 } catch (error: any) {
   console.error('[API /profile POST] Error:', error); // Log the full error server-side
 
