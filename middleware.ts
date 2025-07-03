@@ -14,7 +14,7 @@ const globalPublicRoutes = [
   { path: '/favicon.ico', exact: true },
   { path: '/api/profile', exact: true },
   { path: '/forgot-password', exact: true },
-  { path: '/dashboard', exact: true }, // 
+  
   // API routes that handle their own Bearer token authentication
   { path: '/api/clubs', exact: false }, // All clubs API routes
   { path: '/api/invitations', exact: false }, // All invitations API routes
@@ -62,7 +62,7 @@ export async function middleware(request: NextRequest) {
   // });
 
   if (pathname.startsWith('/profile-setup')) {
-    // console.log('[Main Middleware] Already on /profile-setup, allowing.');
+    console.log('[Main Middleware] Already on /profile-setup, allowing.');
     return NextResponse.next();
   }
 
@@ -85,7 +85,7 @@ export async function middleware(request: NextRequest) {
 
   // Check profile completion status from JWT token (no API call needed!)
   if (token.profileComplete === false) {
-    // console.log('[Main Middleware] Profile incomplete, redirecting to /profile-setup.');
+    console.log('[Main Middleware] Profile incomplete, redirecting to /profile-setup.');
     const redirectUrl = new URL('/profile-setup', request.url);
     redirectUrl.searchParams.set('redirectedFrom', pathname);
     return NextResponse.redirect(redirectUrl);
