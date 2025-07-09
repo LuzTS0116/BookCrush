@@ -62,6 +62,13 @@ model Profile {
   bookSuggestions     ClubBookSuggestion[]     @relation("BookSuggestions")
   bookSuggestionVotes ClubBookSuggestionVote[] @relation("BookSuggestionVotes")
 
+  // Achievement relations
+  achievements         UserAchievement[]     @relation("UserAchievements")
+  achievementProgress  AchievementProgress[] @relation("UserAchievementProgress")
+
+  // Voting starter relation
+  startedVotingCycles  Club[] @relation("VotingStarter")
+
   @@map("profiles")
   @@schema("public")
 }
@@ -169,6 +176,12 @@ model Club {
   is_private      Boolean
   current_book_id String?  @db.Uuid
   genres          String[]
+  
+  // Voting cycle management
+  voting_cycle_active Boolean  @default(false)
+  voting_starts_at    DateTime? @db.Timestamptz(6)
+  voting_ends_at      DateTime? @db.Timestamptz(6)
+  voting_started_by   String?   @db.Uuid // Profile ID of who started the voting
 
   owner          Profile          @relation("ClubOwner", fields: [owner_id], references: [id], onDelete: Restrict)
   memberships    ClubMembership[]
@@ -178,6 +191,7 @@ model Club {
   meetings       ClubMeeting[]    // New relation for club meetings
   invitations    ClubInvitation[] // New relation for club invitations
   bookSuggestions ClubBookSuggestion[] @relation("ClubBookSuggestions") // New relation for book suggestions
+  voting_starter Profile?         @relation("VotingStarter", fields: [voting_started_by], references: [id])
 
   @@map("clubs")
   @@schema("public")
@@ -635,7 +649,6 @@ model ClubBookSuggestion {
   suggested_by  String                    @db.Uuid // Profile ID of who suggested it
   reason        String?                   @db.Text // Why they're suggesting this book
   status        ClubBookSuggestionStatus  @default(ACTIVE)
-  voting_ends   DateTime?                 @db.Timestamptz(6) // When voting period ends
   created_at    DateTime                  @default(now()) @db.Timestamptz(6)
   updated_at    DateTime                  @updatedAt @db.Timestamptz(6)
   
@@ -667,5 +680,92 @@ model ClubBookSuggestionVote {
   @@unique([suggestion_id, user_id])
   @@index([suggestion_id]) // For counting votes
   @@map("club_book_suggestion_votes")
+  @@schema("public")
+}
+
+// --------------- READING STREAKS & ACHIEVEMENTS SYSTEM -----------------
+
+enum AchievementCategory {
+  READING_MILESTONE    // Books read milestones
+  GENRE_EXPLORER       // Different genres explored
+  SOCIAL_BUTTERFLY     // Social features usage
+  CLUB_PARTICIPANT     // Club activities
+  REVIEWER             // Review writing achievements
+  RECOMMENDER          // Book recommendation achievements
+  SPECIAL              // Special/seasonal achievements
+  
+  @@schema("public")
+}
+
+enum AchievementDifficulty {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+  DIAMOND
+  
+  @@schema("public")
+}
+
+model Achievement {
+  id          String                @id @default(uuid()) @db.Uuid
+  name        String                @unique
+  description String                @db.Text
+  icon        String                // Icon identifier (emoji or icon name)
+  category    AchievementCategory
+  difficulty  AchievementDifficulty @default(BRONZE)
+  criteria    Json                  // Flexible criteria definition
+  points      Int                   @default(0)
+  is_active   Boolean               @default(true)  // Can be disabled
+  is_hidden   Boolean               @default(false) // Hidden until earned
+  created_at  DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime              @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  user_achievements UserAchievement[] @relation("AchievementEarned")
+  progress_tracking AchievementProgress[] @relation("AchievementProgress")
+  
+  @@index([category, difficulty])
+  @@index([is_active])
+  @@map("achievements")
+  @@schema("public")
+}
+
+model UserAchievement {
+  id             String      @id @default(uuid()) @db.Uuid
+  user_id        String      @db.Uuid
+  achievement_id String      @db.Uuid
+  earned_at      DateTime?   @db.Timestamptz(6) // Now nullable for custom goals
+  progress_data  Json?       // Store progress details when earned
+  
+  // Relations
+  user        Profile     @relation("UserAchievements", fields: [user_id], references: [id], onDelete: Cascade)
+  achievement Achievement @relation("AchievementEarned", fields: [achievement_id], references: [id], onDelete: Cascade)
+  
+  @@unique([user_id, achievement_id]) // One achievement per user
+  @@index([user_id, earned_at])
+  @@map("user_achievements")
+  @@schema("public")
+}
+
+
+
+// Achievement progress tracking for complex achievements
+model AchievementProgress {
+  id             String   @id @default(uuid()) @db.Uuid
+  user_id        String   @db.Uuid
+  achievement_id String   @db.Uuid
+  current_value  Int      @default(0)  // Current progress (e.g., 3 out of 10 books)
+  target_value   Int                   // Target value (e.g., 10 books)
+  progress_data  Json?                 // Additional progress tracking data
+  last_updated   DateTime @default(now()) @db.Timestamptz(6)
+  
+  // Relations
+  user        Profile     @relation("UserAchievementProgress", fields: [user_id], references: [id], onDelete: Cascade)
+  achievement Achievement @relation("AchievementProgress", fields: [achievement_id], references: [id], onDelete: Cascade)
+  
+  @@unique([user_id, achievement_id])
+  @@index([user_id])
+  @@map("achievement_progress")
   @@schema("public")
 }

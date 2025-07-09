@@ -248,6 +248,12 @@ export async function GET(
       book_history: club.book_history,
       discussions: discussions,
       meetings: club.meetings,
+      
+      // Voting cycle management
+      voting_cycle_active: club.voting_cycle_active,
+      voting_starts_at: club.voting_starts_at,
+      voting_ends_at: club.voting_ends_at,
+      voting_started_by: club.voting_started_by,
       // --- END STATIC/MOCK DATA ---
     };
 
@@ -258,5 +264,85 @@ export async function GET(
     return NextResponse.json({ error: error.message || "Failed to fetch club details" }, { status: 500 });
   } finally {
     
+  }
+}
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  
+  try {
+    if (!id) {
+      return NextResponse.json({ error: "Club ID is required" }, { status: 400 });
+    }
+
+    const supabase = createRouteHandlerClient({ cookies });
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
+    // Check if the user is an admin or owner of this club
+    const userMembership = await prisma.clubMembership.findUnique({
+      where: {
+        user_id_club_id: {
+          user_id: user.id,
+          club_id: id,
+        },
+      },
+      select: {
+        role: true,
+        status: true,
+      },
+    });
+
+    if (!userMembership || userMembership.status !== ClubMembershipStatus.ACTIVE) {
+      return NextResponse.json({ error: "You must be an active member of this club" }, { status: 403 });
+    }
+
+    if (userMembership.role !== ClubRole.OWNER && userMembership.role !== ClubRole.ADMIN) {
+      return NextResponse.json({ error: "Only club owners and admins can edit club details" }, { status: 403 });
+    }
+
+    // Parse request body
+    const { name, description } = await request.json();
+
+    // Validate input
+    if (!name || !description) {
+      return NextResponse.json({ error: "Name and description are required" }, { status: 400 });
+    }
+
+    if (name.trim().length < 3) {
+      return NextResponse.json({ error: "Club name must be at least 3 characters long" }, { status: 400 });
+    }
+
+    if (description.trim().length < 10) {
+      return NextResponse.json({ error: "Club description must be at least 10 characters long" }, { status: 400 });
+    }
+
+    // Update the club
+    const updatedClub = await prisma.club.update({
+      where: { id },
+      data: {
+        name: name.trim(),
+        description: description.trim(),
+        updated_at: new Date(),
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        updated_at: true,
+      },
+    });
+
+    return NextResponse.json(updatedClub, { status: 200 });
+
+  } catch (error: any) {
+    console.error("Error updating club:", error);
+    return NextResponse.json({ error: error.message || "Failed to update club" }, { status: 500 });
   }
 }

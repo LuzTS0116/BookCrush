@@ -6,6 +6,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Search, Loader2, BookOpen } from "lucide-react"
 import { useDebounce } from '@/lib/hooks/use-debounce'
 import Image from 'next/image'
+import { AddBookDialog } from '@/components/add-book-dialog'
+import { BookDetails } from "@/types/book"
 
 interface Book {
   id: string
@@ -19,12 +21,22 @@ interface BookSelectionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onBookSelect: (bookId: string) => Promise<void>
+  addBookDialogOpen: boolean
+  setAddBookDialogOpen: (open: boolean) => void
+  allBooks: BookDetails[]
+  setAllBooks: React.Dispatch<React.SetStateAction<BookDetails[]>>
+  onBookAdded: (newBook: BookDetails) => void
 }
 
 export function BookSelectionDialog({
   open,
   onOpenChange,
   onBookSelect,
+  addBookDialogOpen,
+  setAddBookDialogOpen,
+  allBooks,
+  setAllBooks,
+  onBookAdded,
 }: BookSelectionDialogProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [books, setBooks] = useState<Book[]>([])
@@ -158,6 +170,19 @@ export function BookSelectionDialog({
             <div className="text-center py-8 text-muted-foreground">
               <BookOpen className="mx-auto h-12 w-12 mb-4" />
               <p>No books found matching "{searchQuery}"</p>
+              <p className="text-sm text-bookWhite/60 mb-4">
+                Add the book to our collection and set it as the club's current book!
+              </p>
+              <div className="flex justify-center">
+                <AddBookDialog
+                  open={addBookDialogOpen}
+                  onOpenChange={setAddBookDialogOpen}
+                  books={allBooks}
+                  setBooks={setAllBooks}
+                  onBookAdded={onBookAdded}
+                  initialSearchQuery={searchQuery}
+                />
+              </div>
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">

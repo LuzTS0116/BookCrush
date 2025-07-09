@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { BookMarked, ArrowLeft, Mail, Send, Pencil, Save, X, Users, CircleCheckBig, CircleAlert, Loader2, Star, Smartphone, BookOpen, Headphones, ChevronDown, Sparkles, EllipsisVertical, Edit3, Check, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown, GripVertical, MessageSquare } from "lucide-react"
+import { BookMarked, ArrowLeft, Mail, Send, Pencil, Save, X, Users, CircleCheckBig, CircleAlert, Loader2, Star, Smartphone, BookOpen, Headphones, ChevronDown, Sparkles, EllipsisVertical, Edit3, Check, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown, GripVertical, MessageSquare, Target } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { FavoriteBookDialog } from "./favorite-book-dialog"
 import { ContributionBookDialog } from "./contribution-book-dialog"
@@ -22,6 +22,7 @@ import { FinishedBookDialog } from "./dashboard-reading"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Heart, Books, Bookmark, CheckCircle } from "@phosphor-icons/react"
 import { RecommendBookDialog } from "./recommendations/RecommendBookDialog"
+import { CustomGoalsDialog } from "./ui/custom-goals-dialog"
 import { getDisplayAvatarUrl } from "@/lib/supabase-utils"
 import { BookDetails, BookFile, UserBook, StatusDisplay, TabDisplay } from "@/types/book"
 import Link from "next/link"
@@ -339,6 +340,9 @@ export default function EditableProfileMain() {
 
   // State for recommendations dialog
   const [isRecommendationsDialogOpen, setIsRecommendationsDialogOpen] = useState(false)
+
+  // State for custom goals dialog
+  const [isCustomGoalsDialogOpen, setIsCustomGoalsDialogOpen] = useState(false)
 
   // State for recommend book dialog
   const [recommendDialog, setRecommendDialog] = useState<{
@@ -1406,6 +1410,11 @@ export default function EditableProfileMain() {
     setIsRecommendationsDialogOpen(true);
   };
 
+  // Function to handle custom goals icon click
+  const handleCustomGoalsIconClick = () => {
+    setIsCustomGoalsDialogOpen(true);
+  };
+
   // Handle recommend book action
   const handleRecommendBook = (userBook: UserBook) => {
     setRecommendDialog({
@@ -1498,9 +1507,18 @@ export default function EditableProfileMain() {
                   <ArrowLeft className="h-5 w-5 text-secondary" />
                 </button>
 
-                {/* Feedback, Recommendations, and Edit Buttons */}
+                {/* Feedback, Recommendations, Custom Goals, and Edit Buttons */}
                 {!isEditing && (
                   <div className="absolute top-3 right-3 flex gap-3">
+
+                    {/* Custom Goals Button */}
+                    <button
+                      onClick={handleCustomGoalsIconClick}
+                      className="p-2 rounded-full bg-bookWhite/80 backdrop-blur-sm hover:bg-bookWhite shadow-md"
+                      title="Set reading goals"
+                    >
+                      <Target className="h-5 w-5 text-secondary" />
+                    </button>
 
                     {/* Recommendations Button */}
                     <button
@@ -2170,6 +2188,12 @@ export default function EditableProfileMain() {
           cover_url: recommendDialog.book.book.cover_url
         } : null}
         onSuccess={handleRecommendSuccess}
+      />
+
+      {/* Custom Goals Dialog */}
+      <CustomGoalsDialog
+        open={isCustomGoalsDialogOpen}
+        onOpenChange={setIsCustomGoalsDialogOpen}
       />
 
       {/* Confirmation Modal */}

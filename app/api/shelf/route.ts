@@ -5,6 +5,8 @@ import { ActivityType, ActivityTargetEntityType } from '@prisma/client';
 import { parseShelfType, parseStatusType } from '@/lib/enum'; // Import your enum parser
 import {  shelf_type, status_type  } from '@prisma/client';
 import {prisma} from '@/lib/prisma'
+import { checkBookCompletionAchievements } from './achievement-integration';
+import { CustomGoalsService } from '@/lib/custom-goals-service';
 
 
 export async function POST(req: NextRequest) {
@@ -142,6 +144,12 @@ export async function POST(req: NextRequest) {
             details: { book_title: bookTitleForActivity, shelf_name: userBook.shelf.toString() }
           }
         });
+        
+        // Check for achievements after book completion
+        await checkBookCompletionAchievements(user.id, userBook.book_id, statusType);
+        
+        // Update custom goal progress when book is finished
+        await CustomGoalsService.updateCustomGoalProgress(user.id);
       }
     } else if (!existingUserBook || previousShelf !== shelfType) {
       await prisma.activityLog.create({

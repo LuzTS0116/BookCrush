@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { BookOpen, CalendarDays, Plus, Search, Settings, Send, MessageSquare, Clock, Loader2, Check, ArrowLeft, MapPin, Reply, Edit, Trash2, MoreVertical, ChevronDown, ChevronUp, BookMarked } from "lucide-react" // Added BookMarked icon
+import { BookOpen, CalendarDays, Plus, Search, Settings, Send, MessageSquare, Clock, Loader2, Check, ArrowLeft, MapPin, Reply, Edit, Trash2, MoreVertical, ChevronDown, ChevronUp, BookMarked, Play, Pause, Save, X, Pencil } from "lucide-react" // Added Play, Pause, Save, X icons
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
@@ -32,9 +32,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu"; // Add Radix DropdownMenu for the book actions
 import { BookSelectionDialog } from '@/components/BookSelectionDialog'
 import { RecommendBookDialog } from './recommendations/RecommendBookDialog' // Add RecommendBookDialog import
+import { AddBookDialog } from '@/components/add-book-dialog'
 import { useRouter } from "next/navigation"
 import { formatRelativeDate } from "@/lib/utils";
 import { useAvatarUrl } from "@/hooks/use-profile"
+import { BookDetails } from "@/types/book"
 
 // --- Discussion Item Component ---
 interface DiscussionItemProps {
@@ -227,11 +229,11 @@ const DiscussionItem: React.FC<DiscussionItemProps> = ({
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">ME</AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                                      <Textarea
-                      placeholder="Write a reply..."
-                      value={replyContent[discussion.id] || ''}
-                      onChange={(e) => onReplyContentChange(discussion.id, e.target.value)}
-                    className="min-h-[60px] bg-bookWhite border-secondary-light/30 text-sm"
+                                                                            <Textarea
+                        placeholder="Write a reply..."
+                        value={replyContent[discussion.id] || ''}
+                        onChange={(e) => onReplyContentChange(discussion.id, e.target.value)}
+                      className="min-h-[60px] bg-bookWhite border-secondary-light/30 text-sm"
                     disabled={isLoading}
                     autoFocus
                   />
@@ -468,6 +470,12 @@ interface ClubData {
     location: string;
     title?: string;
   }>; // Add meetings property
+  
+  // Voting cycle management
+  voting_cycle_active: boolean;
+  voting_starts_at: string | null;
+  voting_ends_at: string | null;
+  voting_started_by: string | null;
 }
 
 
@@ -504,6 +512,16 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     isOpen: false,
     book: null
   });
+
+  // Add Book Dialog state
+  const [addBookDialogOpen, setAddBookDialogOpen] = useState(false)
+  const [allBooks, setAllBooks] = useState<BookDetails[]>([]) // For AddBookDialog
+
+  // Club editing state
+  const [editingClub, setEditingClub] = useState(false)
+  const [editingClubName, setEditingClubName] = useState("")
+  const [editingClubDescription, setEditingClubDescription] = useState("")
+  const [savingClubChanges, setSavingClubChanges] = useState(false)
   
   // Complete book state
   const [bookRating, setBookRating] = useState<string>("");
@@ -536,6 +554,12 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   const [expandedDiscussions, setExpandedDiscussions] = useState<Set<string>>(new Set());
   const [loadingDiscussionAction, setLoadingDiscussionAction] = useState<Record<string, boolean>>({});
 
+  // Voting Management Dialog state
+  const [votingDialogOpen, setVotingDialogOpen] = useState(false)
+  const [votingDuration, setVotingDuration] = useState("7") // days
+  const [votingStartsImmediately, setVotingStartsImmediately] = useState(true)
+  const [customStartDate, setCustomStartDate] = useState("")
+  const [managingVoting, setManagingVoting] = useState(false)
 
   //wrap params with React.use() 
   const router = useRouter();
@@ -778,7 +802,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     setLoadingBookAction(true);
     try {
       // Combine reason and notes for discussionNotes
-      const combinedNotes = `Reason: ${getReasonText(notCompletedReason)}\n\nNotes: ${notCompletedNotes.trim()}`;
+      const combinedNotes = `Reason: ${getReasonText(notCompletedReason)}\nNotes: ${notCompletedNotes.trim()}`;
       
       const response = await fetch(`/api/clubs/${id}/complete-book`, {
         method: 'POST',
@@ -897,6 +921,71 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     // Optionally refresh the books or show success message
     toast.success('Book recommendation sent successfully!');
   };
+
+  // Add Book Dialog callback functions
+  const handleBookAdded = (newBook: BookDetails) => {
+    // Add the new book to our local state
+    setAllBooks(prev => [...prev, newBook])
+    toast.success('Book added successfully! You can now set it as the club\'s current book.')
+    // Optionally refresh the book selection dialog or close the add book dialog
+    setAddBookDialogOpen(false)
+  }
+
+  // Club editing functions
+  const handleStartClubEdit = () => {
+    if (!club) return
+    setEditingClub(true)
+    setEditingClubName(club.name)
+    setEditingClubDescription(club.description)
+  }
+
+  const handleCancelClubEdit = () => {
+    setEditingClub(false)
+    setEditingClubName("")
+    setEditingClubDescription("")
+  }
+
+  const handleSaveClubChanges = async () => {
+    if (!club || !editingClubName.trim() || !editingClubDescription.trim()) {
+      toast.error("Club name and description cannot be empty")
+      return
+    }
+
+    setSavingClubChanges(true)
+    try {
+      const response = await fetch(`/api/clubs/${club.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: editingClubName.trim(),
+          description: editingClubDescription.trim(),
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update club details")
+      }
+
+      const updatedClub = await response.json()
+      
+      // Update local state with the new club data
+      setClub(prevClub => prevClub ? { ...prevClub, ...updatedClub } : null)
+      
+      toast.success("Club details updated successfully!")
+      setEditingClub(false)
+      setEditingClubName("")
+      setEditingClubDescription("")
+
+    } catch (err: any) {
+      toast.error(`Error updating club: ${err.message}`)
+      console.error("Error updating club:", err)
+    } finally {
+      setSavingClubChanges(false)
+    }
+  }
 
   // --- NEW: Function to handle posting a comment ---
   const handlePostComment = async () => {
@@ -1376,6 +1465,100 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     setReplyContent({});
   };
 
+  // Voting Management Functions
+  const handleStartVoting = async () => {
+    if (!club || !votingDuration) return
+
+    setManagingVoting(true)
+    try {
+      const startDate = votingStartsImmediately 
+        ? new Date() 
+        : new Date(customStartDate)
+      
+      const endDate = new Date(startDate)
+      endDate.setDate(startDate.getDate() + parseInt(votingDuration))
+
+      const response = await fetch(`/api/clubs/${id}/voting`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          voting_starts_at: startDate.toISOString(),
+          voting_ends_at: endDate.toISOString()
+        })
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to start voting cycle')
+      }
+
+      const updatedClub = await response.json()
+      setClub(prev => prev ? { ...prev, ...updatedClub } : null)
+      setVotingDialogOpen(false)
+      toast.success('Voting cycle started successfully!')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to start voting cycle')
+    } finally {
+      setManagingVoting(false)
+    }
+  }
+
+  const handleEndVoting = async () => {
+    if (!club) return
+
+    setManagingVoting(true)
+    try {
+      const response = await fetch(`/api/clubs/${id}/voting`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to end voting cycle')
+      }
+
+      const updatedClub = await response.json()
+      setClub(prev => prev ? { ...prev, ...updatedClub } : null)
+      toast.success('Voting cycle ended successfully!')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to end voting cycle')
+    } finally {
+      setManagingVoting(false)
+    }
+  }
+
+  // Check if current user can manage voting
+  const canManageVoting = club?.currentUserIsAdmin || false
+
+  // Check if voting is currently active
+  const isVotingActive = club?.voting_cycle_active && 
+    club.voting_ends_at && 
+    new Date(club.voting_ends_at) > new Date()
+
+  // Check if club has no current book (required for starting voting)
+  const hasNoCurrentBook = !club?.current_book
+
+  const formatVotingEndDate = (club: ClubData) => {
+    if (!club.voting_cycle_active || !club.voting_ends_at) {
+      return "No active voting cycle"
+    }
+
+    const endDate = new Date(club.voting_ends_at)
+    const now = new Date()
+    const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    
+    if (daysLeft > 1) {
+      return `Voting ends in ${daysLeft} days`
+    } else if (daysLeft === 1) {
+      return "Voting ends tomorrow"
+    } else if (daysLeft === 0) {
+      return "Voting ends today"
+    } else {
+      return "Voting has ended"
+    }
+  }
+
   // Helper function to get shelf badge display info
   const getRatingInfo = (rating: number): string => {
       switch (rating) {
@@ -1393,6 +1576,85 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
         return "No rating";
     }
   };
+
+  // Voting Management Dialog Component
+  const VotingManagementDialog = () => (
+    <Dialog open={votingDialogOpen} onOpenChange={setVotingDialogOpen}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Start Voting Cycle</DialogTitle>
+          <DialogDescription>
+            Set up a voting period for members to choose the next book to read.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="duration">Voting Duration</Label>
+            <Select value={votingDuration} onValueChange={setVotingDuration}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select duration" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="3">3 days</SelectItem>
+                <SelectItem value="5">5 days</SelectItem>
+                <SelectItem value="7">1 week</SelectItem>
+                <SelectItem value="14">2 weeks</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="grid gap-2">
+            <Label>Start Time</Label>
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="immediately"
+                checked={votingStartsImmediately}
+                onChange={() => setVotingStartsImmediately(true)}
+              />
+              <Label htmlFor="immediately">Start immediately</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="custom"
+                checked={!votingStartsImmediately}
+                onChange={() => setVotingStartsImmediately(false)}
+              />
+              <Label htmlFor="custom">Start at specific time</Label>
+            </div>
+            
+            {!votingStartsImmediately && (
+              <Input
+                type="datetime-local"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="mt-2"
+              />
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setVotingDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleStartVoting} disabled={managingVoting}>
+            {managingVoting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Starting...
+              </>
+            ) : (
+              <>
+                <Play className="mr-2 h-4 w-4" />
+                Start Voting
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
 
   // --- Loading State and Error Handling for UI ---
   if (loadingClub) {
@@ -1434,14 +1696,19 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               >
                   <ArrowLeft className="h-5 w-5 text-secondary" />
               </button>
-          </div>
-          <div className="flex flex-col md:flex-row justify-between gap-1 px-3 pb-2">
-            <div className="">
-              <div className="flex flex-row justify-between items-start mt-2">
-                <div className="flex-1 min-w-0">
-                  <h1 className="text-2xl/7 break-words font-bold tracking-tight text-secondary">{club.name}</h1>
-                </div>
-                <div>
+
+              {club.currentUserIsAdmin && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleStartClubEdit}
+                  className="absolute top-3 right-3 py-2 px-2.5 rounded-full bg-bookWhite/80 backdrop-blur-sm hover:bg-bookWhite shadow-md"
+                >
+                  <Pencil className="h-4 w-4 text-secondary" />
+                </Button>
+              )}
+
+              <div className="absolute bottom-2 right-2">
                   {/* Display Admin badge if current user is an admin */}
                   {club.currentUserIsAdmin && (
                     <Badge variant="outline" className="bg-secondary-light border-none">
@@ -1460,8 +1727,69 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                     </Badge>
                   )}
                 </div>
+          </div>
+          <div className="flex flex-col md:flex-row justify-between gap-1 px-3 pb-2">
+            <div className="flex-1">
+              <div className="flex flex-row justify-between items-start mt-2">
+                <div className="flex-1 min-w-0">
+                  {editingClub ? (
+                    <div className="space-y-2">
+                      <Input
+                        value={editingClubName}
+                        onChange={(e) => setEditingClubName(e.target.value)}
+                        className="text-2xl/7 break-words font-bold tracking-tight font-sans text-secondary bg-bookWhite/80 border-secondary/30 placeholder:font-sans"
+                        placeholder="Club name"
+                        disabled={savingClubChanges}
+                      />
+                      <Textarea
+                        value={editingClubDescription}
+                        onChange={(e) => setEditingClubDescription(e.target.value)}
+                        className="text-secondary font-serif leading-4 font-normal not-italic p-2 bg-bookWhite/80 border-none min-h-[60px] placeholder:not-italic"
+                        placeholder="Club description"
+                        disabled={savingClubChanges}
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          size="sm"
+                          onClick={handleSaveClubChanges}
+                          disabled={savingClubChanges || !editingClubName.trim() || !editingClubDescription.trim()}
+                          className="bg-primary hover:bg-primary-light text-secondary rounded-full h-8"
+                        >
+                          {savingClubChanges ? (
+                            <>
+                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                              Saving...
+                            </>
+                          ) : (
+                            <>
+                              Save
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleCancelClubEdit}
+                          disabled={savingClubChanges}
+                          className="rounded-full h-8 text-bookWhite bg-secondary-light"
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h1 className="text-2xl/7 break-words font-bold tracking-tight text-secondary">{club.name}</h1>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
               </div>
-              <p className="text-secondary font-serif font-normal mt-1">{club.description}</p>
+              {!editingClub && (
+                <p className="text-secondary font-serif font-normal leading-4 my-1">{club.description}</p>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -1472,8 +1800,8 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
         <div className="md:col-span-2">
-          <Card className="bg-bookWhite/90 py-2">
-            <CardHeader className="px-3 pt-3 pb-0">
+          <Card className="bg-bookWhite/90 py-3">
+            <CardHeader className="px-3 pt-0 pb-0">
               <CardTitle className="px-0 pb-2 text-secondary">Current Book</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6 px-3 pt-1.5 pb-3">
@@ -1583,9 +1911,94 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                   )}
                 </div>
               )}
+
+              {/* Voting Management Section - Only visible to admins/owners when no current book */}
+              {canManageVoting && hasNoCurrentBook && (
+                <div className="mt-4 px-3 py-2 bg-secondary/5 rounded-lg border border-primary/20">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <div className="flex flex-row justify-between">
+                        <h3 className="font-semibold text-secondary">Voting Cycle Management</h3>
+                        <div className="ml-5">
+                          {isVotingActive ? (
+                            <Badge variant="secondary" className="bg-accent-variant/50 text-bookWhite">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Active
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-secondary/15 text-secondary/55 border-none">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Inactive
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-sm leading-4 mt-1.5 text-secondary/70">
+                        {isVotingActive ? 'Currently accepting postulations and votes for the next book selection' : 'No active voting cycle'}
+                      </p>
+                    </div>
+                    
+                  </div>
+                  <div className="flex flex-col">
+                    <div>
+                      {club && club.voting_cycle_active && club.voting_ends_at && (
+                        <p className="text-sm text-secondary/70 text-end">
+                          {formatVotingEndDate(club)}
+                        </p>
+                      )}
+                      {!club?.voting_cycle_active && (
+                        <p className="text-sm text-secondary/70">
+                          Start a voting cycle to let members choose the next book
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      {isVotingActive ? (
+                        <Button
+                          onClick={handleEndVoting}
+                          disabled={managingVoting}
+                          size="sm"
+                          className="rounded-full h-7 bg-red-800 text-bookWhite"
+                        >
+                          {managingVoting ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <>
+                              End Voting
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => setVotingDialogOpen(true)}
+                          disabled={managingVoting}
+                          className="rounded-full bg-accent-variant/55 hover:bg-accent-variant/75 text-secondary h-7"
+                          size="sm"
+                        >
+                          Start Voting Cycle
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
+            <CardFooter className="flex justify-end px-3 pb-2">
+            {!club.current_book && (
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => router.push(`/clubs/${club.id}/postulate`)}
+                  className="bg-primary hover:bg-primary-light text-secondary rounded-full mr-3"
+                >
+                  {loadingBookAction && (
+                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  )}
+                  Postulate Book
+                </Button>
+              </div>
+            )}
             {club.currentUserIsAdmin && (
-              <CardFooter className="flex justify-end flex-wrap gap-2 pb-3 px-3">
+              <div className="flex justify-end flex-wrap">
                 {club.current_book ? (
                   <div>
                     <Dialog onOpenChange={(open) => {
@@ -1599,7 +2012,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                           <Button
                             variant="outline"
                             disabled={loadingBookAction}
-                            className="bg-secondary-light hover:bg-secondary text-bookWhite rounded-full"
+                            className="bg-accent/80 hover:bg-accent text-secondary/85 border-none hover:text-secondary rounded-full"
                           >
                             Book Not Completed
                           </Button>
@@ -1779,20 +2192,28 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                     className="bg-primary hover:bg-primary-light text-secondary rounded-full"
                   >
                     {loadingBookAction ? (
-                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
                     ) : (
-                      <Plus className="mr-1 h-4 w-4" />
+                        "Set a New Book"
                     )}
-                    {club.current_book ? 'Set New Book' : 'Set Current Book'}
                   </Button>
                 )}
                 <BookSelectionDialog
                   open={bookDialogOpen}
                   onOpenChange={setBookDialogOpen}
                   onBookSelect={handleSetCurrentBook}
+                  addBookDialogOpen={addBookDialogOpen}
+                  setAddBookDialogOpen={setAddBookDialogOpen}
+                  allBooks={allBooks}
+                  setAllBooks={setAllBooks}
+                  onBookAdded={handleBookAdded}
                 />
-              </CardFooter>
+              </div>
             )}
+            </CardFooter>
           </Card>
 
           <div className="mt-3">
@@ -1817,7 +2238,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               <TabsContent value="discussions">
                 <Card>
                   <CardHeader className="p-3">
-                    <CardTitle className="text-xl/6 text-secondary">
+                    <CardTitle className="text-secondary">
                       {club.current_book ? `Discussions: ${club.current_book.title}` : "Select a Current Book"}
                     </CardTitle>
                     <CardDescription className="font-serif text-secondary font-normal text-sm/3">
@@ -1982,8 +2403,8 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                               </div>  
                               
                               <p className="text-xs font-serif text-secondary/55">
-                                Started:  {(() => {
-                                  const date = new Date(club.meetings[0].meeting_date);
+                                Started: {(() => {
+                                  const date = new Date(entry.started_at);
                                   const month = date.toLocaleString('en-US', { month: 'short' });
                                   const day = date.getDate();
                                   const year = date.getFullYear().toString().slice(-2); // get last 2 digits
@@ -1992,8 +2413,8 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                                 })()}
                                 {entry.finished_at && (
                                   <span>
-                                  {" "}• Finished:  {(() => {
-                                    const date = new Date(club.meetings[0].meeting_date);
+                                  {" "}• Finished: {(() => {
+                                    const date = new Date(entry.finished_at);
                                     const month = date.toLocaleString('en-US', { month: 'short' });
                                     const day = date.getDate();
                                     const year = date.getFullYear().toString().slice(-2); // get last 2 digits
@@ -2021,9 +2442,31 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                                  </>
                                 ) : (
                                   <>
-                                   <p className="text-xs leading-4 font-light text-secondary/80 mt-0.5">
-                                     {entry.discussion_notes}
-                                   </p>
+                                   {entry.discussion_notes ? (
+                                      <div className="text-xs leading-4 font-light text-secondary/80 mt-0.5 space-y-0.5">
+                                        {entry.discussion_notes.split('\n').map((line, i) => {
+                                          if (line.startsWith("Reason:")) {
+                                            return (
+                                              <p key={i}>
+                                                <span className="font-semibold text-secondary/90">Reason:</span>{" "}
+                                                {line.replace("Reason:", "").trim()}
+                                              </p>
+                                            );
+                                          }
+                                          if (line.startsWith("Notes:")) {
+                                            return (
+                                              <p key={i}>
+                                                <span className="font-semibold text-secondary/90">Notes:</span>{" "}
+                                                {line.replace("Notes:", "").trim()}
+                                              </p>
+                                            );
+                                          }
+                                          return <p key={i}>{line}</p>;
+                                        })}
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-secondary/40 italic mt-0.5">No notes available</p>
+                                    )}
                                   </>
                                 )
                                 }
@@ -2057,7 +2500,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                           <BookOpen className="mx-auto h-12 w-12 mb-4" />
                           <p>No books in history yet</p>
                           {club?.currentUserIsAdmin && (
-                            <p className="text-sm mt-2">Start by setting a current book for the club.</p>
+                            <p className="text-sm mt-2">When the club has books that have been finished or unfinished it will show here.</p>
                           )}
                         </div>
                       )}
@@ -2364,7 +2807,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
           <Card className="mt-3">
             <CardHeader className="px-3 pt-3 pb-1 flex-1">
-              <CardTitle className="break-words text-xl/6">Upcoming Meeting{club.current_book && (<span>: {club.current_book?.title}</span>)}</CardTitle>
+              <CardTitle className="break-words">Upcoming Meeting{club.current_book && (<span>: {club.current_book?.title}</span>)}</CardTitle>
             </CardHeader>
             <CardContent className="px-3 pt-3 pb-5">
               {club.meetings[0] ? (
@@ -2432,6 +2875,9 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
         } : null}
         onSuccess={handleRecommendSuccess}
       />
+
+      {/* Voting Management Dialog */}
+      <VotingManagementDialog />
     </div>
   )
 }

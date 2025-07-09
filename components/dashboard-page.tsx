@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Share2, Calendar, MapPin, Book, Heart, Star } from "lucide-react"
+import { Loader2, Share2, Calendar, MapPin, Book, Heart, Star, Target } from "lucide-react"
 import Image from "next/image"
 import html2canvas from 'html2canvas';
 import {Dialog,
@@ -172,6 +172,11 @@ export default function DashboardPage({
   const [bookLoading, setBookLoading] = useState(true);
   const [bookError, setBookError] = useState<string | null>(null);
 
+  // Custom goals state
+  const [customGoals, setCustomGoals] = useState<any[]>([]);
+  const [goalsLoading, setGoalsLoading] = useState(true);
+  const [goalsError, setGoalsError] = useState<string | null>(null);
+
   const router = useRouter();
 
 const { expired, expiryTime, timeUntilExpiry, isExpiringSoon } = useSupabaseTokenExpiry();
@@ -286,6 +291,45 @@ useEffect(() => {
   };
 
   fetchLatestBook();
+}, [status, session?.supabaseAccessToken]);
+
+// Fetch custom goals
+useEffect(() => {
+  const fetchCustomGoals = async () => {
+    if (status !== 'authenticated' || !session?.supabaseAccessToken) {
+      setGoalsLoading(false);
+      return;
+    }
+
+    try {
+      setGoalsLoading(true);
+      setGoalsError(null);
+
+      const response = await fetch('/api/achievements/custom-goals', {
+        headers: {
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch goals: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      // Filter to only show active goals (not completed)
+      const activeGoals = data.filter((goal: any) => !goal.is_completed);
+      setCustomGoals(activeGoals);
+    } catch (error) {
+      console.error('Error fetching custom goals:', error);
+      setGoalsError(error instanceof Error ? error.message : 'Failed to load goals');
+    } finally {
+      setGoalsLoading(false);
+    }
+  };
+
+  fetchCustomGoals();
 }, [status, session?.supabaseAccessToken]);
 
 const handleClickShare = async () => {
@@ -486,16 +530,52 @@ const handleClickShare = async () => {
             </div>
           </div>
 
-          {/* Bottom full-width card */}
-          {/* <Card className="bg-accent-variant text-bookWhite">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pt-3 pb-2">
-              <CardTitle className="text-sm font-medium">Recently added book</CardTitle>
-            </CardHeader>
-            <CardContent className="px-3 pb-3">
-              <div className="text-2xl font-bold">The Midnight Library</div>
-              <p className="text-xs text-bookBlack">by Matt Haig</p>
-            </CardContent>
-          </Card> */}
+          {/* Custom Goals Section */}
+          {customGoals.length > 0 && (
+            <Card className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 text-bookWhite border-purple-300/20">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pt-4 pb-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Reading Goals
+                </CardTitle>
+                <Link href="/profile" className="text-xs hover:underline">
+                  Manage
+                </Link>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {customGoals.slice(0, 3).map((goal) => (
+                    <div key={goal.id} className="bg-bookWhite/10 rounded-lg p-3 backdrop-blur-sm">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm font-medium text-bookWhite">
+                          {goal.progress.current_value}/{goal.progress.target_value} books
+                        </div>
+                        <div className="text-xs text-bookWhite/70">
+                          {goal.progress.progress_percentage}%
+                        </div>
+                      </div>
+                      <div className="w-full bg-bookWhite/20 rounded-full h-2 mb-2">
+                        <div 
+                          className="bg-gradient-to-r from-purple-400 to-blue-400 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${goal.progress.progress_percentage}%` }}
+                        />
+                      </div>
+                      <div className="text-xs text-bookWhite/80">
+                        {goal.description}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {customGoals.length > 3 && (
+                  <div className="text-center mt-3">
+                    <Link href="/profile" className="text-xs text-bookWhite/70 hover:text-bookWhite">
+                      View all {customGoals.length} goals →
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

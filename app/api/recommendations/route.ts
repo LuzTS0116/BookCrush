@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { prisma } from '@/lib/prisma';
+import { checkRecommendationAchievements } from './achievement-integration';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -287,6 +288,9 @@ export async function POST(request: NextRequest) {
         }
       });
 
+      // Check for achievements after updating recommendation
+      await checkRecommendationAchievements(user.id, toUserId, bookId);
+
       return NextResponse.json({ 
         recommendation: updatedRec,
         message: 'Recommendation updated successfully'
@@ -349,6 +353,9 @@ export async function POST(request: NextRequest) {
           }
         }
       });
+
+      // Check for achievements after sending new recommendation
+      await checkRecommendationAchievements(user.id, toUserId, bookId);
 
       return NextResponse.json({ 
         recommendation: newRec,

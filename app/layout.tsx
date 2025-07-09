@@ -30,9 +30,48 @@ const quicksand = Quicksand ({
 });
 
 export const metadata: Metadata = {
-  title: "BookCrush | Your Book Club App",
-  description: "Connect with friends, share books, and organize book club meetings",
-}
+  metadataBase: new URL("https://www.bookcrush.club"),
+  title: {
+    default: "BookCrush | Celebrate Stories With Friends",
+    template: "%s | BookCrush", // Dynamic titles like "Proyectos | Mi Book App"
+  },
+  description:
+    "Discover and share your favorite books with friends on BookCrush — a cozy space to track your reads, exchange recommendations, join book clubs, and celebrate your reading milestones. Because stories are better when shared!",
+  openGraph: {
+    title: "BookCrush | Celebrate Stories With Friends",
+    description:
+      "Celebrate stories with friends on BookCrush — a cozy space to track reads, share recs, and enjoy book clubs together.",
+    url: "https://www.bookcrush.club",
+    siteName: "BookCrush",
+    images: [
+      {
+        url: "/images/open-graph.png", // Place an image inside your /public folder
+        width: 1200,
+        height: 630,
+        alt: "BookCrush | Celebrate Stories With Friends",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BookCrush | Celebrate Stories With Friends",
+    description:
+      "Discover and share your favorite books with friends on BookCrush — track your reads, exchange recommendations, join book clubs, and celebrate reading milestones.",
+    images: ["/images/open-graph.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    nocache: false,
+    googleBot: {
+      index: true,
+      follow: true,
+      noimageindex: false,
+    },
+  },
+};
 
 export default async function RootLayout({
   children,
@@ -42,7 +81,6 @@ export default async function RootLayout({
 
 // Fetch the session on the server once per request
   const session = await getServerSession(authOptions);
-  
 
   return (
     <html lang="en" className={`${chivo.variable} ${quicksand.variable}`} suppressHydrationWarning>

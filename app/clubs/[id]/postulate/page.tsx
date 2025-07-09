@@ -1,7 +1,7 @@
 // /app/clubs/[id]/postulate/page.tsx
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Check, Plus, Search, ThumbsUp, X, Loader2 } from "lucide-react"
+import { Calendar, Check, Plus, Search, ThumbsUp, X, Loader2, BookOpen, ArrowLeft, MessageSquare } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
@@ -19,6 +19,57 @@ import { toast } from "sonner"
 import {useParams} from "next/navigation";
 import { AddBookDialog } from "@/components/add-book-dialog"
 import { BookDetails } from "@/types/book"
+import { useRouter } from "next/navigation"
+
+interface CurrentBookDetails {
+  id: string;
+  title: string;
+  author: string;
+  cover_url: string;
+  genres?: string[];
+  description: string;
+  reading_time: string | null;
+  pages: number | null;
+}
+
+interface ClubMembership {
+  id: string; // Membership ID
+  user_id: string;
+  club_id: string;
+  role: 'MEMBER' | 'ADMIN' | 'OWNER';
+  status: 'ACTIVE' | 'PENDING' | 'REJECTED' | 'LEFT' | 'BANNED';
+  joined_at: string; // ISO Date string  
+  user: { // Added this nested user object based on your API structure
+    display_name: string;
+    avatar_url?: string | null; // Optional: if your API provides user avatar
+    // Add other user fields like id, initials if they are part of this nested object
+  };
+}
+
+interface ClubData {
+  id: string; // Club ID (UUID)
+  name: string;
+  description: string;
+  memberCount: number; // Using memberCount from your schema suggestion
+  ownerId: string; // The ID of the club owner
+  // Current user's specific relationship to *this* club (these come from backend)
+  currentUserMembershipStatus: 'ACTIVE' | 'PENDING' | 'REJECTED' | 'LEFT' | null;
+  currentUserIsAdmin: boolean; // True if current user is owner_id or an ADMIN role for this club
+  memberships: ClubMembership[];
+  current_book: CurrentBookDetails | null;
+  meetings: Array<{
+    id: string;
+    meeting_date: string;
+    location: string;
+    title?: string;
+  }>; // Add meetings property
+  
+  // Voting cycle management
+  voting_cycle_active: boolean;
+  voting_starts_at: string | null;
+  voting_ends_at: string | null;
+  voting_started_by: string | null;
+}
 
 export default function PostulateBooksPage({ params }: { params: { id: string } }) {
   const [searchQuery, setSearchQuery] = useState("")
@@ -29,7 +80,7 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
   const [submitting, setSubmitting] = useState(false)
   
   // Real data state
-  const [club, setClub] = useState<any>(null)
+  const [club, setClub] = useState<ClubData | null>(null)
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [suggestions, setSuggestions] = useState<any[]>([])
   const [loadingClub, setLoadingClub] = useState(true)
@@ -39,29 +90,53 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
   const [addBookDialogOpen, setAddBookDialogOpen] = useState(false)
   const [allBooks, setAllBooks] = useState<BookDetails[]>([]) // For AddBookDialog
 
+  const router = useRouter();
   const {id} = useParams();
 
-  // Fetch club data
-  useEffect(() => {
-    const fetchClub = async () => {
+  // Function to fetch full club details from the API
+    const fetchClub = useCallback(async () => {
+      setLoadingClub(true);
       try {
-        const response = await fetch(`/api/clubs/${id}`)
-        if (response.ok) {
-          const clubData = await response.json()
-          console.log('Club data:', clubData) // Debug log
-          setClub(clubData)
-        } else {
-          toast.error("Failed to load club information")
+        const response = await fetch(`/api/clubs/${id}`); // Call your new API endpoint
+        if (!response.ok) {
+          throw new Error(`Failed to fetch club data: ${response.statusText}`);
         }
-      } catch (error) {
-        toast.error("Error loading club information")
+        const data: ClubData = await response.json(); // Cast to ClubData interface
+        setClub(data);
+        
+      } catch (err: any) {
+        toast.error(`Error fetching club details: ${err.message}`);
+        console.error("Error fetching club details:", err);
+        setClub(null); // Set to null on error
       } finally {
-        setLoadingClub(false)
+        setLoadingClub(false);
       }
-    }
+    }, [id]);
+    
+    // Initial data load on component mount
+    useEffect(() => {
+      fetchClub();
+    }, [fetchClub]); // Depend on memoized fetch function
+  // useEffect(() => {
+  //   const fetchClub = async () => {
+  //     try {
+  //       const response = await fetch(`/api/clubs/${id}`)
+  //       if (response.ok) {
+  //         const clubData = await response.json()
+  //         console.log('Club data:', clubData) // Debug log
+  //         setClub(clubData)
+  //       } else {
+  //         toast.error("Failed to load club information")
+  //       }
+  //     } catch (error) {
+  //       toast.error("Error loading club information")
+  //     } finally {
+  //       setLoadingClub(false)
+  //     }
+  //   }
 
-    fetchClub()
-  }, [id])
+  //   fetchClub()
+  // }, [id])
 
   // Fetch suggestions
   useEffect(() => {
@@ -173,9 +248,26 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
     }
   }
 
+  // Add Book Dialog callback functions
+  const handleBookAdded = (newBook: BookDetails) => {
+    // Add the new book to our local state
+    setAllBooks(prev => [...prev, newBook])
+    // Optionally refresh search to include the newly added book
+    if (searchQuery.trim()) {
+      // Re-run the search to potentially include the newly added book
+      searchBooks()
+    }
+    toast.success('Book added successfully! You can now suggest it to the club.')
+  }
+
+  // Check if voting is currently active
+  const isVotingActive = club?.voting_cycle_active && 
+    club.voting_ends_at && 
+    new Date(club.voting_ends_at) > new Date()
+
   const calculateVoteProgress = (voteCount: number) => {
     // Use club memberCount if available, otherwise use max votes from suggestions as fallback
-    let totalMembers = club?.memberCount || club?.members?.length || 1
+    let totalMembers = club?.memberCount || club?.memberships?.length || 1
     
     // If we have suggestions, use the highest vote count + 2 as a reasonable estimate
     if (suggestions.length > 0 && totalMembers === 1) {
@@ -192,16 +284,24 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
     }
   }
 
-  // Add Book Dialog callback functions
-  const handleBookAdded = (newBook: BookDetails) => {
-    // Add the new book to our local state
-    setAllBooks(prev => [...prev, newBook])
-    // Optionally refresh search to include the newly added book
-    if (searchQuery.trim()) {
-      // Re-run the search to potentially include the newly added book
-      searchBooks()
+  const formatVotingEndDate = (club: ClubData) => {
+    if (!club.voting_cycle_active || !club.voting_ends_at) {
+      return "No active voting cycle"
     }
-    toast.success('Book added successfully! You can now suggest it to the club.')
+
+    const endDate = new Date(club.voting_ends_at)
+    const now = new Date()
+    const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+    
+    if (daysLeft > 1) {
+      return `Voting ends in ${daysLeft} days`
+    } else if (daysLeft === 1) {
+      return "Voting ends tomorrow"
+    } else if (daysLeft === 0) {
+      return "Voting ends today"
+    } else {
+      return "Voting has ended"
+    }
   }
 
   const searchBooks = async () => {
@@ -224,22 +324,6 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
       setSearchResults([])
     } finally {
       setLoading(false)
-    }
-  }
-
-  const formatVotingEndDate = (votingEnds: string) => {
-    const endDate = new Date(votingEnds)
-    const now = new Date()
-    const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-    
-    if (daysLeft > 1) {
-      return `Voting ends in ${daysLeft} days`
-    } else if (daysLeft === 1) {
-      return "Voting ends tomorrow"
-    } else if (daysLeft === 0) {
-      return "Voting ends today"
-    } else {
-      return "Voting has ended"
     }
   }
 
@@ -276,7 +360,13 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
         height={2871}
         className="absolute inset-0 w-auto h-full md:w-full md:h-auto object-cover z-[-1]"
       />
-      <div className="container mx-auto px-4 py-6 pb-20">
+      <div className="container mx-auto px-4 pt-3 pb-20">
+        <button
+            onClick={() => router.back()} // Revert to browser history navigation
+            className="mb-3 p-2 rounded-full bg-bookWhite/80 backdrop-blur-sm hover:bg-bookWhite shadow-md"
+        >
+            <ArrowLeft className="h-5 w-5 text-secondary" />
+        </button>
         <div className="flex flex-col md:flex-row justify-between mb-3">
           <div>
             <h1 className="text-2xl font-semibold leading-none mb-1">{club.name}:<span className="font-normal">{" "}Next Book Selection</span></h1>
@@ -324,6 +414,20 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
               </TabsList>
 
               <TabsContent value="search" className="space-y-3">
+                {/* Voting Status Alert */}
+                {!isVotingActive && (
+                  <Card className="bg-yellow-50 border-yellow-200">
+                    <CardContent className="px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4 text-yellow-600" />
+                        <p className="text-sm text-yellow-800">
+                          Voting is not currently active. You can still suggest books, but voting will only be possible when a voting cycle is started.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
                 <Card className="p-0 bg-bookWhite">
                   <CardHeader className="px-3 pt-3 pb-0 gap-1">
                     <CardTitle className="flex justify-between items-center">
@@ -512,10 +616,13 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
                       </div>
                     ) : suggestions.length === 0 ? (
                       <div className="text-center py-8">
-                        <p className="text-muted-foreground">No book suggestions yet. Be the first to suggest a book!</p>
+                        <p className="text-muted-foreground mb-2">No book suggestions yet.</p>
+                        <p className="text-sm text-secondary/60 mb-4">
+                          Be the first to suggest a book for the club!
+                        </p>
                         <Button 
                           variant="outline" 
-                          className="mt-4" 
+                          className="mt-4 text-secondary bg-primary/80 hover:bg-primary border-none rounded-full" 
                           onClick={() => setActiveTab("search")}
                         >
                           Suggest a Book
@@ -542,6 +649,8 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
                                         size="sm"
                                         className={suggestion.has_voted ? "bg-primary text-primary-foreground rounded-full h-6" : "text-bookWhite bg-secondary-light rounded-full h-6"}
                                         onClick={() => handleVote(suggestion.id, suggestion.has_voted)}
+                                        disabled={!club?.voting_cycle_active}
+                                        title={!club?.voting_cycle_active ? "Voting is not currently active" : ""}
                                       >
                                         <ThumbsUp className="h-2 w-2" />
                                         {suggestion.has_voted ? "Voted" : "Vote"}
@@ -602,10 +711,7 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
                   </CardContent>
                   <CardFooter className="flex flex-col items-end px-3 pt-0 pb-3 gap-0.5">
                     <p className="text-sm text-secondary/60">
-                      {suggestions.length > 0 && suggestions[0].voting_ends 
-                        ? formatVotingEndDate(suggestions[0].voting_ends)
-                        : "No active voting period"
-                      }
+                      {club ? formatVotingEndDate(club) : "No active voting period"}
                     </p>
                     <Button variant="outline" onClick={() => setActiveTab("search")} className="rounded-full bg-accent text-secondary border-none h-8">
                       Suggest Another Book
@@ -615,61 +721,9 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
               </TabsContent>
             </Tabs>
           </div>
-
-          <div>
-            <Card className="p-0">
-              <CardHeader className="px-3 pt-3 pb-2 gap-2">
-                <CardTitle>Current Book</CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 pt-0 pb-3">
-                <div className="flex flex-row gap-2 bg-secondary/5 p-2.5 rounded-md">
-                  <div className="w-[90px] flex-shrink-0">                      
-                    <Link href={`/books/${club.current_book.id}`}>
-                      <img
-                        src={club.current_book.cover_url || "/placeholder.svg"}
-                        alt={`${club.current_book.title} cover` || "Book cover"}
-                        className="h-full w-full rounded-md shadow-md object-cover"
-                      />
-                    </Link>
-                  </div>
-                  <div className="flex-1">
-                    <Link href={`/books/${club.current_book.id}`}>
-                      <h3 className="text-base leading-none font-medium">{club.current_book.title}</h3>
-                    </Link>
-                    <p className="text-sm text-secondary-light/70">{club.current_book.author}</p>
-                    {/* Genre Tags */}
-                    {club.current_book.genres && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {club.current_book.genres?.slice(0, 1).map((genre: string) => (
-                        <span
-                          key={genre}
-                          className="bg-accent/30 text-secondary/40 text-xs/3 font-medium px-2 py-1 rounded-full"
-                        >
-                          {genre}
-                        </span>
-                      ))}
-                    </div>
-                    )}
-                    {/* Pages & Time */}
-                    {club.current_book.pages && (
-                    <div className="flex-1">
-                      <p className="text-secondary/80 font-sans font-normal text-xs inline-block">{club.current_book.pages} pages • {club.current_book.reading_time}</p>
-                    </div>
-                    )}
-                    {club.meetings && club.meetings.length > 0 && (
-                      <div className="inline-block">
-                        <div className="flex items-center gap-1 bg-accent-variant/75 px-1.5 py-1 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
-                          <Calendar className="h-3 w-3 text-bookWhite" />
-                          <span>Meeting: {new Date(club.meetings[0].meeting_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </div>
+        
+        {/* Voting management is now handled in the club details page */}
       </div>
     </div>
   )
