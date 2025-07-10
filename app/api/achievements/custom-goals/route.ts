@@ -151,10 +151,10 @@ export async function POST(request: NextRequest) {
 
     // Create the custom achievement
     const timeLabels = {
-      '1_month': '1 Month',
-      '3_months': '3 Months', 
-      '6_months': '6 Months',
-      '1_year': '1 Year'
+      '1_month': '1 month',
+      '3_months': '3 months', 
+      '6_months': '6 months',
+      '1_year': '1 year'
     };
 
     const goalName = `Custom Goal: ${target_books} books in ${timeLabels[time_period as keyof typeof timeLabels]}`;

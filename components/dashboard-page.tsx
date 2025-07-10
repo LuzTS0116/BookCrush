@@ -355,8 +355,8 @@ const handleClickShare = async () => {
 };
 
   return (
-    <div className="container mx-auto pt-8 pb-6 px-4 mt-[-10px] mb-4 bg-secondary-light rounded-b-3xl">
-      <div className="space-y-8">
+    <div className="container mx-auto pt-8 pb-4 px-4 mt-[-10px] mb-4 bg-secondary-light rounded-b-3xl">
+      <div className="space-y-4">
         <div className="flex flex-col md:flex-row justify-between gap-2">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-bookWhite pb-0">Hello, {session?.user?.name?.split(" ")[0] ?? "mysterious reader"}!</h1>
@@ -364,11 +364,11 @@ const handleClickShare = async () => {
           </div>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           {/* Top section: 2 columns */}
-          <div className="grid gap-4 grid-cols-5">
+          <div className="grid gap-3 grid-cols-5">
             {/* Left Column */}
-            <div className="flex flex-col gap-4 col-span-3">
+            <div className="flex flex-col gap-3 col-span-3">
               <Card className="flex-1 bg-[url('/images/today-bg.svg')] bg-cover">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pt-3 pb-2">
                   <CardTitle className="text-sm font-medium">Recently Added Book</CardTitle>
@@ -408,7 +408,7 @@ const handleClickShare = async () => {
                 </CardContent>
               </Card>
               
-              <Card className="flex-1 bg-[url('/images/meeting-bg.svg')] bg-cover rounded-bl-3xl">
+              <Card className={`flex-1 bg-[url('/images/meeting-bg.svg')] bg-cover ${customGoals.length === 0 ? ('rounded-bl-3xl') : ''}`}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pt-3 pb-2">
                   <CardTitle className="text-sm font-medium">Next Meeting</CardTitle>
                 </CardHeader>
@@ -445,7 +445,7 @@ const handleClickShare = async () => {
               onClick={() => setShowOverlay((prev) => !prev)}
               className="relative group h-full col-span-2"
             >
-              <div ref={quoteImageRef} className="h-full flex flex-col justify-between bg-[url('/images/quote-img1.png')] bg-cover rounded-t-lg rounded-bl-lg rounded-br-3xl">
+              <div ref={quoteImageRef} className={`h-full flex flex-col justify-between bg-[url('/images/quote-img1.png')] bg-cover rounded-lg ${customGoals.length === 0 ? ('rounded-br-3xl') : ''}`}>
                 <div className="flex-1 flex flex-col justify-center py-3 px-3">
                   <blockquote className="text-[13px]/4 text-center font-semibold text-bookBlack">
                     {quote}
@@ -532,35 +532,27 @@ const handleClickShare = async () => {
 
           {/* Custom Goals Section */}
           {customGoals.length > 0 && (
-            <Card className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 text-bookWhite border-purple-300/20">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 pt-4 pb-3">
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Target className="h-4 w-4" />
-                  Reading Goals
-                </CardTitle>
-                <Link href="/profile" className="text-xs hover:underline">
-                  Manage
-                </Link>
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
+            <Card className="bg-accent-variant text-bookWhite rounded-b-2xl">
+              <CardContent className="px-4 py-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {customGoals.slice(0, 3).map((goal) => (
-                    <div key={goal.id} className="bg-bookWhite/10 rounded-lg p-3 backdrop-blur-sm">
-                      <div className="flex items-center justify-between mb-2">
+                    <div key={goal.id}>
+                      <div className="flex items-center justify-between mb-0.5">
                         <div className="text-sm font-medium text-bookWhite">
-                          {goal.progress.current_value}/{goal.progress.target_value} books
+                          Reading Goal
                         </div>
                         <div className="text-xs text-bookWhite/70">
-                          {goal.progress.progress_percentage}%
+                          {goal.progress.current_value}/{goal.progress.target_value}
+                          {/* {goal.progress.progress_percentage}% */}
                         </div>
                       </div>
-                      <div className="w-full bg-bookWhite/20 rounded-full h-2 mb-2">
+                      <div className="w-full bg-bookWhite/20 rounded-full h-2 mb-0.5">
                         <div 
-                          className="bg-gradient-to-r from-purple-400 to-blue-400 h-2 rounded-full transition-all duration-300"
+                          className="bg-gradient-to-r from-primary-dark to-accent h-2 rounded-full transition-all duration-300"
                           style={{ width: `${goal.progress.progress_percentage}%` }}
                         />
                       </div>
-                      <div className="text-xs text-bookWhite/80">
+                      <div className="text-xs font-serif text-bookWhite/80">
                         {goal.description}
                       </div>
                     </div>

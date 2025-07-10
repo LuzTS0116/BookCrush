@@ -1,39 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { randomUUID } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+import { randomUUID } from 'crypto';
 
-
-// Initialize Supabase client
+// Initialize Supabase clients
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Supabase URL or Anon Key is missing for books API.");
+if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+  console.error("Missing Supabase environment variables for presign API");
 }
 
-const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+// Client for user authentication (anon key)
+const supabaseAuth = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+
+// Client for storage operations (service role key)
+const supabaseStorage = supabaseUrl && supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey) : null;
 
 export async function POST(req: NextRequest) {
-
-  if (!supabase) {
+  if (!supabaseAuth || !supabaseStorage) {
     return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
   }
 
   try {
-    // Bearer token authentication (consistent with other APIs)
+    // Bearer token authentication
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.error('[API books POST] Missing or invalid Authorization header');
       return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
     }
 
     const token = authHeader.split(' ')[1];
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    
+    // Verify user authentication with anon client
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser(token);
 
     if (userError || !user) {
-      console.error('[API books POST] Auth error:', userError);
+      console.error('[Profile presign] Auth error:', userError);
       return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
     }
 
@@ -57,22 +59,15 @@ export async function POST(req: NextRequest) {
       );
     }
     
-   
-    
     // Generate a unique filename with UUID and user ID
     const fileExtension = filename.split('.').pop();
     const uniqueFilename = `profile-pictures/${user.id}/${randomUUID()}.${fileExtension}`;
     
-    // Create the signed upload URL
-    const { data, error } = await supabase
+    // Create the signed upload URL using service role client
+    const { data, error } = await supabaseStorage
       .storage
       .from('profiles')
-      .createSignedUploadUrl(
-        uniqueFilename,
-        {
-          expiresIn: 300 // 5 minutes expiry for profile pictures
-        }
-      );
+      .createSignedUploadUrl(uniqueFilename);
     
     if (error) {
       console.error("Supabase storage error:", error);

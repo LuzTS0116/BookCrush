@@ -238,6 +238,72 @@ export const authOptions: NextAuthOptions = {
             access_token: data.session.access_token,
             refresh_token: data.session.refresh_token,
           };
+
+          // Create or update profile with Google data
+          try {
+            const googleUser = data.user;
+            const userMetadata = googleUser.user_metadata || {};
+            
+            // Check if profile exists
+                          const existingProfile = await prisma.profile.findUnique({
+                where: { id: googleUser.id },
+                select: { id: true, display_name: true, email: true, nickname: true, avatar_url: true }
+              });
+
+            if (!existingProfile) {
+              // Create minimal profile with Google data - user still needs to complete setup
+              console.log('[Auth JWT Callback] Creating minimal profile for Google user:', googleUser.id);
+              
+              await prisma.profile.create({
+                data: {
+                  id: googleUser.id,
+                  email: googleUser.email,
+                  // Use Google name as fallback, but keep display_name empty to force profile completion
+                  display_name: '', // Keep empty to ensure profile-setup redirect
+                  nickname: null, // Will be set in profile-setup
+                  avatar_url: userMetadata.avatar_url || userMetadata.picture,
+                  about: null,
+                  kindle_email: null,
+                  favorite_genres: [],
+                  role: 'USER'
+                }
+              });
+              
+              // Profile exists but is incomplete - redirect to profile-setup
+              token.profileComplete = false;
+              token.googleData = {
+                name: userMetadata.full_name || userMetadata.name || googleUser.email?.split('@')[0] || '',
+                avatar_url: userMetadata.avatar_url || userMetadata.picture
+              };
+            } else {
+              // For existing profiles, only update avatar if missing and check completeness
+              const updates: any = {};
+              
+              if (!existingProfile.email && googleUser.email) {
+                updates.email = googleUser.email;
+              }
+              
+              // Always update avatar if Google provides one and we don't have one
+              if (!existingProfile.avatar_url && (userMetadata.avatar_url || userMetadata.picture)) {
+                updates.avatar_url = userMetadata.avatar_url || userMetadata.picture;
+              }
+              
+              if (Object.keys(updates).length > 0) {
+                console.log('[Auth JWT Callback] Updating profile with Google data for user:', googleUser.id);
+                await prisma.profile.update({
+                  where: { id: googleUser.id },
+                  data: updates
+                });
+              }
+              
+              // Profile is complete if has display_name and nickname
+              token.profileComplete = !!(existingProfile.display_name && existingProfile.nickname);
+            }
+          } catch (profileError) {
+            console.error('[Auth JWT Callback] Error managing profile for Google user:', profileError);
+            // Don't fail the auth process, but log the error
+            token.profileComplete = false;
+          }
         } else {
           // console.error('[Auth JWT Callback] Supabase signInWithIdToken failed for Google:', error?.message || 'No session returned');
         }
@@ -341,6 +407,7 @@ export const authOptions: NextAuthOptions = {
       session.supabaseAccessToken = token.supa?.access_token;
       session.supabaseRefreshToken = token.supa?.refresh_token;
       session.profileComplete = token.profileComplete as boolean;
+      session.googleData = token.googleData as any; // Pass Google data to client
       
       return session;
     }

@@ -88,7 +88,7 @@ export function BookSelectionDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[85vw] rounded-2xl">
+      <DialogContent className="w-[90vw] rounded-2xl">
         <Image 
           src="/images/background.png"
           alt="Create and Manage your Book Clubs | BookCrush"
@@ -113,25 +113,26 @@ export function BookSelectionDialog({
           />
         </div>
 
-        <ScrollArea className="h-[400px] pr-1 pl-2 w-auto">
+        <ScrollArea className="h-[400px] pr-2">
           {loading ? (
             <div className="flex items-center justify-center h-32">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : books.length > 0 ? (
-            <div className="space-y-3 w-[70vw]">
+            <>
+            <div className="space-y-2">
               {books.map((book) => (
                 <div
                   key={book.id}
-                  className={`flex flex-row gap-2 p-3 rounded-lg bg-bookWhite/10 transition-colors w-full
+                  className={`flex flex-row gap-2 p-2.5 rounded-lg bg-bookWhite/10 transition-colors
                     ${selectedBookId === book.id ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}
                 >
-                  <div className="w-20 h-24 bg-muted/30 rounded-md flex items-center justify-center overflow-hidden">
+                  <div className="w-[60px] h-24 bg-muted/30 rounded-md flex justify-center overflow-hidden shrink-0">
                     {book.cover_url ? (
                       <img
                         src={book.cover_url}
                         alt={`${book.title} cover`}
-                        className="w-full h-full object-cover"
+                        className="object-cover w-full h-full"
                       />
                     ) : (
                       <BookOpen className="h-8 w-8 text-muted-foreground" />
@@ -139,9 +140,11 @@ export function BookSelectionDialog({
                   </div>
                   <div className='flex flex-col w-full'>
                     <div className='flex flex-row justify-between items-start'>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1">
                         <h4 className="font-medium text-sm leading-none break-words">{book.title}</h4>
+                        <p className="text-xs font-serif text-muted-foreground">{book.author}</p>
                       </div>
+                      <div>
                         <Button
                           size="sm"
                           className="rounded-full h-6 px-2 ml-2"
@@ -154,24 +157,36 @@ export function BookSelectionDialog({
                               Selecting...
                             </>
                           ) : (
-                            'Select Book'
+                            'Select'
                           )}
                         </Button>
+                      </div>
                     </div>
-                    <div className="flex flex-col">
-                      <p className="text-xs font-serif text-muted-foreground">{book.author}</p>
-                      <p className="text-xs mt-2 font-serif line-clamp-3">{book.description}</p>
+                    <div className="flex flex-col w-auto">
+                      <p className="text-xs mt-2 font-serif line-clamp-3 max-w-[52vw]">{book.description}</p>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
+            <div className='flex flex-col items-center mt-4 gap-3'>
+              <p className='text-bookWhite text-sm leading-4'>Don't see what you are looking for?</p>
+              <AddBookDialog
+                  open={addBookDialogOpen}
+                  onOpenChange={setAddBookDialogOpen}
+                  books={allBooks}
+                  setBooks={setAllBooks}
+                  onBookAdded={onBookAdded}
+                  initialSearchQuery={searchQuery}
+                />
+            </div>
+            </>
           ) : searchQuery ? (
             <div className="text-center py-8 text-muted-foreground">
               <BookOpen className="mx-auto h-12 w-12 mb-4" />
               <p>No books found matching "{searchQuery}"</p>
               <p className="text-sm text-bookWhite/60 mb-4">
-                Add the book to our collection and set it as the club's current book!
+                Add the book to our shared library and set it as the club's current book!
               </p>
               <div className="flex justify-center">
                 <AddBookDialog

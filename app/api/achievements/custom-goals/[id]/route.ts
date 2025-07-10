@@ -87,8 +87,7 @@ export async function DELETE(
       // Delete the achievement itself (only if it's a custom goal)
       await tx.achievement.delete({
         where: {
-          id,
-          name: { startsWith: 'Custom Goal:' }
+          id
         }
       });
     });

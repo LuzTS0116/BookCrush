@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import { ActivityType, ActivityTargetEntityType } from '@prisma/client';
 import { parseShelfType, parseStatusType } from '@/lib/enum'; // Import your enum parser
 import {  shelf_type, status_type  } from '@prisma/client';
@@ -8,17 +7,33 @@ import {prisma} from '@/lib/prisma'
 import { checkBookCompletionAchievements } from './achievement-integration';
 import { CustomGoalsService } from '@/lib/custom-goals-service';
 
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing for shelf API.");
+}
+
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 export async function POST(req: NextRequest) {
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+  }
     
   try {
-    // 1. Authenticate User
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Bearer token authentication (consistent with books API)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return NextResponse.json({ error: authError?.message || "Authentication required" }, { status: 401 });
     }
 
     const { bookId, shelf: shelfString, status: statusString, position } = await req.json();
@@ -168,21 +183,21 @@ export async function POST(req: NextRequest) {
       });
     } else if (existingUserBook && previousStatus !== statusType) {
       // Log changing status on the same shelf
-      await prisma.activityLog.create({
-        data: {
-          user_id: user.id,
-          activity_type: ActivityType.CHANGED_BOOK_STATUS,
-          target_entity_type: ActivityTargetEntityType.USER_BOOK,
-          target_entity_id: userBook.book_id,
-          target_entity_secondary_id: userBook.status.toString(), 
-          details: {
-            book_title: bookTitleForActivity,
-            shelf_name: userBook.shelf.toString(), 
-            old_status: previousStatus,
-            new_status: userBook.status.toString(),
+              await prisma.activityLog.create({
+          data: {
+            user_id: user.id,
+            activity_type: ActivityType.CHANGED_BOOK_STATUS,
+            target_entity_type: ActivityTargetEntityType.USER_BOOK,
+            target_entity_id: userBook.book_id,
+            target_entity_secondary_id: userBook.status?.toString() || '', 
+            details: {
+              book_title: bookTitleForActivity,
+              shelf_name: userBook.shelf.toString(), 
+              old_status: previousStatus,
+              new_status: userBook.status?.toString() || '',
+            }
           }
-        }
-      });
+        });
     }
     // --- End ActivityLog Entry ---
 
@@ -198,14 +213,21 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+  }
   try {
-    // 1. Authenticate User
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Bearer token authentication (consistent with books API)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return NextResponse.json({ error: authError?.message || "Authentication required" }, { status: 401 });
     }
 
     // 2. Get Shelf Query Parameter
@@ -257,14 +279,21 @@ export async function GET(req: NextRequest) {
 
 
 export async function DELETE(req: NextRequest) {
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+  }
   try {
-    // 1. Authenticate User
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Bearer token authentication (consistent with books API)
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return NextResponse.json({ error: authError?.message || "Authentication required" }, { status: 401 });
     }
 
     const { bookId, shelf: shelfString } = await req.json();

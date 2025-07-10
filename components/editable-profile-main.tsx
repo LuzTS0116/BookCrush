@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { BookMarked, ArrowLeft, Mail, Send, Pencil, Save, X, Users, CircleCheckBig, CircleAlert, Loader2, Star, Smartphone, BookOpen, Headphones, ChevronDown, Sparkles, EllipsisVertical, Edit3, Check, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown, GripVertical, MessageSquare, Target } from "lucide-react"
+import { BookMarked, ArrowLeft, Mail, Send, Pencil, Award, Save, X, Users, CircleCheckBig, CircleAlert, Loader2, Star, Smartphone, BookOpen, Headphones, ChevronDown, Sparkles, EllipsisVertical, Edit3, Check, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown, GripVertical, MessageSquare, Target } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { FavoriteBookDialog } from "./favorite-book-dialog"
 import { ContributionBookDialog } from "./contribution-book-dialog"
@@ -1514,10 +1514,10 @@ export default function EditableProfileMain() {
                     {/* Custom Goals Button */}
                     <button
                       onClick={handleCustomGoalsIconClick}
-                      className="p-2 rounded-full bg-bookWhite/80 backdrop-blur-sm hover:bg-bookWhite shadow-md"
+                      className="p-1.5 rounded-full bg-bookWhite/80 backdrop-blur-sm hover:bg-bookWhite shadow-md"
                       title="Set reading goals"
                     >
-                      <Target className="h-5 w-5 text-secondary" />
+                      <Award className="h-6 w-6 text-secondary" />
                     </button>
 
                     {/* Recommendations Button */}
@@ -2157,7 +2157,7 @@ export default function EditableProfileMain() {
       <Dialog open={isRecommendationsDialogOpen} onOpenChange={setIsRecommendationsDialogOpen}>
         <DialogContent className="max-w-[400px] w-[95vw] max-h-[85vh] p-6 overflow-hidden">
           <DialogHeader className="relative z-20">
-            <DialogTitle className="text-bookWhite">Book Recommendations</DialogTitle>
+            <DialogTitle className="text-bookWhite mt-3">Book Recommendations</DialogTitle>
             <DialogDescription className="text-bookWhite/80 font-serif">
               Share and discover great reads with friends
             </DialogDescription>

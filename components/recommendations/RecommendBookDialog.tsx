@@ -171,8 +171,8 @@ export function RecommendBookDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md w-[90vw] max-h-[85vh] flex flex-col px-4">
-        <DialogHeader className="flex-shrink-0 mt-3">
-          <DialogTitle className="flex items-center justify-center gap-2">
+        <DialogHeader className="flex-shrink-0 mt-5">
+          <DialogTitle className="flex items-center justify-center">
             Recommend Book
           </DialogTitle>
           <DialogDescription className="font-serif leading-4">

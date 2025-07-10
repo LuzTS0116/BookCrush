@@ -560,6 +560,10 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   const [votingStartsImmediately, setVotingStartsImmediately] = useState(true)
   const [customStartDate, setCustomStartDate] = useState("")
   const [managingVoting, setManagingVoting] = useState(false)
+  
+  // Winning suggestions state
+  const [winningBookSuggestions, setWinningBookSuggestions] = useState<any[]>([])
+  const [loadingWinners, setLoadingWinners] = useState(false)
 
   //wrap params with React.use() 
   const router = useRouter();
@@ -594,6 +598,13 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   useEffect(() => {
     fetchClubDetails();
   }, [fetchClubDetails]); // Depend on memoized fetch function
+
+  // Check for expired voting cycle when club data changes
+  useEffect(() => {
+    if (club && votingCycleExpired && club.currentUserIsAdmin && session?.supabaseAccessToken) {
+      handleExpiredVotingCycle();
+    }
+  }, [club?.voting_cycle_active, club?.voting_ends_at, club?.currentUserIsAdmin, session?.supabaseAccessToken]);
 
   // --- Integration for JOIN API (`/app/api/clubs/join`) ---
   const handleJoinClub = async () => {
@@ -1467,7 +1478,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
   // Voting Management Functions
   const handleStartVoting = async () => {
-    if (!club || !votingDuration) return
+    if (!club || !votingDuration || !session?.supabaseAccessToken) return
 
     setManagingVoting(true)
     try {
@@ -1480,7 +1491,10 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
       const response = await fetch(`/api/clubs/${id}/voting`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
         body: JSON.stringify({
           voting_starts_at: startDate.toISOString(),
           voting_ends_at: endDate.toISOString()
@@ -1504,13 +1518,16 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   }
 
   const handleEndVoting = async () => {
-    if (!club) return
+    if (!club || !session?.supabaseAccessToken) return
 
     setManagingVoting(true)
     try {
       const response = await fetch(`/api/clubs/${id}/voting`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        }
       })
 
       if (!response.ok) {
@@ -1518,13 +1535,85 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
         throw new Error(error.error || 'Failed to end voting cycle')
       }
 
-      const updatedClub = await response.json()
-      setClub(prev => prev ? { ...prev, ...updatedClub } : null)
-      toast.success('Voting cycle ended successfully!')
+      const result = await response.json()
+      setClub(prev => prev ? { ...prev, ...result.club } : null)
+      
+      // Set winning suggestions if any
+      if (result.winningBooks && result.winningBooks.length > 0) {
+        setWinningBookSuggestions(result.winningBooks)
+        toast.success(`Voting cycle ended! ${result.winningBooks.length > 1 ? `${result.winningBooks.length} books tied for first place` : 'Winner selected'}`)
+      } else {
+        toast.success('Voting cycle ended successfully!')
+      }
     } catch (error: any) {
       toast.error(error.message || 'Failed to end voting cycle')
     } finally {
       setManagingVoting(false)
+    }
+  }
+
+  // Function to automatically end expired voting cycle
+  const handleExpiredVotingCycle = async () => {
+    if (!club || !votingCycleExpired || !session?.supabaseAccessToken) return
+
+    setLoadingWinners(true)
+    try {
+      const response = await fetch(`/api/clubs/${id}/voting/results`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        }
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to process voting results')
+      }
+
+      const result = await response.json()
+      setClub(prev => prev ? { ...prev, ...result.club } : null)
+      
+      // Set winning suggestions if any
+      if (result.winningBooks && result.winningBooks.length > 0) {
+        setWinningBookSuggestions(result.winningBooks)
+      }
+    } catch (error: any) {
+      console.error('Error processing expired voting cycle:', error)
+      // Don't show toast error for automatic processing
+    } finally {
+      setLoadingWinners(false)
+    }
+  }
+
+  // Function to set winning book as current book
+  const handleSetWinnerAsCurrentBook = async (bookId: string, bookTitle: string) => {
+    if (!session?.supabaseAccessToken) return
+
+    setLoadingBookAction(true)
+    try {
+      const response = await fetch(`/api/clubs/${id}/voting/select-winner`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
+        body: JSON.stringify({ bookId }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to set winning book as current book.")
+      }
+
+      toast.success(`"${bookTitle}" set as current book!`)
+      setWinningBookSuggestions([]) // Clear winners after selection
+      await fetchClubDetails() // Refresh club data
+    } catch (err: any) {
+      toast.error(`Error setting book: ${err.message}`)
+      console.error("Error setting winning book:", err)
+    } finally {
+      setLoadingBookAction(false)
     }
   }
 
@@ -1535,6 +1624,11 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   const isVotingActive = club?.voting_cycle_active && 
     club.voting_ends_at && 
     new Date(club.voting_ends_at) > new Date()
+
+  // Check if voting cycle has ended but still marked as active
+  const votingCycleExpired = club?.voting_cycle_active && 
+    club.voting_ends_at && 
+    new Date(club.voting_ends_at) <= new Date()
 
   // Check if club has no current book (required for starting voting)
   const hasNoCurrentBook = !club?.current_book
@@ -1580,14 +1674,14 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   // Voting Management Dialog Component
   const VotingManagementDialog = () => (
     <Dialog open={votingDialogOpen} onOpenChange={setVotingDialogOpen}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
+      <DialogContent className="w-[85vw] p-0">
+        <DialogHeader className="px-3 pt-9 pb-0">
           <DialogTitle>Start Voting Cycle</DialogTitle>
-          <DialogDescription>
-            Set up a voting period for members to choose the next book to read.
+          <DialogDescription className="font-serif leading-4">
+            Set up a voting period for members to postulate and choose the next book to read.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 py-2 px-4">
           <div className="grid gap-2">
             <Label htmlFor="duration">Voting Duration</Label>
             <Select value={votingDuration} onValueChange={setVotingDuration}>
@@ -1603,25 +1697,25 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
             </Select>
           </div>
           
-          <div className="grid gap-2">
+          <div className="grid mt-1.5">
             <Label>Start Time</Label>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1">
               <input
                 type="radio"
                 id="immediately"
                 checked={votingStartsImmediately}
                 onChange={() => setVotingStartsImmediately(true)}
               />
-              <Label htmlFor="immediately">Start immediately</Label>
+              <Label htmlFor="immediately" className="font-serif text-sm font-light">Start immediately</Label>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1">
               <input
                 type="radio"
                 id="custom"
                 checked={!votingStartsImmediately}
                 onChange={() => setVotingStartsImmediately(false)}
               />
-              <Label htmlFor="custom">Start at specific time</Label>
+              <Label htmlFor="custom" className="font-serif text-sm font-light">Start at specific time</Label>
             </div>
             
             {!votingStartsImmediately && (
@@ -1634,11 +1728,11 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
             )}
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setVotingDialogOpen(false)}>
+        <DialogFooter className="px-4 pb-4">
+          <Button variant="outline" onClick={() => setVotingDialogOpen(false)} className="rounded-full">
             Cancel
           </Button>
-          <Button onClick={handleStartVoting} disabled={managingVoting}>
+          <Button onClick={handleStartVoting} disabled={managingVoting} className="rounded-full">
             {managingVoting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1646,7 +1740,6 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               </>
             ) : (
               <>
-                <Play className="mr-2 h-4 w-4" />
                 Start Voting
               </>
             )}
@@ -1925,6 +2018,11 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                               <Clock className="h-3 w-3 mr-1" />
                               Active
                             </Badge>
+                          ) : votingCycleExpired ? (
+                            <Badge variant="secondary" className="bg-orange-500/50 text-bookWhite">
+                              <Clock className="h-3 w-3 mr-1" />
+                              Results Ready
+                            </Badge>
                           ) : (
                             <Badge variant="outline" className="bg-secondary/15 text-secondary/55 border-none">
                               <Clock className="h-3 w-3 mr-1" />
@@ -1934,11 +2032,54 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                         </div>
                       </div>
                       <p className="text-sm leading-4 mt-1.5 text-secondary/70">
-                        {isVotingActive ? 'Currently accepting postulations and votes for the next book selection' : 'No active voting cycle'}
+                        {isVotingActive ? 'Currently accepting postulations and votes for the next book selection' : 
+                         votingCycleExpired ? 'Voting period ended - select winning book below' :
+                         'No active voting cycle'}
                       </p>
                     </div>
-                    
                   </div>
+
+                  {/* Show winning books if available */}
+                  {winningBookSuggestions.length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="font-medium text-secondary mb-2">
+                        {winningBookSuggestions.length > 1 ? 'Winning Books (Tie)' : 'Winning Book'}
+                      </h4>
+                      <div className="space-y-2">
+                        {winningBookSuggestions.map((suggestion: any) => (
+                          <div key={suggestion.id} className="flex items-center justify-between p-2 bg-green-50 rounded-md border border-green-200">
+                            <div className="flex items-center gap-2">
+                              <div className="w-12 h-16 bg-secondary/10 rounded flex items-center justify-center overflow-hidden">
+                                <img 
+                                  src={suggestion.book.cover_url || "/placeholder.svg"} 
+                                  alt={suggestion.book.title} 
+                                  className="max-h-full object-cover"
+                                />
+                              </div>
+                              <div>
+                                <p className="font-medium text-sm text-secondary">{suggestion.book.title}</p>
+                                <p className="text-xs text-secondary/70">{suggestion.book.author}</p>
+                                <p className="text-xs text-green-600 font-medium">{suggestion.vote_count} votes</p>
+                              </div>
+                            </div>
+                            <Button
+                              onClick={() => handleSetWinnerAsCurrentBook(suggestion.book.id, suggestion.book.title)}
+                              disabled={loadingBookAction}
+                              size="sm"
+                              className="bg-primary hover:bg-primary-light text-secondary rounded-full h-8"
+                            >
+                              {loadingBookAction ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                'Set as Current Book'
+                              )}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="flex flex-col">
                     <div>
                       {club && club.voting_cycle_active && club.voting_ends_at && (
@@ -1946,7 +2087,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                           {formatVotingEndDate(club)}
                         </p>
                       )}
-                      {!club?.voting_cycle_active && (
+                      {!club?.voting_cycle_active && winningBookSuggestions.length === 0 && (
                         <p className="text-sm text-secondary/70">
                           Start a voting cycle to let members choose the next book
                         </p>
@@ -1967,6 +2108,15 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                               End Voting
                             </>
                           )}
+                        </Button>
+                      ) : votingCycleExpired ? (
+                        <Button
+                          onClick={() => setWinningBookSuggestions([])}
+                          size="sm"
+                          variant="outline"
+                          className="rounded-full h-7 text-secondary bg-secondary/10"
+                        >
+                          Clear Results
                         </Button>
                       ) : (
                         <Button

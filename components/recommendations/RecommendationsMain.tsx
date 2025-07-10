@@ -208,14 +208,6 @@ export function RecommendationsMain({ onClose }: RecommendationsMainProps) {
 
   return (
     <div className="flex flex-col">
-      {/* Header */}
-      <div className="flex flex-col items-center justify-between mb-6 mt-5">
-        <div>
-          <h2 className="text-xl font-semibold text-center text-bookWhite">Book Recommendations</h2>
-          <p className="text-sm text-bookWhite font-serif text-center">Share and discover great reads with friends</p>
-        </div>
-      </div>
-
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <div className="flex justify-center">

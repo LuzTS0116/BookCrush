@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { useRouter } from "next/navigation"
 
 // Re-define these with consistent types matching Prisma enums
 const statuses: StatusDisplay[] = [
@@ -388,6 +389,9 @@ export default function DashboardReading() {
   });
   const [isSubmittingFinishedReview, setIsSubmittingFinishedReview] = useState(false);
 
+  const router = useRouter();
+
+
   // Function to fetch books from the API
   const fetchBooks = async (shelf: UserBook['shelf']) => {
     // Don't make API call if we don't have authentication
@@ -428,10 +432,10 @@ export default function DashboardReading() {
   // useEffect to fetch books when the component mounts or the activeTab changes
   useEffect(() => {
     // Only fetch books if session is loaded and we have an access token
-    
+    if (session?.supabaseAccessToken) {
       fetchBooks(activeTab);
-    
-  }, [session?.supabaseAccessToken]); // Dependency array: re-run when activeTab, session status, or token changes
+    }
+  }, [activeTab, session?.supabaseAccessToken]); // Dependency array: re-run when activeTab, session status, or token changes
 
   // Function to handle personal note updates
   const handleNoteUpdate = async (bookId: string, shelf: UserBook['shelf']) => {
@@ -955,6 +959,10 @@ export default function DashboardReading() {
       fetchBooks("currently_reading"); // Re-fetch currently reading to restore the book
     }
   };
+  
+  const handleGoToLibrary = () => {
+    router.push('/books'); // Navigate to the friends page where the full activity is shown
+  };
 
   // Functions to handle confirmation dialogs
   const showRemoveConfirmation = (bookId: string, bookTitle: string, shelf: 'currently_reading' | 'queue') => {
@@ -1022,9 +1030,19 @@ export default function DashboardReading() {
               ) : error ? (
                 <div className="text-center py-8 text-red-500">Error: {error}</div>
               ) : currentlyReadingBooks.length === 0 ? (
-                <p className="col-span-full text-center text-muted-foreground py-8">
-                  No books currently reading.
-                </p>
+                <div className="py-4 px-7">
+                  <p className="col-span-full text-sm text-center text-bookWhite mb-2">No books in your “Currently Reading” shelf.</p>
+                  <p className="col-span-full text-sm leading-4 text-center font-thin text-bookWhite/70">Need some inspiration? Head to the shared library to pick your next read!</p>
+                  <div className="flex justify-center">
+                    <Button 
+                      variant="outline" 
+                      className="rounded-full border-none bg-primary mt-3 text-secondary"
+                      onClick={handleGoToLibrary}
+                    >
+                      Shared Library 
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -1278,9 +1296,19 @@ export default function DashboardReading() {
               ) : error ? (
                 <div className="text-center py-8 text-red-500">Error: {error}</div>
               ) : queueBooks.length === 0 ? (
-                <p className="col-span-full text-center text-muted-foreground py-8">
-                  No books in reading queue.
-                </p>
+                <div className="py-4 px-7">
+                  <p className="col-span-full text-sm text-center text-bookWhite mb-2">Your reading queue is empty.</p>
+                  <p className="col-span-full text-sm leading-4 text-center font-thin text-bookWhite/70">Head to the shared library and queue up a few reads to keep your bookshelf flowing with stories!</p>
+                  <div className="flex justify-center">
+                    <Button 
+                      variant="outline" 
+                      className="rounded-full border-none bg-primary mt-3 text-secondary"
+                      onClick={handleGoToLibrary}
+                    >
+                      Shared Library 
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

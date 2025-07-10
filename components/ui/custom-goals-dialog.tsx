@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Loader2, Target, BookOpen, Calendar, Trophy, Plus, X } from "lucide-react";
+import { Loader2, Target, BookOpen, Calendar, Trophy, Plus, X, EllipsisVertical } from "lucide-react";
 import { toast } from "sonner";
 import { AchievementCard } from './achievement-card';
 import Image from "next/image";
 import { useSession } from 'next-auth/react';
+import { Separator } from '@radix-ui/react-dropdown-menu';
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
 interface CustomGoal {
   id: string;
@@ -50,6 +52,17 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
   const [timePeriod, setTimePeriod] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState<Record<string, boolean>>({});
 
+  // Confirmation dialog state
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    goalId: string | null;
+    goalName: string | null;
+  }>({
+    isOpen: false,
+    goalId: null,
+    goalName: null
+  });
+
   // Fetch existing goals
   useEffect(() => {
     if (open) {
@@ -78,6 +91,7 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
       
       const data = await response.json();
       setGoals(data);
+      console.log("goals data: ", data);
     } catch (err) {
       console.error('Error fetching goals:', err);
       toast.error('Failed to load goals');
@@ -144,16 +158,32 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
     }
   };
 
-  const handleDeleteGoal = async (goalId: string) => {
-    if (!session?.supabaseAccessToken) {
+  const showDeleteConfirmation = (goalId: string, goalName: string) => {
+    setDeleteConfirmation({
+      isOpen: true,
+      goalId,
+      goalName
+    });
+  };
+
+  const cancelDeleteConfirmation = () => {
+    setDeleteConfirmation({
+      isOpen: false,
+      goalId: null,
+      goalName: null
+    });
+  };
+
+  const handleDeleteGoal = async () => {
+    if (!session?.supabaseAccessToken || !deleteConfirmation.goalId) {
       toast.error('Authentication required');
       return;
     }
 
     try {
-      setIsDeleting(prev => ({ ...prev, [goalId]: true }));
+      setIsDeleting(prev => ({ ...prev, [deleteConfirmation.goalId!]: true }));
       
-      const response = await fetch(`/api/achievements/custom-goals/${goalId}`, {
+      const response = await fetch(`/api/achievements/custom-goals/${deleteConfirmation.goalId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${session.supabaseAccessToken}`,
@@ -165,13 +195,14 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
         throw new Error('Failed to delete goal');
       }
 
-      setGoals(prev => prev.filter(goal => goal.id !== goalId));
+      setGoals(prev => prev.filter(goal => goal.id !== deleteConfirmation.goalId));
       toast.success('Goal deleted successfully');
+      cancelDeleteConfirmation();
     } catch (err: any) {
       console.error('Error deleting goal:', err);
       toast.error('Failed to delete goal');
     } finally {
-      setIsDeleting(prev => ({ ...prev, [goalId]: false }));
+      setIsDeleting(prev => ({ ...prev, [deleteConfirmation.goalId!]: false }));
     }
   };
 
@@ -189,10 +220,9 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-[500px] w-[95vw] max-h-[85vh] p-6 overflow-hidden">
+      <DialogContent className="max-w-[500px] w-[85vw] max-h-[80vh] px-4 py-5 overflow-hidden">
         <DialogHeader className="relative z-20">
-          <DialogTitle className="text-bookWhite flex items-center gap-2">
-            <Target className="h-5 w-5" />
+          <DialogTitle className="text-bookWhite pt-3">
             Reading Goals
           </DialogTitle>
           <DialogDescription className="text-bookWhite/80 font-serif">
@@ -201,7 +231,7 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
         </DialogHeader>
         
         {/* Background Image */}
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-[-1]">
           <Image 
             src="/images/background.png"
             alt="Reading Goals | BookCrush"
@@ -222,41 +252,58 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
               {/* Existing Goals */}
               {goals.length > 0 && (
                 <div className="space-y-3">
-                  <h3 className="text-bookWhite font-medium flex items-center gap-2">
-                    <Trophy className="h-4 w-4" />
-                    Current Goals
-                  </h3>
                   {goals.map((goal) => (
                     <div key={goal.id} className="relative">
-                      <AchievementCard
-                        achievement={{
-                          id: goal.id,
-                          name: goal.name,
-                          description: goal.description,
-                          icon: '🎯',
-                          category: 'READING_MILESTONE',
-                          difficulty: 'GOLD',
-                          points: 0,
-                          current_value: goal.progress.current_value,
-                          target_value: goal.progress.target_value,
-                          progress_percentage: goal.progress.progress_percentage,
-                        }}
-                        isEarned={false}
-                        showProgress={true}
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteGoal(goal.id)}
-                        disabled={isDeleting[goal.id]}
-                        className="absolute top-2 right-2 h-6 w-6 p-0 bg-red-500/80 hover:bg-red-600 border-red-400 text-white"
-                      >
-                        {isDeleting[goal.id] ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <X className="h-3 w-3" />
-                        )}
-                      </Button>
+                      <div className="[&_.achievement-icon]:text-3xl">
+                        <AchievementCard
+                          achievement={{
+                            id: goal.id,
+                            name: goal.name,
+                            description: goal.description,
+                            icon: '🎯',
+                            category: 'READING_MILESTONE',
+                            difficulty: 'GOLD',
+                            points: 0,
+                            current_value: goal.progress.current_value,
+                            target_value: goal.progress.target_value,
+                            progress_percentage: goal.progress.progress_percentage,
+                          }}
+                          isEarned={false}
+                          showProgress={true}
+                        />
+                      </div>
+                      
+                      {/* 3-dots dropdown menu - positioned in top-right */}
+                      <DropdownMenu.Root>
+                        <DropdownMenu.Trigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="absolute top-2 right-2 text-xs flex items-center px-1 py-1 rounded-full h-6 w-6 bg-transparent border border-none hover:bg-bookWhite z-10"
+                            disabled={isDeleting[goal.id]}
+                          >
+                            {isDeleting[goal.id] ? (
+                              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                            ) : (
+                              <EllipsisVertical className="h-3 w-3 text-secondary/60" />
+                            )}
+                          </Button>
+                        </DropdownMenu.Trigger>
+
+                        <DropdownMenu.Content
+                          className="w-auto min-w-[120px] rounded-xl bg-bookWhite shadow-xl p-1 border border-gray-200 z-[100]"
+                          sideOffset={5}
+                          align="end"
+                        >
+                          <DropdownMenu.Item
+                            onSelect={() => showDeleteConfirmation(goal.id, goal.name)}
+                            className="px-3 py-2 text-xs text-center bg-red-700/90 text-bookWhite rounded-md cursor-pointer hover:bg-red-600 focus:bg-red-600 focus:outline-none transition-colors"
+                            disabled={isDeleting[goal.id]}
+                          >
+                            Delete Goal
+                          </DropdownMenu.Item>
+                        </DropdownMenu.Content>
+                      </DropdownMenu.Root>
                     </div>
                   ))}
                 </div>
@@ -264,31 +311,32 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
 
               {/* Create New Goal */}
               {!showCreateForm ? (
-                <Button
-                  onClick={() => setShowCreateForm(true)}
-                  className="w-full bg-accent/80 hover:bg-accent text-secondary flex items-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Create New Goal
-                </Button>
+                <div className='flex justify-center'>
+                  <Button
+                    onClick={() => setShowCreateForm(true)}
+                    className="rounded-full bg-accent/80 hover:bg-accent text-secondary flex items-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create New Goal
+                  </Button>
+                </div>
               ) : (
                 <div className="bg-bookWhite/10 backdrop-blur-sm rounded-lg p-4 space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-bookWhite font-medium flex items-center gap-2">
-                      <Plus className="h-4 w-4" />
+                    <h3 className="text-bookWhite font-medium flex items-center">
                       Create New Goal
                     </h3>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setShowCreateForm(false)}
-                      className="h-6 w-6 p-0 bg-transparent border-bookWhite/20 text-bookWhite hover:bg-bookWhite/10"
+                      className="h-8 w-8 p-0 bg-transparent border-bookWhite/20 text-bookWhite hover:bg-bookWhite/10 rounded-full flex items-center justify-center shrink-0"
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-4 w-4" />
                     </Button>
                   </div>
 
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <div>
                       <Label htmlFor="target-books" className="text-bookWhite/90 text-sm">
                         Number of Books
@@ -323,33 +371,34 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
                       </Select>
                     </div>
 
-                    <Button
-                      onClick={handleCreateGoal}
-                      disabled={creating}
-                      className="w-full bg-accent hover:bg-accent-variant text-secondary"
-                    >
-                      {creating ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Creating...
-                        </>
-                      ) : (
-                        <>
-                          <Target className="mr-2 h-4 w-4" />
-                          Create Goal
-                        </>
-                      )}
-                    </Button>
+                    <div className='flex justify-end'>
+                      <Button
+                        onClick={handleCreateGoal}
+                        disabled={creating}
+                        className="rounded-full bg-accent hover:bg-accent-variant text-secondary mt-2 border-none"
+                      >
+                        {creating ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          <>
+                            Create Goal
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Empty State */}
               {goals.length === 0 && !showCreateForm && (
-                <div className="text-center py-8">
-                  <BookOpen className="h-12 w-12 text-bookWhite/60 mx-auto mb-4" />
-                  <h3 className="text-bookWhite font-medium mb-2">No Reading Goals Yet</h3>
-                  <p className="text-bookWhite/70 text-sm mb-4">
+                <div className="text-center py-4">
+                  <BookOpen className="h-12 w-12 text-bookWhite/40 mx-auto mb-1" />
+                  <h3 className="text-bookWhite/60 font-medium mb-1">No Reading Goals Yet</h3>
+                  <p className="text-bookWhite/45 font-serif text-sm leading-4 mb-4">
                     Set a personal reading goal to track your progress and stay motivated!
                   </p>
                 </div>
@@ -358,6 +407,41 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
           )}
         </div>
       </DialogContent>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmation.isOpen} onOpenChange={cancelDeleteConfirmation}>
+        <DialogContent className="w-[70vw] max-w-[300px] p-0">
+          <DialogHeader className='px-2 pt-9'>
+            <DialogTitle>Delete Reading Goal</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the {deleteConfirmation.goalName}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className='px-2 pb-4 flex justify-center'>
+            <Button
+              variant="outline"
+              onClick={cancelDeleteConfirmation}
+              disabled={isDeleting[deleteConfirmation.goalId || '']}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteGoal}
+              disabled={isDeleting[deleteConfirmation.goalId || '']}
+            >
+              {isDeleting[deleteConfirmation.goalId || ''] ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Goal'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 } 

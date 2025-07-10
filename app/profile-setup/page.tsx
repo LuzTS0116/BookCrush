@@ -254,7 +254,19 @@ export default function ProfileSetupPage() {
       setName(nicknameFromUrl); // Use nickname as initial display name
       setNickname(nicknameFromUrl); // Also set the nickname field
     }
-  }, [searchParams]);
+    
+    // Pre-populate with Google data if available
+    if (session?.googleData) {
+      if (session.googleData.name && !name) {
+        setName(session.googleData.name);
+        setNickname(session.googleData.name.split(' ')[0] || session.googleData.name);
+      }
+      if (session.googleData.avatar_url && !profilePicturePreview) {
+        setProfilePicturePreview(session.googleData.avatar_url);
+        setAvatarUrl(session.googleData.avatar_url);
+      }
+    }
+  }, [searchParams, session]);
 
   // Cleanup profile picture preview URL
   useEffect(() => {

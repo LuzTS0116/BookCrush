@@ -9,6 +9,10 @@ declare module "next-auth" {
     supabaseAccessToken?: string
     supabaseRefreshToken?: string
     profileComplete?: boolean
+    googleData?: {
+      name?: string
+      avatar_url?: string
+    }
   }
 
   interface User extends DefaultUser {
@@ -28,5 +32,9 @@ declare module "next-auth/jwt" {
       refresh_token: string
     }
     profileComplete?: boolean
+    googleData?: {
+      name?: string
+      avatar_url?: string
+    }
   }
 } 
