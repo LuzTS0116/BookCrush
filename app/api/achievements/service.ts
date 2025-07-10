@@ -1,5 +1,18 @@
 import { PrismaClient } from '@prisma/client';
-import { AchievementCriteria } from '../../../prisma/seed-achievements';
+
+interface AchievementCriteria {
+  type: 'books_read' | 'genre_diversity' | 'social_activity' | 'club_participation' | 'reviews_written' | 'recommendations_sent' | 'special_event';
+  threshold?: number;
+  timeframe?: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'all_time';
+  conditions?: {
+    genre_count?: number;
+    activity_types?: string[];
+    club_actions?: string[];
+    review_rating?: 'positive' | 'any';
+    book_pages_min?: number;
+    event_type?: string;
+  };
+}
 
 const prisma = new PrismaClient();
 
