@@ -483,6 +483,13 @@ enum ClubMeetingType {
   @@schema("public")
 }
 
+enum ClubMeetingMode {
+  IN_PERSON
+  VIRTUAL
+
+  @@schema("public")
+}
+
 // New model for Club Meetings
 model ClubMeeting {
   id               String            @id @default(uuid()) @db.Uuid
@@ -492,7 +499,8 @@ model ClubMeeting {
   description      String?
   meeting_date     DateTime          @db.Timestamptz(6)
   duration_minutes Int?              @default(90) // Default 90 minutes
-  location         String?           // "Virtual (Zoom)" or physical address
+  location         String?           // Physical address for in-person or meeting URL for virtual
+  meeting_mode     ClubMeetingMode   @default(IN_PERSON)
   meeting_type     ClubMeetingType   @default(DISCUSSION)
   status           ClubMeetingStatus @default(SCHEDULED)
   created_by       String            @db.Uuid // Profile ID of who created the meeting

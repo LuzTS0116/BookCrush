@@ -432,8 +432,10 @@ const handleClickShare = async () => {
                     </Link>
                   ) : (
                     <div>
-                      <div className="text-xl font-bold">No meetings</div>
-                      <p className="text-xs text-bookBlack">No upcoming meetings scheduled</p>
+                      <div className="text-xl font-bold leading-6">No meetings</div>
+                      <Link href={`/clubs`}>
+                        <p className="text-xs text-bookBlack/80 px-3 py-0.5 rounded-full inline-block bg-bookWhite/80 cursor-pointer hover:bg-bookWhite hover:text-bookBlack">join a club!</p>
+                      </Link>
                     </div>
                   )}
                 </CardContent>
@@ -533,7 +535,7 @@ const handleClickShare = async () => {
           {/* Custom Goals Section */}
           {customGoals.length > 0 && (
             <Card className="bg-accent-variant text-bookWhite rounded-b-2xl">
-              <CardContent className="px-4 py-2">
+              <CardContent className="px-3 py-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {customGoals.slice(0, 3).map((goal) => (
                     <div key={goal.id}>

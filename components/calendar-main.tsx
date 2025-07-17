@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import Image from "next/image"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import Link from "next/link"
-import { BookOpen, CalendarDays, Clock, Plus, Users, Loader2, MapPin } from "lucide-react"
+import { BookOpen, CalendarDays, Clock, Plus, Users, Loader2, MapPin, Link2 } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,7 @@ interface ClubMeeting {
   date: string;
   duration_minutes?: number;
   location?: string;
+  meeting_mode: string;
   meeting_type: string;
   status: string;
   club: {
@@ -90,6 +91,10 @@ export default function CalendarMain() {
   const [loading, setLoading] = useState(true)
   const [creatingMeeting, setCreatingMeeting] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingMeeting, setEditingMeeting] = useState<ClubMeeting | null>(null)
+  const [updatingMeeting, setUpdatingMeeting] = useState(false)
+  const [deletingMeetingId, setDeletingMeetingId] = useState<string | null>(null)
   
   // Form state
   const [formData, setFormData] = useState({
@@ -99,6 +104,7 @@ export default function CalendarMain() {
     meeting_time: '',
     duration_minutes: 90,
     location: '',
+    meeting_mode: 'IN_PERSON',
     meeting_type: 'DISCUSSION',
     club_id: '',
     book_id: ''
@@ -205,6 +211,7 @@ export default function CalendarMain() {
           meeting_date: meetingDateTime.toISOString(),
           duration_minutes: formData.duration_minutes,
           location: formData.location,
+          meeting_mode: formData.meeting_mode,
           meeting_type: formData.meeting_type,
           book_id: formData.book_id === 'none' ? null : formData.book_id || null
         }),
@@ -224,6 +231,7 @@ export default function CalendarMain() {
         meeting_time: '',
         duration_minutes: 90,
         location: '',
+        meeting_mode: 'IN_PERSON',
         meeting_type: 'DISCUSSION',
         club_id: '',
         book_id: ''
@@ -236,6 +244,120 @@ export default function CalendarMain() {
       toast.error(error.message || 'Failed to create meeting');
     } finally {
       setCreatingMeeting(false);
+    }
+  };
+
+  // Handle opening edit dialog
+  const handleEditMeeting = (meeting: ClubMeeting) => {
+    setEditingMeeting(meeting);
+    
+    // Pre-populate form with existing meeting data
+    const meetingDate = new Date(meeting.date);
+    const dateString = meetingDate.toISOString().split('T')[0];
+    const timeString = meetingDate.toTimeString().slice(0, 5);
+    
+    setFormData({
+      title: meeting.title || '',
+      description: meeting.description || '',
+      meeting_date: dateString,
+      meeting_time: timeString,
+      duration_minutes: meeting.duration_minutes || 90,
+      location: meeting.location || '',
+      meeting_mode: meeting.meeting_mode || 'IN_PERSON',
+      meeting_type: meeting.meeting_type,
+      club_id: meeting.club.id,
+      book_id: meeting.book?.id || ''
+    });
+    
+    setIsEditDialogOpen(true);
+  };
+
+  // Handle updating meeting
+  const handleUpdateMeeting = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMeeting || !formData.club_id || !formData.title || !formData.meeting_date || !formData.meeting_time) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setUpdatingMeeting(true);
+    try {
+      const meetingDateTime = new Date(`${formData.meeting_date}T${formData.meeting_time}`);
+      
+      const response = await fetch(`/api/clubs/${formData.club_id}/meetings/${editingMeeting.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          meeting_date: meetingDateTime.toISOString(),
+          duration_minutes: formData.duration_minutes,
+          location: formData.location,
+          meeting_mode: formData.meeting_mode,
+          meeting_type: formData.meeting_type,
+          book_id: formData.book_id === 'none' ? null : formData.book_id || null
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update meeting');
+      }
+
+      toast.success('Meeting updated successfully!');
+      setIsEditDialogOpen(false);
+      setEditingMeeting(null);
+      setFormData({
+        title: '',
+        description: '',
+        meeting_date: '',
+        meeting_time: '',
+        duration_minutes: 90,
+        location: '',
+        meeting_mode: 'IN_PERSON',
+        meeting_type: 'DISCUSSION',
+        club_id: '',
+        book_id: ''
+      });
+      
+      // Refresh meetings
+      await fetchMeetings();
+    } catch (error: any) {
+      console.error('Error updating meeting:', error);
+      toast.error(error.message || 'Failed to update meeting');
+    } finally {
+      setUpdatingMeeting(false);
+    }
+  };
+
+  // Handle deleting meeting
+  const handleDeleteMeeting = async (meeting: ClubMeeting) => {
+    // Show confirmation dialog
+    const confirmed = confirm(`Are you sure you want to cancel "${meeting.title}"? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    setDeletingMeetingId(meeting.id);
+    try {
+      const response = await fetch(`/api/clubs/${meeting.club.id}/meetings/${meeting.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to cancel meeting');
+      }
+
+      toast.success('Meeting cancelled successfully!');
+      
+      // Refresh meetings
+      await fetchMeetings();
+    } catch (error: any) {
+      console.error('Error cancelling meeting:', error);
+      toast.error(error.message || 'Failed to cancel meeting');
+    } finally {
+      setDeletingMeetingId(null);
     }
   };
 
@@ -287,6 +409,9 @@ export default function CalendarMain() {
     }
   };
 
+  const getSafeUrl = (url: string) =>
+  url.startsWith("http://") || url.startsWith("https://") ? url : `https://${url}`;
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -305,7 +430,7 @@ export default function CalendarMain() {
           <div className="flex flex-col md:flex-row justify-between gap-4">
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-bookWhite">Calendar</h1>
-              <p className="text-bookWhite font-serif text-base/5">Track what’s next on your reading journey. Schedule and manage your book club meetings. <span className="text-xs italic text-bookWhite/40">* Only book club admins can schedule meetings.</span></p>
+              <p className="text-bookWhite font-serif text-base/5">Track what’s next on your reading journey. Schedule and manage your book club meetings. <span className="text-xs italic text-bookWhite/40">* Only book club admins or owners can schedule meetings.</span></p>
             </div>
             <div className="flex items-center gap-2">
               {userClubs.length > 0 ? (
@@ -430,6 +555,22 @@ export default function CalendarMain() {
                             </Select>
                           </div>
                           
+                          <div className="grid gap-2">
+                            <Label htmlFor="meeting_mode">Meeting Mode</Label>
+                            <Select 
+                              value={formData.meeting_mode} 
+                              onValueChange={(value) => setFormData(prev => ({ ...prev, meeting_mode: value, location: '' }))}
+                            >
+                              <SelectTrigger id="meeting_mode">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="IN_PERSON">In Person</SelectItem>
+                                <SelectItem value="VIRTUAL">Virtual</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          
                           {formData.club_id && userClubs.find(c => c.id === formData.club_id)?.current_book && (
                             <div className="grid gap-2">
                               <Label htmlFor="book">Book</Label>
@@ -457,10 +598,16 @@ export default function CalendarMain() {
                           )}
                           
                           <div className="grid gap-2">
-                            <Label htmlFor="location">Location</Label>
+                            <Label htmlFor="location">
+                              {formData.meeting_mode === 'VIRTUAL' ? 'Meeting URL' : 'Location'}
+                            </Label>
                             <Input 
                               id="location" 
-                              placeholder="Virtual (Zoom) or physical address"
+                              placeholder={
+                                formData.meeting_mode === 'VIRTUAL' 
+                                  ? "Zoom, Google Meet, or other meeting link" 
+                                  : "Physical address or venue"
+                              }
                               value={formData.location}
                               onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
                               className="bg-bookWhite text-secondary"
@@ -496,11 +643,218 @@ export default function CalendarMain() {
                 </Dialog>
               ) : (
                 <div className="text-sm text-muted-foreground">
-                  You need to be an admin or owner of a club to schedule meetings.
+                  
                 </div>
               )}
             </div>
           </div>
+
+          {/* Edit Meeting Dialog */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="w-[85vw] rounded-2xl px-1">
+              <Image 
+                src="/images/background.png"
+                alt="Create and Manage your Book Clubs | BookCrush"
+                width={1622}
+                height={2871}
+                className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+              />
+              <DialogHeader className="text-bookWhite">
+                <DialogTitle className="pt-5">Edit Book Club Meeting</DialogTitle>
+                <DialogDescription>Update the details for your book club meeting.</DialogDescription>
+              </DialogHeader>
+
+              <ScrollArea className="h-[60vh] pr-1 pl-2 px-5 w-auto">
+                <form onSubmit={handleUpdateMeeting}>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="edit-club">Club *</Label>
+                      <Select 
+                        value={formData.club_id} 
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, club_id: value, book_id: '' }))}
+                        disabled={true} // Club shouldn't be changeable when editing
+                      >
+                        <SelectTrigger id="edit-club">
+                          <SelectValue placeholder="Select club" className="font-medium placeholder:font-normal"/>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {userClubs.map(club => (
+                            <SelectItem key={club.id} value={club.id} className="font-medium placeholder:font-normal">{club.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="grid gap-2">
+                      <Label htmlFor="edit-title">Meeting Title</Label>
+                      <Input 
+                        id="edit-title" 
+                        placeholder="Enter meeting title"
+                        value={formData.title}
+                        onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                        className="bg-bookWhite/90 text-secondary"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-12">
+                      <div className="grid gap-1">
+                        <Label htmlFor="edit-date">Date *</Label>
+                        <Input 
+                          id="edit-date" 
+                          type="date"
+                          value={formData.meeting_date}
+                          onChange={(e) => setFormData(prev => ({ ...prev, meeting_date: e.target.value }))}
+                          className="bg-bookWhite text-secondary placeholder:text-secondary/50"
+                          required
+                        />
+                      </div>
+                      <div className="grid gap-1">
+                        <Label htmlFor="edit-time">Time *</Label>
+                        <Input 
+                          id="edit-time" 
+                          type="time"
+                          value={formData.meeting_time}
+                          onChange={(e) => setFormData(prev => ({ ...prev, meeting_time: e.target.value }))}
+                          className="bg-bookWhite text-secondary"
+                          required
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid gap-2">
+                      <Label htmlFor="edit-duration">Duration (minutes)</Label>
+                      <Select 
+                        value={formData.duration_minutes.toString()} 
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, duration_minutes: parseInt(value) }))}
+                      >
+                        <SelectTrigger id="edit-duration">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="60">1 hour</SelectItem>
+                          <SelectItem value="90">1.5 hours</SelectItem>
+                          <SelectItem value="120">2 hours</SelectItem>
+                          <SelectItem value="150">2.5 hours</SelectItem>
+                          <SelectItem value="180">3 hours</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="grid gap-2">
+                      <Label htmlFor="edit-meeting_type">Meeting Type</Label>
+                      <Select 
+                        value={formData.meeting_type} 
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, meeting_type: value }))}
+                      >
+                        <SelectTrigger id="edit-meeting_type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="DISCUSSION">Book Discussion</SelectItem>
+                          <SelectItem value="BOOK_SELECTION">Book Selection</SelectItem>
+                          <SelectItem value="AUTHOR_QA">Author Q&A</SelectItem>
+                          <SelectItem value="SOCIAL">Social Meeting</SelectItem>
+                          <SelectItem value="OTHER">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="grid gap-2">
+                      <Label htmlFor="edit-meeting_mode">Meeting Mode</Label>
+                      <Select 
+                        value={formData.meeting_mode} 
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, meeting_mode: value, location: '' }))}
+                      >
+                        <SelectTrigger id="edit-meeting_mode">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="px-3">
+                          <SelectItem value="IN_PERSON" className="not-italic">In Person</SelectItem>
+                          <SelectItem value="VIRTUAL" className="not-italic">Virtual</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {formData.club_id && userClubs.find(c => c.id === formData.club_id)?.current_book && (
+                      <div className="grid gap-2">
+                        <Label htmlFor="edit-book">Book</Label>
+                        <Select 
+                          value={formData.book_id} 
+                          onValueChange={(value) => setFormData(prev => ({ ...prev, book_id: value }))}
+                        >
+                          <SelectTrigger id="edit-book">
+                            <SelectValue placeholder="Select book" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No specific book</SelectItem>
+                            {(() => {
+                              const selectedClub = userClubs.find(c => c.id === formData.club_id);
+                              const currentBook = selectedClub?.current_book;
+                              return currentBook ? (
+                                <SelectItem key={currentBook.id} value={currentBook.id}>
+                                  {currentBook.title} {currentBook.author && `by ${currentBook.author}`}
+                                </SelectItem>
+                              ) : null;
+                            })()}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    
+                    <div className="grid gap-2">
+                      <Label htmlFor="edit-location">
+                        {formData.meeting_mode === 'VIRTUAL' ? 'Meeting URL' : 'Location'}
+                      </Label>
+                      <Input 
+                        id="edit-location" 
+                        placeholder={
+                          formData.meeting_mode === 'VIRTUAL' 
+                            ? "Zoom, Google Meet, or other meeting link" 
+                            : "Physical address or venue"
+                        }
+                        value={formData.location}
+                        onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                        className="bg-bookWhite text-secondary"
+                      />
+                    </div>
+                    
+                    <div className="grid gap-2">
+                      <Label htmlFor="edit-description">Description</Label>
+                      <Textarea 
+                        id="edit-description" 
+                        placeholder="Enter meeting details, discussion points, etc."
+                        value={formData.description}
+                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                        className="bg-bookWhite text-secondary font-serif font-medium italic text-sm placeholder:text-secondary/40 placeholder:font-normal"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button 
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsEditDialogOpen(false)}
+                      className="bg-secondary/20 text-bookWhite rounded-full" 
+                      disabled={updatingMeeting}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" className="bg-primary hover:bg-primary-light rounded-full" disabled={updatingMeeting}>
+                      {updatingMeeting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        'Update Meeting'
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </ScrollArea>
+            </DialogContent>
+          </Dialog>
 
           <div className="grid gap-6 md:grid-cols-[300px_1fr]">
             <Card className="bg-secondary-light/35 rounded-xl">
@@ -569,7 +923,7 @@ export default function CalendarMain() {
                               )}
                               </div>
                             <Badge variant="secondary" className="w-fit ml-1">
-                              {meeting.meeting_type.replace('_', ' ')}
+                              {meeting.meeting_mode.replace('_', ' ')}
                             </Badge>
                           </div>
                           <div className="flex flex-row gap-2 items-center">
@@ -592,19 +946,28 @@ export default function CalendarMain() {
                               })}</span>
                               <span className="flex items-center leading-4 text-sm font-serif font-normal"><Clock className="w-3 h-3 mr-1 text-accent-variant"/>{formatMeetingDateTime(meeting.date, meeting.duration_minutes)}</span>
                               {meeting.location && (
-                                <span className="flex items-center leading-4 text-sm font-serif font-normal"><MapPin className="w-3 h-3 mr-1 text-accent-variant"/>{meeting.location}</span>
+                                <span className="flex items-center leading-4 text-sm font-serif font-normal">
+                                  {meeting.meeting_mode === 'VIRTUAL' ? <Link2 className="w-3 h-3 mr-1 text-accent-variant"/> : <MapPin className="w-3 h-3 mr-1 text-accent-variant"/>}
+                                  {meeting.meeting_mode === 'VIRTUAL' ? (
+                                    <a href={getSafeUrl(meeting.location)} target="_blank" rel="noopener noreferrer" className="cursor-pointer underline">Meeting link here!</a>
+                                    ) : (
+                                      <span>{meeting.location}</span>
+                                    ) }
+                                </span>
                               )}
                             </div>
                           </div>
 
                           <div className="md:w-3/4 mt-2">
 
+                            <p className="py-1 pl-2 pr-2.5 rounded-r-full bg-secondary/10 text-secondary/50 font-semibold text-xs leading-3 mb-1 inline-block">{meeting.meeting_type.replace('_', ' ')}</p>
+
                             <div className="flex flex-col md:flex-row justify-between">
-                              <h3 className="font-semibold text-base leading-none">{meeting.title}</h3>
+                              <h3 className="font-semibold text-sm leading-none">{meeting.title}</h3>
                             </div>
 
                             {meeting.description && (
-                              <p className="text-sm text-secondary/50 font-serif font-medium leading-4 mb-3">{meeting.description}</p>
+                              <p className="text-xs text-secondary/50 font-serif font-medium leading-3 mb-3">{meeting.description}</p>
                             )}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-1">
@@ -627,9 +990,39 @@ export default function CalendarMain() {
                             </div>
 
                             <div className="flex items-end justify-end">
-                              <p className="text-xs text-muted-foreground">
-                                Created by {meeting.creator.display_name}
-                              </p>
+                              <div className="flex items-center justify-between w-full">
+                                <p className="text-xs text-secondary/40">
+                                  Created by {meeting.creator.display_name}
+                                </p>
+                                {meeting.is_creator && (
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleEditMeeting(meeting)}
+                                      className="h-7 px-3 text-xs rounded-full text-bookWhite bg-secondary/70 hover:bg-secondary"
+                                    >
+                                      Edit
+                                    </Button>
+                                    <Button
+                                      variant="destructive"
+                                      size="sm"
+                                      onClick={() => handleDeleteMeeting(meeting)}
+                                      disabled={deletingMeetingId === meeting.id}
+                                      className="h-7 px-3 text-xs rounded-full bg-red-800/70  hover:bg-red-800"
+                                    >
+                                      {deletingMeetingId === meeting.id ? (
+                                        <>
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                          Cancelling...
+                                        </>
+                                      ) : (
+                                        'Cancel'
+                                      )}
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
                               {/* <Badge 
                                 variant={meeting.user_attendance_status === 'ATTENDING' ? 'default' : 'outline'}
                                 className="text-xs text-secondary"

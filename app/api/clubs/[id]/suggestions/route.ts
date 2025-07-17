@@ -78,7 +78,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       reason: suggestion.reason,
       vote_count: suggestion.votes.length,
       has_voted: suggestion.votes.some(vote => vote.user.id === user.id),
-      voting_ends: suggestion.voting_ends,
+      //voting_ends: suggestion.voting_ends,
       created_at: suggestion.created_at
     }));
 
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         book_id: book_id,
         suggested_by: user.id,
         reason: reason || null,
-        voting_ends: votingEnds
+        //voting_ends: votingEnds
       },
       include: {
         book: {
@@ -193,7 +193,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       reason: suggestion.reason,
       vote_count: 0,
       has_voted: false,
-      voting_ends: suggestion.voting_ends,
+      //voting_ends: suggestion.voting_ends,
       created_at: suggestion.created_at
     }, { status: 201 });
 

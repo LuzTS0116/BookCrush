@@ -11,6 +11,7 @@ import { ExplorableUser, UserProfileMinimal } from '@/types/social';
 import { useSession } from 'next-auth/react';
 import { AddFriendButton } from '@/components/social/add-friend-button';
 import { ActivityFeed } from './activity-feed';
+import Link from 'next/link';
 
 // New component for displaying an explorable user profile
 interface ExploreUserCardProps {
@@ -31,17 +32,21 @@ function ExploreUserCard({ user, onFriendRequestSent }: ExploreUserCardProps) {
     <Card className="p-2 flex flex-col bg-bookWhite/5 w-full max-w-xs mx-auto">
     <CardHeader className="flex p-0 items-center">
         <div className="flex items-center justify-center w-20 h-20 rounded-full bg-bookWhite mb-1 overflow-hidden">
-            {user.avatar_url ? (
-              <img 
-                src={user.avatar_url} 
-                alt={user.display_name || 'User'} 
-                className="w-full h-full rounded-full object-cover" 
-              />
-            ) : (
-              <User className="h-6 w-6 text-gray-500" />
-            )}
+            <Link href={`/profile/${user.id}`}>
+              {user.avatar_url ? (
+                <img 
+                  src={user.avatar_url} 
+                  alt={user.display_name || 'User'} 
+                  className="w-full h-full rounded-full object-cover" 
+                />
+              ) : (
+                <User className="h-6 w-6 text-gray-500" />
+              )}
+            </Link>
         </div>
-        <CardTitle className='text-sm/4 font-medium text-bookWhite'>{user.display_name}</CardTitle>
+        <CardTitle className='text-sm/4 font-medium text-bookWhite truncate max-w-full'>
+          <Link href={`/profile/${user.id}`}>{user.display_name}</Link>
+        </CardTitle>
     </CardHeader>
     <CardContent className="flex flex-col p-0 items-center">
         {user.favorite_genres && <p className="text-xs font-serif italic font-normal text-accent truncate max-w-full">{user.favorite_genres}</p>}
@@ -157,7 +162,7 @@ export default function FriendsActivityExplore() {
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-secondary" />
                     <Input
                         placeholder="Search people..."
-                        className="pl-10 rounded-full bg-bookWhite/90 text-primary placeholder:text-primary/70"
+                        className="pl-10 rounded-full bg-bookWhite/90 text-secondary placeholder:text-secondary/50"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -171,7 +176,7 @@ export default function FriendsActivityExplore() {
             ) : exploreUsers.filter(user => user.display_name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
               <p className="text-bookWhite/70 text-center py-10">{searchQuery ? "No users match your search." : "No new users to explore right now."}</p>
             ) : (
-              <div className="grid grid-cols-3 gap-2 bg-transparent mx-2 h-[45vh] overflow-y-auto no-scrollbar rounded-lg p-1">
+              <div className="grid grid-cols-3 gap-2 bg-transparent mx-2 overflow-y-auto no-scrollbar rounded-lg p-1 pb-14">
                 {exploreUsers
                   .filter(user => user.display_name.toLowerCase().includes(searchQuery.toLowerCase()))
                   .map((user) => (

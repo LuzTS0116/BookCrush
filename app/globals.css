@@ -62,3 +62,12 @@
   -webkit-text-fill-color: #faf4e7 !important;            /* your text color */
   transition: background-color 9999s ease-in-out 0s;
 }
+
+input {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+  overflow: visible;
+  text-overflow: clip;
+  font-family: 'Work Sans', sans-serif;
+  font-style: italic;
+}

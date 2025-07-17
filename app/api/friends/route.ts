@@ -150,3 +150,59 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message || "Failed to fetch friend data" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    if (!supabase) {
+      console.error('[API friends] Supabase client not initialized');
+      return NextResponse.json({ error: "Supabase client not initialized. Check server configuration." }, { status: 500 });
+    }
+
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API friends] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+    }
+    const token = authHeader.split(' ')[1];
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error("Auth error or no user:", userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
+    }
+
+    const { friendId } = await req.json();
+
+    if (!friendId) {
+      return NextResponse.json({ error: "Friend ID is required" }, { status: 400 });
+    }
+
+    // Find the friendship record (could be either direction)
+    const friendship = await prisma.friendship.findFirst({
+      where: {
+        OR: [
+          { userId1: user.id, userId2: friendId },
+          { userId1: friendId, userId2: user.id },
+        ],
+      },
+    });
+
+    if (!friendship) {
+      return NextResponse.json({ error: "Friendship not found" }, { status: 404 });
+    }
+
+    // Delete the friendship
+    await prisma.friendship.delete({
+      where: {
+        id: friendship.id,
+      },
+    });
+
+    return NextResponse.json({ message: "Friendship removed successfully" }, { status: 200 });
+
+  } catch (error: any) {
+    console.error("Error removing friendship:", error);
+    return NextResponse.json({ error: error.message || "Failed to remove friendship" }, { status: 500 });
+  }
+}

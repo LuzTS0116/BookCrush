@@ -18,18 +18,18 @@ export default function FriendsPage() {
   const [totalsentRequests, setTotalSentRequests] = useState<number>(0);
 
   const fetchData = async () => {
-      if (sessionStatus !== 'authenticated' || !currentUserId) {
+      if (sessionStatus !== 'authenticated' || !currentUserId || !session?.supabaseAccessToken) {
           return;
-  }
+      }
     // --- Fetch Friends ---
-    const fetchedFriends = (await getFriendsAndRequests('friends')) as Friendship[];
+    const fetchedFriends = (await getFriendsAndRequests('friends', session.supabaseAccessToken)) as Friendship[];
     setTotalFriends(fetchedFriends.length);
 
     // --- Fetch Friend Requests ---
-    const fetchedReceived = (await getFriendsAndRequests('received')) as FriendRequest[];
+    const fetchedReceived = (await getFriendsAndRequests('received', session.supabaseAccessToken)) as FriendRequest[];
     setTotalReceivedRequests(fetchedReceived.length);
 
-    const fetchedSent = (await getFriendsAndRequests('sent')) as FriendRequest[];
+    const fetchedSent = (await getFriendsAndRequests('sent', session.supabaseAccessToken)) as FriendRequest[];
     setTotalSentRequests(fetchedSent.length);
   }
 

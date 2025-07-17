@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FriendRequestCard } from '@/components/social/friend-request-card';
 import { FriendCard } from '@/components/social/friend-card';
-import { getFriendsAndRequests, getExploreUsers } from '@/lib/api-helpers'; // Import getExploreUsers
+import { getFriendsAndRequests, getExploreUsers, cancelFriendRequest } from '@/lib/api-helpers'; // Import getExploreUsers
 import { FriendRequest, Friendship, ExplorableUser, UserProfileMinimal } from '@/types/social'; // Import ExplorableUser
 import { useSession } from 'next-auth/react';
 import { AddFriendButton } from '@/components/social/add-friend-button';
@@ -23,10 +23,8 @@ function ExploreUserCard({ user, onFriendRequestSent }: ExploreUserCardProps) {
   const targetUserForAddFriendButton: UserProfileMinimal = {
     id: user.id,
     email: user.email,
-      display_name: user.display_name
-      // Pass other profile fields if your AddFriendButton or its underlying API expects them
-      // For this example, we only need id and display_name for minimal representation
-    
+    display_name: user.display_name,
+    avatar_url: user.avatar_url || null,
   };
 
   return (
@@ -70,7 +68,7 @@ export default function FriendsMain() {
     setError(null);
     try {
       // --- Fetch Friends ---
-      const fetchedFriends = (await getFriendsAndRequests('friends')) as Friendship[];
+      const fetchedFriends = (await getFriendsAndRequests('friends', session.supabaseAccessToken)) as Friendship[];
       // Transform friendships to include the 'friendUser' directly for FriendCard
       // This assumes your /api/social?type=friends endpoint returns Friendship objects
       // with userA and userB relations populated.
@@ -86,9 +84,8 @@ export default function FriendsMain() {
         const friendUserForCard: UserProfileMinimal = {
           id: friendUserPrisma.id,
           email: friendUserPrisma.email,
-          display_name: friendUserPrisma.display_name,
-            // Only passing minimal info as FriendCard usually doesn't show all
-          
+          display_name: friendUserPrisma.profile?.display_name || friendUserPrisma.email,
+          avatar_url: friendUserPrisma.profile?.avatar_url || null,
         };
 
         
@@ -102,10 +99,10 @@ export default function FriendsMain() {
       setFriends(transformedFriends);
 
       // --- Fetch Friend Requests ---
-      const fetchedReceived = (await getFriendsAndRequests('received')) as FriendRequest[];
+      const fetchedReceived = (await getFriendsAndRequests('received', session.supabaseAccessToken)) as FriendRequest[];
       setReceivedRequests(fetchedReceived);
 
-      const fetchedSent = (await getFriendsAndRequests('sent')) as FriendRequest[];
+      const fetchedSent = (await getFriendsAndRequests('sent', session.supabaseAccessToken)) as FriendRequest[];
       setSentRequests(fetchedSent);
 
       // --- Fetch Explorable Users ---
@@ -147,6 +144,18 @@ export default function FriendsMain() {
   const handleFriendRequestSent = () => {
     // Re-fetch all data to update the 'sent' requests list and remove the user from 'explore'
     fetchData();
+  };
+
+  // Callback to handle canceling a sent friend request
+  const handleCancelRequest = async (requestId: string) => {
+    try {
+      await cancelFriendRequest({ requestId });
+      // Re-fetch data to update the sent requests list
+      fetchData();
+    } catch (error: any) {
+      console.error("Error canceling friend request:", error);
+      setError(error.message || "Failed to cancel request");
+    }
   };
 
   if (sessionStatus === 'loading' || isLoading) {
@@ -239,7 +248,13 @@ export default function FriendsMain() {
                             <div className='flex justify-between w-full items-end'>
                                 <CardDescription className='text-xs/3 text-secondary font-serif'>request sent {formatDate(request.sentAt)}</CardDescription>
                                 <div className=''>
-                                    <Button disabled={isLoading} size="sm" variant="outline" className="rounded-full text-secondary bg-accent/75 hover:bg-accent focus:bg-accent-variant font-serif border-none h-5 font-normal px-2">
+                                    <Button 
+                                        disabled={isLoading} 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="rounded-full text-secondary bg-accent/75 hover:bg-accent focus:bg-accent-variant font-serif border-none h-5 font-normal px-2"
+                                        onClick={() => handleCancelRequest(request.id)}
+                                    >
                                         {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cancel" }
                                     </Button>
                                 </div>

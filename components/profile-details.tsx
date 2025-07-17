@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { BookMarked, ArrowLeft, Smartphone, BookOpen, Headphones, CircleCheckBig, CircleAlert, Star } from "lucide-react"
+import { BookMarked, ArrowLeft, Smartphone, BookOpen, Headphones, CircleCheckBig, CircleAlert, Star, UserMinus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { ProfileBookHistory } from "./profile-book-history";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -20,6 +20,9 @@ import { useSession } from "next-auth/react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Loader2 } from "lucide-react"
 import { LucideHeart, LucideThumbsUp, LucideThumbsDown } from "lucide-react"
+import { AddFriendButton } from '@/components/social/add-friend-button';
+import { UserProfileMinimal } from '@/types/social';
+import { toast } from "sonner";
 
 // Re-define these with consistent types matching Prisma enums
 const statuses: StatusDisplay[] = [
@@ -63,8 +66,10 @@ interface ProfileData {
   avatar_url: string | null;
   about: string | null;
   favorite_genres: string[] | null;
-  userBooks: UserBook[];
-  addedBooks: any[];
+  userBooks?: UserBook[]; // Optional for non-friends
+  addedBooks?: any[]; // Optional for non-friends
+  isFriend: boolean; // New property to track friendship status
+  friendshipStatus: 'NOT_FRIENDS' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'FRIENDS';
   _count: {
     friendshipsAsUser1: number,
     friendshipsAsUser2: number,
@@ -116,32 +121,35 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
   const [addedBooks, setAddedBooks] = useState<BookDetails[]>([])
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isUnfriending, setIsUnfriending] = useState(false);
 
   const router = useRouter();
 
   const {id} = useParams();
 
-  // Fetch profile data
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        if (!session?.supabaseAccessToken) {
-          throw new Error('No access token found');
+  // Fetch profile data - made accessible component-wide
+  const fetchProfile = async () => {
+    try {
+      if (!session?.supabaseAccessToken) {
+        throw new Error('No access token found');
+      }
+      setIsLoading(true);
+      const response = await fetch(`/api/profile/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${session?.supabaseAccessToken}`
         }
-        setIsLoading(true);
-        const response = await fetch(`/api/profile/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${session?.supabaseAccessToken}`
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch profile: ${response.statusText}`);
-        }
-        
-        const profileData: ProfileData = await response.json();
-        setProfile(profileData);
-        console.log(profileData);
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch profile: ${response.statusText}`);
+      }
+      
+      const profileData: ProfileData = await response.json();
+      setProfile(profileData);
+      console.log(profileData);
+      
+      // Only categorize books if user is a friend (has access to book data)
+      if (profileData.isFriend && profileData.userBooks) {
         // Categorize books based on shelf (not shelf_type)
         const currentlyReading = profileData.userBooks.filter(book => book.shelf === 'currently_reading');
         const queue = profileData.userBooks.filter(book => book.shelf === 'queue');
@@ -156,16 +164,77 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
         if (profileData.addedBooks) {          
           setAddedBooks(profileData.addedBooks)
         }
-        
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setIsLoading(false);
+      } else {
+        // Clear book data for non-friends
+        setCurrentlyReadingBooks([]);
+        setQueueBooks([]);
+        setHistoryBooks([]);
+        setFavoriteBooks([]);
+        setAddedBooks([]);
       }
-    };
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  // Fetch profile data
+  useEffect(() => {
     fetchProfile();
-  }, [params.id]);
+  }, [id, session?.supabaseAccessToken]);
+
+  // Handle unfriend action
+  const handleUnfriend = async () => {
+    if (!profile || !session?.supabaseAccessToken) {
+      toast.error('Unable to unfriend at this time');
+      return;
+    }
+
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to unfriend ${profile.display_name || profile.nickname || 'this user'}? This action cannot be undone.`
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+
+    setIsUnfriending(true);
+    try {
+      const response = await fetch('/api/friends', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
+        body: JSON.stringify({ friendId: profile.id }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to unfriend user');
+      }
+
+      toast.success(`You are no longer friends with ${profile.display_name || profile.nickname || 'this user'}`);
+      
+      // Refetch profile data to update UI
+      await fetchProfile();
+
+    } catch (err: any) {
+      toast.error(`Error unfriending user: ${err.message}`);
+      console.error('Error unfriending user:', err);
+    } finally {
+      setIsUnfriending(false);
+    }
+  };
+
+  // Handle friend request sent or canceled
+  const handleFriendRequestSent = () => {
+    // Refetch profile data immediately to get updated friendship status
+    fetchProfile();
+  };
 
   // Show loading state
   if (isLoading) {
@@ -196,6 +265,14 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
   const avatarFallback = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   const currentFriends = profile._count.friendshipsAsUser1 + profile._count.friendshipsAsUser2;
 
+  // Create target user object for AddFriendButton
+  const targetUserForAddFriendButton: UserProfileMinimal = {
+    id: profile.id,
+    display_name: profile.display_name,
+    email: '', // Email not available in non-friend profile data
+    avatar_url: profile.avatar_url,
+  };
+
   return (
     <div className="container mx-auto px-2 py-2">
       <div className="flex flex-col bg-transparent md:flex-row gap-2">
@@ -217,6 +294,42 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                     >
                         <ArrowLeft className="h-5 w-5 text-secondary" />
                     </button>
+
+                    <div className="absolute top-3 right-3 gap-2">
+                      {!profile.isFriend && (
+                        <AddFriendButton 
+                          targetUser={targetUserForAddFriendButton} 
+                          initialStatus={profile.friendshipStatus}
+                          onFriendRequestSent={handleFriendRequestSent} 
+                        />
+                      )}
+                        
+                      {/* Unfriend button - only show for friends when viewing another user's profile */}
+                      {profile.isFriend && profile.id !== session?.user?.id && (
+                        <div className="flex justify-start">
+                          <Button
+                            onClick={handleUnfriend}
+                            disabled={isUnfriending}
+                            variant="outline"
+                            size="sm"
+                            className="bg-transparent backdrop-blur-sm text-bookWhite/80 border-bookWhite/50 rounded-full h-8 hover:bg-red-100 hover:border-red-300"
+                          >
+                            {isUnfriending ? (
+                              <>
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                Unfriending...
+                              </>
+                            ) : (
+                              <>
+                                <UserMinus className="h-3 w-3" />
+                                Unfriend
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
                 </div>
 
                 {/* Avatar + user info */}
@@ -242,16 +355,18 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
               <div className="space-y-1">
                 <p className="text-sm leading-none text-secondary/70 font-normal mt-1">
                     <span>{profile._count.memberships} book club{profile._count.memberships !== 1 ? 's' : ''} </span>
-                    <span>• {(profile.addedBooks).length} contributions</span>
+                    {profile.isFriend && profile.addedBooks && (
+                      <span>• {profile.addedBooks.length} contributions</span>
+                    )}
                 </p>
                 <div>
                   <p className="text-sm/4 font-normal text-secondary/50 mt-0.5 pt-0">
-                    {profile.about || 'No bio available'} this is just a text to try how a longer sentence will look in this user profile view, for ui purposes
+                    {profile.about || 'No bio available'}
                   </p>
                 </div>
 
                 <div>
-                  <div className="flex flex-wrap gap-2 mt-3 mb-2">
+                  <div className="flex flex-wrap gap-2 mt-3">
                     {profile.favorite_genres && profile.favorite_genres.length > 0 ? (
                       profile.favorite_genres.map((genre, index) => (
                         <Badge key={index} variant="secondary" className="px-3 py-1 f bg-accent/20 text-accent-variant/65">
@@ -271,24 +386,25 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
         </div>
 
         <div className="md:w-2/3">
-          <Tabs defaultValue="currently-reading" className="w-full">
-            <TabsList className="grid w-full grid-cols-5 rounded-full h-auto p-1 bg-bookWhite/10 text-primary">
-              <TabsTrigger value="currently-reading" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
-                <Books size={32} />
-              </TabsTrigger>
-              <TabsTrigger value="reading-queue" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
-                <Bookmark size={32} />
-              </TabsTrigger>
-              <TabsTrigger value="history" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
-                <CheckCircle size={32} />
-              </TabsTrigger>
-              <TabsTrigger value="favorites" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
-                <Heart size={32} />
-              </TabsTrigger>
-              <TabsTrigger value="contributions" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
-                <Star size={32} />
-              </TabsTrigger>
-            </TabsList>
+          {profile.isFriend ? (
+            <Tabs defaultValue="currently-reading" className="w-full">
+              <TabsList className="grid w-full grid-cols-5 rounded-full h-auto p-1 bg-bookWhite/10 text-primary">
+                <TabsTrigger value="currently-reading" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
+                  <Books size={32} />
+                </TabsTrigger>
+                <TabsTrigger value="reading-queue" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
+                  <Bookmark size={32} />
+                </TabsTrigger>
+                <TabsTrigger value="history" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
+                  <CheckCircle size={32} />
+                </TabsTrigger>
+                <TabsTrigger value="favorites" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
+                  <Heart size={32} />
+                </TabsTrigger>
+                <TabsTrigger value="contributions" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
+                  <Star size={32} />
+                </TabsTrigger>
+              </TabsList>
 
             <TabsContent value="currently-reading">
               {currentlyReadingBooks.length === 0 ? (
@@ -516,6 +632,18 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
               </Card>
             </TabsContent>
           </Tabs>
+          ) : (
+            <Card className="bg-bookWhite/90 rounded-3xl">
+              <CardContent className="px-6 py-7 text-center">
+                <p className="text-secondary/30 text-sm leading-3 mb-2">
+                  You need to be friends with {displayName} to view their reading activity.
+                </p>
+                <p className="text-secondary/30 text-sm leading-3">
+                  Send them a friend request to see their bookshelves and reading progress!
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

@@ -42,11 +42,33 @@ export async function declineFriendRequest(requestId: string): Promise<FriendReq
   return res.json();
 }
 
+export async function cancelFriendRequest(
+  params: { requestId: string } | { targetUserId: string }
+): Promise<{ message: string }> {
+  const res = await fetch('/api/friends/cancel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const errorData = await res.json();
+    throw new Error(errorData.error || 'Failed to cancel friend request');
+  }
+  return res.json();
+}
+
 // --- Fetch Friends/Requests ---
 export async function getFriendsAndRequests(
-  type: 'friends' | 'sent' | 'received'
+  type: 'friends' | 'sent' | 'received',
+  accessToken: string
 ): Promise<Friendship[] | FriendRequest[]> {
-  const res = await fetch(`/api/friends?type=${type}`);
+  const res = await fetch(`/api/friends?type=${type}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  });
   if (!res.ok) {
     const errorData = await res.json();
     throw new Error(errorData.error || `Failed to fetch ${type}`);

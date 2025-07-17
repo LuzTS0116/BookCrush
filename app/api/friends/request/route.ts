@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
         receiverId,
         endpoint: '/api/friends/request'
       }, req);
-      return NextResponse.json({ error: "Pending request already exists" }, { status: 409 });
+      return NextResponse.json({ error: "Request already exists" }, { status: 409 });
     }
     
     if (existingRelationship[1]) {
@@ -127,19 +127,19 @@ export async function POST(req: NextRequest) {
     });
     
     // Create ActivityLog Entry for SENT_FRIEND_REQUEST
-    await prisma.activityLog.create({
-      data: {
-        user_id: user.id, // The user who sent the request
-        activity_type: ActivityType.SENT_FRIEND_REQUEST,
-        target_entity_type: ActivityTargetEntityType.PROFILE, // Target is the receiver's profile
-        target_entity_id: receiverId, 
-        related_user_id: receiverId, // The user to whom the request was sent
-        details: {
-          sender_id: user.id,
-          receiver_id: receiverId
-        }
-      }
-    });
+    // await prisma.activityLog.create({
+    //   data: {
+    //     user_id: user.id, // The user who sent the request
+    //     activity_type: ActivityType.SENT_FRIEND_REQUEST,
+    //     target_entity_type: ActivityTargetEntityType.PROFILE, // Target is the receiver's profile
+    //     target_entity_id: receiverId, 
+    //     related_user_id: receiverId, // The user to whom the request was sent
+    //     details: {
+    //       sender_id: user.id,
+    //       receiver_id: receiverId
+    //     }
+    //   }
+    // });
 
     // Log successful friend request
     logSecurityEvent('FRIEND_REQUEST_SENT', user.id, {

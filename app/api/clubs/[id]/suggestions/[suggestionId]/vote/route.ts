@@ -44,9 +44,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     // Check if voting period has ended
-    if (suggestion.voting_ends && new Date() > suggestion.voting_ends) {
-      return NextResponse.json({ error: "Voting period has ended" }, { status: 400 });
-    }
+    // if (suggestion.voting_ends && new Date() > suggestion.voting_ends) {
+    //   return NextResponse.json({ error: "Voting period has ended" }, { status: 400 });
+    // }
 
     // Check if user has already voted for this suggestion
     const existingVote = await prisma.clubBookSuggestionVote.findFirst({

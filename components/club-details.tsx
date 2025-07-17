@@ -678,6 +678,52 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     }
   };
 
+  // --- Integration for LEAVE API (`/app/api/clubs/leave`) ---
+  const handleLeaveClub = async () => {
+    if (!club) {
+      toast.error("Club data not loaded yet.");
+      return;
+    }
+
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      `Are you sure you want to leave "${club.name}"? This action cannot be undone and you'll need to reapply if you want to rejoin.`
+    );
+    
+    if (!confirmed) {
+      return;
+    }
+
+    setLoadingAction(true);
+    try {
+      const response = await fetch('/api/clubs/leave', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ clubId: club.id }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to leave club.");
+      }
+
+      const result = await response.json();
+      console.log("Leave successful:", result);
+      toast.success("Successfully left the club!");
+
+      // After leaving, refetch club details to update UI state
+      await fetchClubDetails();
+
+    } catch (err: any) {
+      toast.error(`Error leaving club: ${err.message}`);
+      console.error("Error leaving club:", err);
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
   // Function to set current book
   const handleSetCurrentBook = async (bookId: string) => {
     setLoadingBookAction(true);
@@ -1747,7 +1793,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 
   // --- Loading State and Error Handling for UI ---
   if (loadingClub) {
@@ -2449,42 +2495,68 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
                     {/* Comment submission section - only for ACTIVE members */}
                     {club.currentUserMembershipStatus === 'ACTIVE' ? (
-                      <form onSubmit={(e) => { e.preventDefault(); handlePostComment(); }} className="flex gap-4">
-                        <Avatar className="h-10 w-10">
-                          {/* Replace with actual current user avatar logic if available */}
-                          <AvatarImage src={avatarUrl || "placeholder.svg?height=40&width=40"} alt="Your avatar" />
-                          <AvatarFallback className="bg-primary text-primary-foreground">ME</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 space-y-2">
-                          <Textarea
-                            placeholder="Share your thoughts..."
-                            value={comment}
-                            onChange={(e) => setComment(e.target.value)}
-                            className="min-h-[100px] bg-secondary/5 text-secondary border-none p-2 placeholder:text-secondary/35 sans-serif text-sm"
-                            disabled={loadingPostComment}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                                e.preventDefault();
-                                handlePostComment();
-                              }
-                            }}
-                          />
-                          <div className="flex justify-end">
-                            <Button
-                              type="submit"
-                              className="bg-primary hover:bg-primary-light rounded-full text-secondary"
-                              disabled={loadingPostComment || !comment.trim()}
+                      <div className="space-y-4">
+                        <form onSubmit={(e) => { e.preventDefault(); handlePostComment(); }} className="flex gap-4">
+                          <Avatar className="h-10 w-10">
+                            {/* Replace with actual current user avatar logic if available */}
+                            <AvatarImage src={avatarUrl || "placeholder.svg?height=40&width=40"} alt="Your avatar" />
+                            <AvatarFallback className="bg-primary text-primary-foreground">ME</AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 space-y-2">
+                            <Textarea
+                              placeholder="Share your thoughts..."
+                              value={comment}
+                              onChange={(e) => setComment(e.target.value)}
+                              className="min-h-[100px] bg-secondary/5 text-secondary border-none p-2 placeholder:text-secondary/35 sans-serif text-sm"
+                              disabled={loadingPostComment}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                                  e.preventDefault();
+                                  handlePostComment();
+                                }
+                              }}
+                            />
+                            <div className="flex justify-end">
+                              <Button
+                                type="submit"
+                                className="bg-primary hover:bg-primary-light rounded-full text-secondary"
+                                disabled={loadingPostComment || !comment.trim()}
+                              >
+                                {loadingPostComment ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <MessageSquare className="mr-0 h-4 w-4" />
+                                )}
+                                Post Comment
+                              </Button>
+                            </div>        
+                          </div>
+                        </form>
+
+                        {/* Leave Club button for active members who are not owners */}
+                        {/* {!club.currentUserIsAdmin && club.ownerId !== session?.user?.id && (
+                          <div className="text-center py-4">
+                            <Button 
+                              onClick={handleLeaveClub} 
+                              disabled={loadingAction}
+                              variant="outline"
+                              className="bg-red-50 hover:bg-red-100 text-red-700 border-red-200 hover:border-red-300 rounded-full"
                             >
-                              {loadingPostComment ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              {loadingAction ? (
+                                <>
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Leaving...
+                                </>
                               ) : (
-                                <MessageSquare className="mr-0 h-4 w-4" />
+                                "Leave Club"
                               )}
-                              Post Comment
                             </Button>
-                          </div>        
-                        </div>
-                      </form>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              You'll need to reapply if you want to rejoin
+                            </p>
+                          </div>
+                        )} */}
+                      </div>
                     ) : (
                       <div className="text-center py-4 text-muted-foreground">
                         {club.currentUserMembershipStatus === 'PENDING' ? (
@@ -2997,19 +3069,47 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               ) : (
               <div>
                 <div className="flex flex-col items-center justify-center">
-                  <CalendarDays className="text-secondary-light/20 h-16 w-16 mb-3" />
+                  <CalendarDays className="text-secondary-light/20 h-16 w-16 mb-1" />
                   <p className="text-secondary-light/30 text-center">No upcoming meeting</p>
-                  <p className="text-secondary-light/30 text-center w-[80vw] leading-4">Go to calendar to set a new meeting date, time and place.</p>
                 </div>
-                <div className="flex justify-end">
-                  <Button variant="outline" size="sm" className="mt-5 rounded-full text-secondary-light h-8 border-none bg-accent">
-                    Go to Calendar
-                  </Button>
+                {club.currentUserIsAdmin && (
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-secondary-light/30 text-center w-[80vw] leading-4">Go to calendar to set a new meeting date, time and place.</p>
+                    <Button variant="outline" size="sm" className="mt-1 rounded-full text-secondary-light h-8 border-none bg-accent">
+                      Go to Calendar
+                    </Button>
                 </div>
+                )}
               </div>
               )}
             </CardContent>
           </Card>
+          
+          {/* Leave Club Button - Only show to active members who are not owners */}
+          {club.currentUserMembershipStatus === 'ACTIVE' && !club.currentUserIsAdmin && club.ownerId !== session?.user?.id && (
+            <Card className="mt-3 mb-2 bg-bookWhite/20">
+              <CardContent className="px-3 py-3">
+                <div className="flex flex-col items-center">
+                  <p className="text-sm leading-4 font-semibold text-bookWhite mb-1">Need to step away?</p>
+                  <p className="text-xs leading-3 font-thin text-center text-bookWhite/80 mb-2">If you leave this club, you’ll no longer have access, receive updates or participate in future discussions.</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleLeaveClub}
+                    disabled={loadingAction}
+                    className="bg-red-900 hover:bg-red-800 text-bookWhite/80 border-none hover:text-bookWhite rounded-full h-6 text-xs"
+                  >
+                    {loadingAction ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      "Leave Club"
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+            
         </div>
       </div>
 

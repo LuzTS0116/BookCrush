@@ -138,6 +138,7 @@ export async function GET(request: NextRequest) {
       date: meeting.meeting_date,
       duration_minutes: meeting.duration_minutes,
       location: meeting.location,
+      meeting_mode: meeting.meeting_mode,
       meeting_type: meeting.meeting_type,
       status: meeting.status,
       club: meeting.club,

@@ -54,54 +54,114 @@ export async function GET(
 
     // 3. Check if the requesting user can view the profile
     const canView = await canViewProfile(prisma, user.id, id);
-    if (!canView) {
-      console.error("You cant view this PROFILE");
-      return NextResponse.json({ error: "You do not have permission to view this profile" }, { status: 403 });
+    
+    // Check friendship and friend request status
+    let friendshipStatus: 'NOT_FRIENDS' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'FRIENDS' = 'NOT_FRIENDS';
+    
+    if (user.id !== id) { // Don't check friendship status for own profile
+      if (canView) {
+        friendshipStatus = 'FRIENDS';
+      } else {
+        // Check for pending friend requests
+        const pendingRequest = await prisma.friendRequest.findFirst({
+          where: {
+            OR: [
+              { senderId: user.id, receiverId: id, status: 'PENDING' },
+              { senderId: id, receiverId: user.id, status: 'PENDING' }
+            ]
+          }
+        });
+        
+        if (pendingRequest) {
+          friendshipStatus = pendingRequest.senderId === user.id ? 'PENDING_SENT' : 'PENDING_RECEIVED';
+        }
+      }
     }
 
-    // 3. Fetch the requested user's profile (only public information)
-    const profile = await prisma.profile.findUnique({
-      where: {
-        id: id,
-      },
-      select: {
-        id: true,
-        display_name: true,
-        nickname: true,
-        avatar_url: true,
-        about: true,
-        favorite_genres: true,
-        userBooks: {
-          include: {
-            book: true // Include the full book details
+    // If users are friends, return full profile data
+    if (canView || user.id === id) {
+      const profile = await prisma.profile.findUnique({
+        where: {
+          id: id,
+        },
+        select: {
+          id: true,
+          display_name: true,
+          nickname: true,
+          avatar_url: true,
+          about: true,
+          favorite_genres: true,
+          userBooks: {
+            include: {
+              book: true // Include the full book details
+            }
+          },
+          addedBooks: true,
+          //how many memberships
+          _count: {
+            select: {
+              memberships: {
+                where: { status: 'ACTIVE' }
+              },
+              friendshipsAsUser1: true,
+              friendshipsAsUser2: true,
+            }
+          }
+          // Don't include sensitive information like email or kindle_email
+          // Only include what should be publicly visible
+        },
+      });
+
+      if (!profile) {
+        return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+      }
+
+      // Format the profile with proper avatar URL
+      const formattedProfile = await formatProfileWithAvatarUrlServer(supabase!, profile);
+      return NextResponse.json({ 
+        ...formattedProfile, 
+        isFriend: true, 
+        friendshipStatus 
+      }, { status: 200 });
+    } else {
+      // If users are not friends, return only basic information
+      const profile = await prisma.profile.findUnique({
+        where: {
+          id: id,
+        },
+        select: {
+          id: true,
+          display_name: true,
+          nickname: true,
+          avatar_url: true,
+          about: true,
+          favorite_genres: true,
+          _count: {
+            select: {
+              memberships: {
+                where: { status: 'ACTIVE' }
+              },
+              friendshipsAsUser1: true,
+              friendshipsAsUser2: true,
+            }
           }
         },
-        addedBooks: true,
-        //how many memberships
-        _count: {
-          select: {
-            memberships: {
-              where: { status: 'ACTIVE' }
-            },
-            friendshipsAsUser1: true,
-            friendshipsAsUser2: true,
-          }
-        }
-        // Don't include sensitive information like email or kindle_email
-        // Only include what should be publicly visible
-      },
-    });
+      });
 
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+      if (!profile) {
+        return NextResponse.json({ error: "Profile not found" }, { status: 404 });
+      }
+
+      // Format the profile with proper avatar URL
+      const formattedProfile = await formatProfileWithAvatarUrlServer(supabase!, profile);
+      return NextResponse.json({ 
+        ...formattedProfile, 
+        isFriend: false, 
+        friendshipStatus 
+      }, { status: 200 });
     }
 
-    // Format the profile with proper avatar URL
-    const formattedProfile = await formatProfileWithAvatarUrlServer(supabase!, profile);
 
-    
-
-    return NextResponse.json(formattedProfile, { status: 200 });
 
   } catch (error: any) {
     console.error("Error fetching user profile:", error);

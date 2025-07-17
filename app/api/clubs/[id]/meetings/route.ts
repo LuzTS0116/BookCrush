@@ -134,6 +134,7 @@ export async function POST(
       meeting_date, 
       duration_minutes, 
       location, 
+      meeting_mode,
       meeting_type, 
       book_id 
     } = body;
@@ -161,6 +162,7 @@ export async function POST(
         meeting_date: meetingDateTime,
         duration_minutes: duration_minutes || 90,
         location,
+        meeting_mode: meeting_mode || 'IN_PERSON',
         meeting_type: meeting_type || 'DISCUSSION',
         book_id: book_id || null,
         created_by: session.user.id

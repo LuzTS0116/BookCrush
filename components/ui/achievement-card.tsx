@@ -109,9 +109,9 @@ export function AchievementCard({
             ) : (
               (showProgress || (achievement.current_value !== undefined && achievement.target_value !== undefined)) && (
                 <div className="flex items-center gap-2 w-full">
-                  <div className="flex-1 h-3 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="flex-1 h-3 bg-secondary/10 rounded-full overflow-hidden">
                     <div 
-                      className="h-full bg-accent-variant transition-all duration-300"
+                      className="bg-gradient-to-r from-primary-dark to-accent h-full transition-all duration-300"
                       style={{ width: `${achievement.progress_percentage || 0}%` }}
                     />
                   </div>
