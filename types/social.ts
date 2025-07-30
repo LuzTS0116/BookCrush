@@ -2,7 +2,7 @@
 
 export interface UserProfileMinimal {
   id: string; // The user ID from Supabase Auth
-  email: string;
+  email: string | null;
   display_name: string | null;
   avatar_url?: string | null; // Added for activity feeds and profile display
 }
@@ -26,10 +26,10 @@ export type Friendship = {
   userId2: string; // The ID of the second user in the friendship (adjust to your schema, e.g., userBId)
   establishedAt: string;
   // Make sure these relation fields are included in your API responses
-  user_one?: { id: string; email: string; profile?: UserProfile; }; // UserProfile for detailed info
-  user_two?: { id: string; email: string; profile?: UserProfile; }; // UserProfile for detailed info
+  user_one?:  UserProfile;  // UserProfile for detailed info
+  user_two?:  UserProfile;  // UserProfile for detailed info
   // This 'friendUser' is an abstraction for the client-side, representing the *other* person
-  friendUser?: { id: string; email: string; profile?: { id: string; display_name: string; }; };
+  friendUser?: UserProfileMinimal;
 };
 
 
@@ -38,6 +38,8 @@ export type Friendship = {
 export type UserProfile = {
   id: string;
   display_name: string;
+  avatar_url: string | null;
+  email: string | null;
   about: string | null; // Assuming 'about' can be null
   favorite_genres: string | null; // Assuming 'favorite_genres' can be null or a string (e.g., comma-separated)
   // Add other fields from your Profile model if you want them here

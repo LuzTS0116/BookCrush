@@ -81,7 +81,7 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
 
   const imageRef = useRef(null);
 
-  console.log(book)
+  
 
   // Reset form when dialog opens/closes
   useEffect(() => {

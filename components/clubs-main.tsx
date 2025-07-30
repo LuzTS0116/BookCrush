@@ -792,20 +792,15 @@ console.log(pendingInvitations);
                                 {/* Right side: Badges + Button */}
                                 <div className="flex flex-row items-start flex-none gap-2">
                                     {club.admin && (
-                                    <Badge variant="outline" className="h-6 bg-primary/25 border-none text-secondary font-serif">
+                                    <Badge variant="outline" className="h-6 bg-primary/40 border-none text-secondary font-serif">
                                         Admin
                                     </Badge>
                                     )}
-                                    {club.membershipStatus === 'ACTIVE' && (
+                                    {club.membershipStatus === 'ACTIVE' && !club.admin && (
                                     <Badge className="bg-accent-variant/30 text-secondary font-serif">
                                         Member
                                     </Badge>
                                     )}
-                                    {/* {club.admin && (
-                                    <Button variant="ghost" size="icon" className="shrink-0 self-start h-6 hover:bg-secondary/10">
-                                        <Settings className="h-4 w-4 text-secondary-light" />
-                                    </Button>
-                                    )} */}
                                 </div>
                             </div>
 

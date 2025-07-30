@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 
     // 3. Handle "Move" or "Add" Logic
     // Check if the book already exists for this user on *any* shelf
-    const existingUserBook = await prisma.userBook.findFirst({
+    const existingUserBooks = await prisma.userBook.findMany({
       where: {
         user_id: user.id,
         book_id: bookId,
@@ -73,6 +73,11 @@ export async function POST(req: NextRequest) {
         book: { select: { title: true } } // Ensure title is fetched for activity log
       }
     });
+
+    const existingUserBook = existingUserBooks[0]; // Get first entry for legacy compatibility
+    
+    // Check if this book is favorited in any existing shelf
+    const isFavorited = existingUserBooks.some(book => book.is_favorite);
 
     let previousShelf = existingUserBook?.shelf;
     let previousStatus = existingUserBook?.status;
@@ -131,6 +136,7 @@ export async function POST(req: NextRequest) {
         position: finalPosition ?? null, 
         added_at: new Date(), 
         shelf: statusType === status_type.finished || statusType === status_type.unfinished ? shelf_type.history : shelfType,
+        is_favorite: isFavorited, // Preserve favorite status
       },
       create: {
         user_id: user.id,
@@ -138,6 +144,7 @@ export async function POST(req: NextRequest) {
         shelf: statusType === status_type.finished || statusType === status_type.unfinished ? shelf_type.history : shelfType,
         status: statusType,
         position: finalPosition ?? null,
+        is_favorite: isFavorited, // Preserve favorite status
       },
       include: {
         book: true, 

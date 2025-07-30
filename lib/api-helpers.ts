@@ -93,3 +93,24 @@ export async function getExploreUsers(accessToken: string): Promise<ExplorableUs
 
   return response.json();
 }
+
+// --- Mutual Friends Helper ---
+export async function getMutualFriendsCount(
+  friendId: string,
+  accessToken: string
+): Promise<{ count: number; mutualFriends?: UserProfileMinimal[] }> {
+  const response = await fetch(`/api/friends/mutual?friendId=${friendId}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    // Return 0 if there's an error or the endpoint doesn't exist yet
+    return { count: 0 };
+  }
+
+  return response.json();
+}

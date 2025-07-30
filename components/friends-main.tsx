@@ -2,15 +2,17 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader2, User } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FriendRequestCard } from '@/components/social/friend-request-card';
 import { FriendCard } from '@/components/social/friend-card';
-import { getFriendsAndRequests, getExploreUsers, cancelFriendRequest } from '@/lib/api-helpers'; // Import getExploreUsers
+import { getFriendsAndRequests, getExploreUsers, cancelFriendRequest, getMutualFriendsCount } from '@/lib/api-helpers'; // Import getExploreUsers
 import { FriendRequest, Friendship, ExplorableUser, UserProfileMinimal } from '@/types/social'; // Import ExplorableUser
 import { useSession } from 'next-auth/react';
 import { AddFriendButton } from '@/components/social/add-friend-button';
+import { formatDate } from '@/lib/utils';
 
 // New component for displaying an explorable user profile
 interface ExploreUserCardProps {
@@ -39,6 +41,84 @@ function ExploreUserCard({ user, onFriendRequestSent }: ExploreUserCardProps) {
       </CardContent>
       <div className="mt-4 flex-shrink-0"> {/* Use flex-shrink-0 to keep button at bottom */}
         <AddFriendButton targetUser={targetUserForAddFriendButton} onFriendRequestSent={onFriendRequestSent} />
+      </div>
+    </Card>
+  );
+}
+
+// New component for displaying sent friend request cards
+interface SentRequestCardProps {
+  request: FriendRequest;
+  onCancelRequest: (requestId: string) => void;
+  isLoading: boolean;
+}
+
+function SentRequestCard({ request, onCancelRequest, isLoading }: SentRequestCardProps) {
+  const { data: session } = useSession();
+  const [mutualFriendsCount, setMutualFriendsCount] = useState<number>(0);
+  const [isLoadingMutual, setIsLoadingMutual] = useState<boolean>(true);
+  
+  const receiverDisplayName = request.receiver?.display_name || request.receiver?.email || 'Unknown User';
+
+  // Load mutual friends count
+  useEffect(() => {
+    const loadMutualFriends = async () => {
+      if (!session?.supabaseAccessToken || !request.receiver?.id) {
+        setIsLoadingMutual(false);
+        return;
+      }
+
+      try {
+        const mutualData = await getMutualFriendsCount(request.receiver.id, session.supabaseAccessToken);
+        setMutualFriendsCount(mutualData.count);
+      } catch (error) {
+        console.error('Error loading mutual friends:', error);
+        // Keep default count of 0
+      } finally {
+        setIsLoadingMutual(false);
+      }
+    };
+
+    loadMutualFriends();
+  }, [request.receiver?.id, session?.supabaseAccessToken]);
+
+  return (
+    <Card className="flex items-center p-1 w-full">
+      <Avatar className="h-12 w-12 mr-4">
+        <AvatarImage 
+          src={request.receiver?.avatar_url || undefined} 
+          alt={receiverDisplayName} 
+        />
+        <AvatarFallback className="bg-bookWhite text-secondary">
+          {receiverDisplayName.charAt(0).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex flex-col w-full">
+        <div className="flex flex-col">
+          <CardTitle>{receiverDisplayName}</CardTitle>
+          <p className="text-xs/3 text-secondary font-serif">
+            {isLoadingMutual 
+              ? "Loading..." 
+              : `${mutualFriendsCount} mutual friend${mutualFriendsCount !== 1 ? 's' : ''}`
+            }
+          </p>
+          <div className='flex justify-between w-full items-end'>
+            <CardDescription className='text-xs/3 text-secondary font-serif'>
+              request sent {formatDate(request.sentAt, { format: 'long' })}
+            </CardDescription>
+            <div className=''>
+              <Button 
+                disabled={isLoading} 
+                size="sm" 
+                variant="outline" 
+                className="rounded-full text-secondary bg-accent/75 hover:bg-accent focus:bg-accent-variant font-serif border-none h-5 font-normal px-2"
+                onClick={() => onCancelRequest(request.id)}
+              >
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cancel" }
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </Card>
   );
@@ -84,8 +164,8 @@ export default function FriendsMain() {
         const friendUserForCard: UserProfileMinimal = {
           id: friendUserPrisma.id,
           email: friendUserPrisma.email,
-          display_name: friendUserPrisma.profile?.display_name || friendUserPrisma.email,
-          avatar_url: friendUserPrisma.profile?.avatar_url || null,
+          display_name: friendUserPrisma.display_name || friendUserPrisma.email,
+          avatar_url: friendUserPrisma.avatar_url || null,
         };
 
         
@@ -97,6 +177,7 @@ export default function FriendsMain() {
       }).filter(Boolean) as Friendship[]; // Filter out any nulls if friendUser was not found
 
       setFriends(transformedFriends);
+      console.log(transformedFriends);
 
       // --- Fetch Friend Requests ---
       const fetchedReceived = (await getFriendsAndRequests('received', session.supabaseAccessToken)) as FriendRequest[];
@@ -134,11 +215,6 @@ export default function FriendsMain() {
       fetchData();
     }
   };
-
-  const formatDate = (date: Date | string) => {
-  const d = new Date(date);
-  return `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
-}
 
   // Callback for when a friend request is sent from the Explore Users tab
   const handleFriendRequestSent = () => {
@@ -213,7 +289,11 @@ export default function FriendsMain() {
               {friends.map((friendship) => (
                 // FriendCard expects 'friend' to be a UserProfileMinimal-like object
                 // Ensure your API returns the `friendUser` populated correctly or transform it here.
-                <FriendCard key={friendship.id} friend={friendship.friendUser!} />
+                <FriendCard 
+                  key={friendship.id} 
+                  friend={friendship.friendUser!} 
+                  establishedAt={friendship.establishedAt}
+                />
               ))}
             </div>
           )}
@@ -237,31 +317,12 @@ export default function FriendsMain() {
           ) : (
             <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
               {sentRequests.map((request) => (
-                <Card className="flex items-center p-1 w-full">
-                    <div className="flex items-center justify-center w-12 h-12 rounded-full bg-bookWhite mr-4">
-                        <User className="h-6 w-6 text-gray-500" />
-                    </div>
-                    <div className="flex flex-col w-full">
-                        <div className="flex flex-col">
-                            <CardTitle>{request.receiver?.display_name || request.receiver?.email || 'Unknown User'}</CardTitle>
-                            <p className="text-xs/3 text-secondary font-serif">24 mutual friends</p>
-                            <div className='flex justify-between w-full items-end'>
-                                <CardDescription className='text-xs/3 text-secondary font-serif'>request sent {formatDate(request.sentAt)}</CardDescription>
-                                <div className=''>
-                                    <Button 
-                                        disabled={isLoading} 
-                                        size="sm" 
-                                        variant="outline" 
-                                        className="rounded-full text-secondary bg-accent/75 hover:bg-accent focus:bg-accent-variant font-serif border-none h-5 font-normal px-2"
-                                        onClick={() => handleCancelRequest(request.id)}
-                                    >
-                                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Cancel" }
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </Card>
+                <SentRequestCard 
+                  key={request.id} 
+                  request={request} 
+                  onCancelRequest={handleCancelRequest} 
+                  isLoading={isLoading} 
+                />
               ))}
             </div>
           )}

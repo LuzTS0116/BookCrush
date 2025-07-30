@@ -57,6 +57,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import FriendsMain from "./friends-main"
 
 // Helper constants and functions from profile-details.tsx
 const statuses: StatusDisplay[] = [
@@ -352,6 +353,9 @@ export default function EditableProfileMain() {
     isOpen: false,
     book: null
   });
+
+  // State for friends dialog
+  const [isFriendsDialogOpen, setIsFriendsDialogOpen] = useState(false);
 
   // Check for feedback notifications
   const { hasUnreadReplies, unreadCount } = useFeedbackNotifications();
@@ -808,7 +812,7 @@ export default function EditableProfileMain() {
 
   const shareDialogCallback = () => {
     setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
-  }
+  };
 
   // Function to handle finished book review submission
   const handleFinishedBookReview = async (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => {
@@ -880,7 +884,7 @@ export default function EditableProfileMain() {
       }
 
       // Close dialog and show success message
-      setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
+      //setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
       toast.success('Book marked as finished! Thanks for sharing your thoughts.');
 
     } catch (err: any) {
@@ -1621,7 +1625,12 @@ export default function EditableProfileMain() {
                           </p>
                         )}
                         <p className="text-xs text-secondary/50 font-normal">
-                          <span>{currentFriends} friend{currentFriends !== 1 ? 's' : ''}</span>
+                          <button 
+                            onClick={() => setIsFriendsDialogOpen(true)}
+                            className="hover:text-secondary/70 transition-colors cursor-pointer underline-offset-2 hover:underline"
+                          >
+                            {currentFriends} friend{currentFriends !== 1 ? 's' : ''}
+                          </button>
                         </p>
                       </>
                     )}
@@ -2195,6 +2204,23 @@ export default function EditableProfileMain() {
         open={isCustomGoalsDialogOpen}
         onOpenChange={setIsCustomGoalsDialogOpen}
       />
+
+      {/* Friends Dialog */}
+      <Dialog open={isFriendsDialogOpen} onOpenChange={setIsFriendsDialogOpen}>
+        <DialogContent className="w-[85vw] rounded-2xl">
+          <Image 
+            src="/images/background.png"
+            alt="Create and Manage your Book Clubs | BookCrush"
+            width={1622}
+            height={2871}
+            className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+          />
+          <DialogHeader className="flex justify-start">
+            <DialogTitle>My Connections</DialogTitle>
+          </DialogHeader>
+          <FriendsMain />
+        </DialogContent>
+      </Dialog>
 
       {/* Confirmation Modal */}
       {confirmRemoval.bookId && (

@@ -1,13 +1,16 @@
 // components/social/friend-request-card.tsx
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Check, X, Loader2, User, MoreVertical } from 'lucide-react';
-import { acceptFriendRequest, declineFriendRequest } from '@/lib/api-helpers';
+import { acceptFriendRequest, declineFriendRequest, getMutualFriendsCount } from '@/lib/api-helpers';
 import { FriendRequest } from '@/types/social'; // Adjust path
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"; // Radix DropdownMenu
+import { formatDate } from '@/lib/utils';
+import { useSession } from 'next-auth/react';
 
 interface FriendRequestCardProps {
   request: FriendRequest;
@@ -18,6 +21,31 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({ request, o
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isHandled, setIsHandled] = useState(false); // To hide card after action
+  const [mutualFriendsCount, setMutualFriendsCount] = useState<number>(0);
+  const [isLoadingMutual, setIsLoadingMutual] = useState<boolean>(true);
+
+  const { data: session } = useSession();
+
+  useEffect(() => {
+    const loadMutualFriends = async () => {
+      if (!session?.supabaseAccessToken || !request.sender?.id) {
+        setIsLoadingMutual(false);
+        return;
+      }
+
+      try {
+        const mutualData = await getMutualFriendsCount(request.sender.id, session.supabaseAccessToken);
+        setMutualFriendsCount(mutualData.count);
+      } catch (error) {
+        console.error('Error loading mutual friends:', error);
+        // Keep default count of 0
+      } finally {
+        setIsLoadingMutual(false);
+      }
+    };
+
+    loadMutualFriends();
+  }, [request.sender?.id, session?.supabaseAccessToken]);
 
   const handleAccept = async () => {
     setIsLoading(true);
@@ -57,9 +85,15 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({ request, o
 
   return (
     <Card className="flex items-center p-1 w-full">
-      <div className="flex items-center justify-center w-12 h-12 rounded-full bg-bookWhite mr-4">
-        <User className="h-6 w-6 text-gray-500" />
-      </div>
+      <Avatar className="h-12 w-12 mr-4">
+        <AvatarImage 
+          src={request.sender?.avatar_url || undefined} 
+          alt={senderDisplayName} 
+        />
+        <AvatarFallback className="bg-bookWhite text-secondary">
+          {senderDisplayName.charAt(0).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
       <div className="flex flex-col w-full">
         <div className="flex flex-wrap justify-between flex-1">
           <CardTitle className="text-sm leading-4">{senderDisplayName}</CardTitle>
@@ -98,9 +132,14 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({ request, o
             </div>
           </div>
         </div>
-          <p className="text-xs/3 text-secondary font-serif">24 mutual friends</p>
+          <p className="text-xs/3 text-secondary font-serif">
+            {isLoadingMutual 
+              ? 'Loading...' 
+              : `${mutualFriendsCount} mutual friend${mutualFriendsCount !== 1 ? 's' : ''}`
+            }
+          </p>
           <div className='flex justify-between w-full items-end'>
-            <p className="text-xs/3 text-secondary/50 font-serif italic pb-1">request received 25.05.2025</p>
+            <p className="text-xs/3 text-secondary/50 font-serif italic pb-1">request received {formatDate(request.sentAt, { format: 'long' })}</p>
             <div className=''>
               <Button onClick={handleAccept} disabled={isLoading} size="sm" variant="outline" className="rounded-full text-bookWhite bg-accent-variant/75 hover:bg-accent-variant focus:bg-accent-variant font-serif border-none h-5 font-normal px-2">
                 {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Accept" }

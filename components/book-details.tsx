@@ -779,7 +779,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
       case 'history':
         return { label: 'Finished', color: 'bg-green-600/20 text-green-600' };
       case 'favorite':
-        return { label: 'Favorite', color: 'bg-red-500/20 text-red-500' };
+        return { label: 'Favorite', color: 'bg-red-100 text-red-600' };
       default:
         return { label: 'Unknown', color: 'bg-gray-500/20 text-gray-500' };
     }

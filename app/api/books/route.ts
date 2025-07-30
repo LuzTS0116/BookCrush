@@ -93,7 +93,8 @@ export async function POST(req: NextRequest) {
       originalName, 
       size,
       publishDate,
-      rating
+      rating,
+      alternate_titles
     } = body;
     
     // Validate and sanitize title
@@ -135,6 +136,14 @@ export async function POST(req: NextRequest) {
       ? subjects.slice(0, 5).map((s: string) => s.trim()).filter(s => s.length > 0)
       : [];
     
+    // Process alternate titles
+    const processedAlternateTitles = alternate_titles && Array.isArray(alternate_titles)
+      ? alternate_titles
+          .filter((title: string) => title && typeof title === 'string' && title.trim().length > 0)
+          .slice(0, 10) // Limit to 10 alternate titles
+          .map((title: string) => title.trim())
+      : [];
+    
     const newBook = await prisma.book.create({
       data: {
         title: titleValidation.sanitized,
@@ -146,6 +155,7 @@ export async function POST(req: NextRequest) {
         cover_url: coverUrl || null,
         published_date: publishDate || null,
         rating: rating || null,
+        alternate_titles: processedAlternateTitles,
         added_by: user.id,
         file: storageKey ? { 
           create: { 
@@ -229,13 +239,17 @@ export async function GET(req: NextRequest) {
 
     // Get query parameters
     const url = new URL(req.url);
-    const limit = url.searchParams.get('limit');
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '50');
     const latest = url.searchParams.get('latest') === 'true'; // New parameter for dashboard
     const filter = url.searchParams.get('filter') || 'all'; // New parameter for filtering: 'all', 'my-books', 'friends'
     const friendFilter = url.searchParams.get('friendFilter'); // Filter by specific friend
     const shelfFilter = url.searchParams.get('shelfFilter'); // Filter by shelf status
 
-    //console.log('[API books GET] Filter parameters:', { filter, friendFilter, shelfFilter });
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+
+    console.log('[API books GET] Pagination parameters:', { page, limit, skip, filter, friendFilter, shelfFilter });
 
     // Get user's friends first
     const friendships = await prisma.friendship.findMany({
@@ -344,7 +358,8 @@ export async function GET(req: NextRequest) {
       orderBy: {
         created_at: 'desc',
       },
-      take: limit ? parseInt(limit) : latest ? 1 : undefined, // Limit for dashboard
+      skip: latest ? 0 : skip, // Skip records for pagination, but not for latest
+      take: latest ? 1 : limit, // Take specified limit, or 1 for latest
     });
 
     //console.log('[API books GET] Found books:', books.length, 'with filter:', filter);

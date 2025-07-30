@@ -84,6 +84,7 @@ model Book {
   genres         String[]
   published_date String?
   rating         Float?
+  alternate_titles String[] // Store titles in different languages
   added_by       String?  @db.Uuid // This will now point to Profile.id
   created_at     DateTime @default(now()) @db.Timestamptz(6)
 
@@ -395,7 +396,7 @@ model ClubDiscussion {
 enum ActivityType {
   // Books / Reading
   ADDED_BOOK_TO_LIBRARY // User added a new book to the general 'books' table
-  ADDED_BOOK_TO_SHELF   // User added an existing book to one of their shelves (UserBook: favorite, currently_reading, queue)
+  ADDED_BOOK_TO_SHELF   // User added an existing book to one of their shelves (UserBook: favorite, currently_reading, queue, history)
   CHANGED_BOOK_STATUS   // User changed status of a book they are reading (UserBook: in_progress, almost_done, finished)
   FINISHED_READING_BOOK // Specifically when a book status changes to 'finished'
   REVIEWED_BOOK         // User added a review (requires a Review model)
@@ -504,6 +505,8 @@ model ClubMeeting {
   meeting_type     ClubMeetingType   @default(DISCUSSION)
   status           ClubMeetingStatus @default(SCHEDULED)
   created_by       String            @db.Uuid // Profile ID of who created the meeting
+  meeting_notes    String?           // Notes from the completed meeting
+  completed_at     DateTime?         @db.Timestamptz(6) // When the meeting was marked as completed
   created_at       DateTime          @default(now()) @db.Timestamptz(6)
   updated_at       DateTime          @updatedAt @db.Timestamptz(6)
   
@@ -519,12 +522,14 @@ model ClubMeeting {
 
 // Track meeting attendance
 model ClubMeetingAttendee {
-  id           String                    @id @default(uuid()) @db.Uuid
-  meeting_id   String                    @db.Uuid
-  user_id      String                    @db.Uuid
-  status       ClubMeetingAttendeeStatus @default(NOT_RESPONDED)
-  responded_at DateTime?                 @db.Timestamptz(6)
-  created_at   DateTime                  @default(now()) @db.Timestamptz(6)
+  id               String                    @id @default(uuid()) @db.Uuid
+  meeting_id       String                    @db.Uuid
+  user_id          String                    @db.Uuid
+  status           ClubMeetingAttendeeStatus @default(NOT_RESPONDED)
+  responded_at     DateTime?                 @db.Timestamptz(6)
+  actually_attended Boolean?                  // null = not marked, true = attended, false = didn't attend
+  marked_at        DateTime?                 @db.Timestamptz(6) // when attendance was marked by admin
+  created_at       DateTime                  @default(now()) @db.Timestamptz(6)
 
   meeting ClubMeeting @relation(fields: [meeting_id], references: [id], onDelete: Cascade)
   user    Profile     @relation("MeetingAttendee", fields: [user_id], references: [id], onDelete: Cascade)

@@ -96,7 +96,39 @@ export async function GET(
             meeting_date: {
               gt: new Date()
             }
-          }
+          },
+          include: {
+            book: {
+              select: {
+                id: true,
+                title: true,
+                author: true,
+                cover_url: true
+              }
+            },
+            creator: {
+              select: {
+                id: true,
+                display_name: true
+              }
+            },
+            attendees: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    display_name: true
+                  }
+                }
+              }
+            },
+            _count: {
+              select: {
+                attendees: true
+              }
+            }
+          },
+          orderBy: { meeting_date: 'asc' }
         }
         
       },
