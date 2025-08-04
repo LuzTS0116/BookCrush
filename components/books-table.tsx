@@ -51,7 +51,6 @@ interface ExtendedBookDetails extends BookDetails {
   added_by_user?: {
     id: string
     display_name: string
-    nickname: string | null
     avatar_url: string | null
   }
   user_shelf_status?: {
@@ -79,7 +78,8 @@ const getShelfBadgeInfo = (shelf: string, status?: string) => {
       if (status === 'unfinished') return { label: '😑 Unfinished', color: 'bg-gray-100 text-gray-700' };
       return { label: '📖 Read', color: 'bg-green-100 text-green-700' };
     case 'favorite':
-      return null; // No badge for favorite - heart icon already shows favorite status
+      return { label: '❤️ Favorite', color: 'bg-red-100 text-red-700' };  
+      //return null; // No badge for favorite - heart icon already shows favorite status
     default:
       return null;
   }
@@ -322,8 +322,8 @@ const BookCard = React.memo(({
             <div>
               {activeTab !== 'my-library' && book.added_by_user && (
                 <p className="text-xs leading-none text-secondary/60">
-                  {activeTab === 'explore' ? 'Added by' : 'From'}{' '}
-                  {book.added_by_user.nickname || book.added_by_user.display_name}
+                  {activeTab === 'explore' ? 'Added by' : 'Added by'}{' '}
+                  {book.added_by_user.display_name}
                 </p>
               )}
               <p className="text-secondary/60 text-xs font-serif font-medium">
@@ -503,7 +503,7 @@ export default function BooksTableOptimized() {
           
           return {
             id: friend?.id || '',
-            name: friend?.nickname || friend?.display_name || 'Unknown'
+            name: friend?.display_name || 'Unknown'
           }
         }).filter((friend: any) => friend.id) // Filter out any invalid entries
         
@@ -1183,7 +1183,7 @@ export default function BooksTableOptimized() {
                             {state.activeTab !== 'my-library' && (
                               <TableCell className="text-xs text-muted-foreground">
                                 {book.added_by_user && book.added_by_user.id !== session?.user?.id
-                                  ? (book.added_by_user.nickname || book.added_by_user.display_name)
+                                  ? book.added_by_user.display_name
                                   : 'You'
                                 }
                               </TableCell>

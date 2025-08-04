@@ -87,7 +87,7 @@ export async function GET(
         select: {
           id: true,
           display_name: true,
-          nickname: true,
+          full_name: true,
           avatar_url: true,
           about: true,
           favorite_genres: true,
@@ -132,7 +132,7 @@ export async function GET(
         select: {
           id: true,
           display_name: true,
-          nickname: true,
+          
           avatar_url: true,
           about: true,
           favorite_genres: true,

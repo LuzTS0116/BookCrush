@@ -289,7 +289,7 @@ interface Profile {
   id: string
   email?: string
   display_name: string | null;
-  nickname?: string | null;
+  full_name?: string | null;
   about?: string | null;
   avatar_url?: string | null;
   kindle_email?: string | null;
@@ -384,7 +384,7 @@ export default function EditableProfileMain() {
 
   // Form states
   const [displayName, setDisplayName] = useState("")
-  const [nickname, setNickname] = useState("")
+  const [fullName, setFullName] = useState("")
   const [bio, setBio] = useState("")
   const [kindleEmail, setKindleEmail] = useState("")
   const [selectedGenre, setSelectedGenre] = useState("")
@@ -453,10 +453,11 @@ export default function EditableProfileMain() {
 
         const profileData: Profile = await response.json()
         setProfile(profileData)
+        console.log("profileData", profileData)
         
         // Set form values
         setDisplayName(profileData.display_name || "")
-        setNickname(profileData.nickname || "")
+        setFullName(profileData.full_name || "")
         setBio(profileData.about || "")
         setKindleEmail(profileData.kindle_email || "")
         setFavoriteGenres(profileData.favorite_genres || [])
@@ -602,11 +603,11 @@ export default function EditableProfileMain() {
         },
         body: JSON.stringify({
           display_name: displayName.trim(),
-          nickname: nickname.trim(),
+          full_name: fullName.trim(),
           about: bio.trim(),
           kindle_email: kindleEmail.trim() || null,
           favorite_genres: favoriteGenres,
-          avatar_url: avatarUrl
+          ...(avatarUrl && { avatar_url: avatarUrl }) // Only include avatar_url if there's a new upload
         })
       })
       
@@ -647,7 +648,7 @@ export default function EditableProfileMain() {
 
     // Reset form values
     setDisplayName(profile.display_name || "")
-    setNickname(profile.nickname || "")
+    setFullName(profile.full_name || "")
     setBio(profile.about || "")
     setKindleEmail(profile.kindle_email || "")
     setFavoriteGenres(profile.favorite_genres || [])
@@ -1602,26 +1603,27 @@ export default function EditableProfileMain() {
                     {isEditing ? (
                       <div className="space-y-1">
                         <Input
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          className="text-sm bg-white/80 border-secondary/20 h-6"
+                          placeholder="Full name (optional)"
+                        />
+                        <Input
                           value={displayName}
                           onChange={(e) => setDisplayName(e.target.value)}
                           className="text-sm bg-white/80 border-secondary/20 h-6"
-                          placeholder="Display name"
+                          placeholder="Username"
                         />
-                        <Input
-                          value={nickname}
-                          onChange={(e) => setNickname(e.target.value)}
-                          className="text-sm bg-white/80 border-secondary/20 h-6"
-                          placeholder="username"
-                        />
+                        
                       </div>
                     ) : (
                       <>
                         <h2 className="text-lg leading-none font-semibold text-secondary-light">
-                          {profile?.display_name || "No name"}
+                          {profile?.full_name || "No name"}
                         </h2>
-                        {profile?.nickname && (
+                        {profile?.display_name && (
                           <p className="text-sm text-secondary/70 font-normal">
-                            {profile.nickname}
+                            {profile.display_name}
                           </p>
                         )}
                         <p className="text-xs text-secondary/50 font-normal">

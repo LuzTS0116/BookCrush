@@ -14,8 +14,8 @@ datasource db {
 model Profile {
   id              String   @id @db.Uuid // PK *and* FK to auth.users.id
   email           String?  @unique
-  display_name    String
-  nickname        String?
+  display_name    String   @unique // This will be the unique username (formerly nickname)
+  full_name     String?  // Optional real name (private)
   about           String?  @db.Text
   avatar_url      String?
   kindle_email    String?  @db.Text

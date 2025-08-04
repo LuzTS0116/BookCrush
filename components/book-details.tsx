@@ -59,7 +59,6 @@ interface BookReactions {
 interface FriendShelf {
   id: string;
   name: string;
-  nickname?: string;
   avatar: string | null;
   initials: string;
   shelf: 'currently_reading' | 'queue' | 'history' | 'favorite';
@@ -1652,9 +1651,6 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                                     </Avatar>
                                     <div>
                                       <p className="font-medium text-base">{friend.name}</p>
-                                      {friend.nickname && (
-                                        <p className="text-sm text-secondary/70">@{friend.nickname}</p>
-                                      )}
                                     </div>
                                   </div>
                                   <Button 

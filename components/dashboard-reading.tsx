@@ -15,6 +15,7 @@ import { useSession } from "next-auth/react"; // Add session management
 import Image from "next/image";
 import html2canvas from "html2canvas";
 import { ShareAchievementDialog } from "./ShareAchievementDialog";
+import { launchConfettiRealistic } from '@/lib/confetti-utils' // adjust the path to your utils
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -78,6 +79,7 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [downloadedImageUrl, setDownloadedImageUrl] = useState<string | null>(null);
   const [loadingImage, setLoadingImage] = useState(false);
+  const [hasFiredConfetti, setHasFiredConfetti] = useState(false)
 
   const imageRef = useRef(null);
 
@@ -90,6 +92,19 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
       setRating(null);
     }
   }, [isOpen]);
+
+  // Confetti Effect when opening dialog
+  useEffect(() => {
+    if (isOpen && !hasFiredConfetti) {
+      launchConfettiRealistic()
+      setHasFiredConfetti(true)
+    }
+  }, [isOpen, hasFiredConfetti])
+
+  // Reset it if needed when closing the dialog
+  useEffect(() => {
+    if (!isOpen) setHasFiredConfetti(false)
+  }, [isOpen])
 
   // const handleSubmit = () => {
   //   if (!rating) {

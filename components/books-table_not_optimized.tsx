@@ -59,7 +59,6 @@ interface ExtendedBookDetails extends BookDetails {
   added_by_user?: {
     id: string;
     display_name: string;
-    nickname: string | null;
     avatar_url: string | null;
   };
   // Add shelf status information
@@ -204,7 +203,7 @@ export default function BooksTableContents() {
           
           return {
             id: friend?.id || '',
-            name: friend?.nickname || friend?.display_name || 'Unknown'
+            name: friend?.display_name || 'Unknown'
           };
         }).filter((friend: any) => friend.id); // Filter out any invalid entries
         
@@ -1001,7 +1000,7 @@ export default function BooksTableContents() {
                                   {/* Show who added the book for non-my-library tabs */}
                                   {activeTab !== 'my-library' && book.added_by_user && (
                                     <p className="text-xs leading-none text-secondary/60">
-                                      {activeTab === 'explore' ? 'Added by' : 'From'} {book.added_by_user.nickname || book.added_by_user.display_name}
+                                      {activeTab === 'explore' ? 'Added by' : 'From'} {book.added_by_user.display_name}
                                     </p>
                                   )}
                                   <p className="text-secondary/60 text-xs font-serif font-medium">
@@ -1081,7 +1080,7 @@ export default function BooksTableContents() {
                               {activeTab !== 'my-library' && (
                                 <TableCell className="p-2 text-xs text-secondary/60">
                                   {book.added_by_user && book.added_by_user.id !== session?.user?.id
-                                    ? (book.added_by_user.nickname || book.added_by_user.display_name)
+                                    ? book.added_by_user.display_name
                                     : 'You'
                                   }
                                 </TableCell>

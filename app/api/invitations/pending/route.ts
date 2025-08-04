@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
                   select: {
                     id: true,
                     display_name: true,
-                    nickname: true,
+                    
                     avatar_url: true,
                   },
                 },
@@ -131,7 +131,7 @@ export async function GET(req: NextRequest) {
         members: invitation.club.memberships.map((member: any) => ({
           id: member.user.id,
           display_name: member.user.display_name,
-          nickname: member.user.nickname,
+          
           avatar_url: member.user.avatar_url,
           role: member.role,
           joined_at: member.joined_at,

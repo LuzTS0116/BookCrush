@@ -33,7 +33,6 @@ interface ExtendedBookDetails {
   added_by_user?: {
     id: string
     display_name: string
-    nickname: string | null
     avatar_url: string | null
   }
   user_shelf_status?: {

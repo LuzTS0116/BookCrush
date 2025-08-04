@@ -61,7 +61,7 @@ export function useFriends({ session, status }: UseFriendsProps) {
           
           return {
             id: friend?.id || '',
-            name: friend?.nickname || friend?.display_name || 'Unknown'
+            name: friend?.display_name || 'Unknown'
           }
         }).filter((friend: any) => friend.id) // Filter out any invalid entries
         

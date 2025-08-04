@@ -31,11 +31,11 @@ export default function ProfileSetupPage() {
   const { data: session, status, update } = useSession();
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [name, setName] = useState("")
+  const [username, setUsername] = useState("") // Primary display name (unique)
+  const [fullName, setFullName] = useState("") // Optional real name (private)
   const [bio, setBio] = useState("")
   const [selectedGenre, setSelectedGenre] = useState("")
   const [favoriteGenres, setFavoriteGenres] = useState<string[]>([])
-  const [nickname, setNickname] = useState("")
   const [kindleEmail, setKindleEmail] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -168,13 +168,19 @@ export default function ProfileSetupPage() {
     setSuccess(null)
     
     // Basic validation
-    if (!name.trim()) {
-      setError('Full name is required');
+    if (!username.trim()) {
+      setError('Username is required');
       return;
     }
     
-    if (!nickname.trim()) {
-      setError('Username is required');
+    // Username validation
+    if (username.length < 3) {
+      setError('Username must be at least 3 characters long');
+      return;
+    }
+    
+    if (!/^[a-zA-Z0-9_.-]+$/.test(username)) {
+      setError('Username can only contain letters, numbers, dots, hyphens, and underscores');
       return;
     }
     
@@ -199,10 +205,10 @@ export default function ProfileSetupPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          display_name: name.trim(),
+          display_name: username.trim(),
+          full_name: fullName.trim() || null,
           about: bio.trim(),
           favorite_genres: favoriteGenres,
-          nickname: nickname.trim(),
           kindle_email: kindleEmail.trim() || null,
           avatar_url: avatarUrl
         })
@@ -248,18 +254,27 @@ export default function ProfileSetupPage() {
   useEffect(() => {
     setIsLoading(false);
     
-    // Get nickname from URL parameters and use it as initial display name
-    const nicknameFromUrl = searchParams.get('nickname');
-    if (nicknameFromUrl) {
-      setName(nicknameFromUrl); // Use nickname as initial display name
-      setNickname(nicknameFromUrl); // Also set the nickname field
+    // Get username from URL parameters
+    const usernameFromUrl = searchParams.get('display_name') || searchParams.get('username');
+    if (usernameFromUrl) {
+      setUsername(usernameFromUrl);
     }
     
     // Pre-populate with Google data if available
     if (session?.googleData) {
-      if (session.googleData.name && !name) {
-        setName(session.googleData.name);
-        setNickname(session.googleData.name.split(' ')[0] || session.googleData.name);
+      if (session.googleData.name) {
+        if (!fullName) {
+          setFullName(session.googleData.name); // Use real name for full_name
+        }
+        if (!username) {
+          // Create a username suggestion from the real name
+          const suggestedUsername = session.googleData.name
+            .toLowerCase()
+            .replace(/[^a-zA-Z0-9]/g, '_')
+            .replace(/_+/g, '_')
+            .replace(/^_|_$/g, '');
+          setUsername(suggestedUsername);
+        }
       }
       if (session.googleData.avatar_url && !profilePicturePreview) {
         setProfilePicturePreview(session.googleData.avatar_url);
@@ -326,9 +341,9 @@ export default function ProfileSetupPage() {
       ) : (
         <Card className="w-full max-w-2xl border-primary/20 bg-[url('/images/quote-bg.svg')] bg-cover mb-12">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl/6 font-bold text-center text-secondary">Complete Your Profile</CardTitle>
+            <CardTitle className="text-2xl/6 font-bold text-center text-secondary">Choose Your Username</CardTitle>
             <CardDescription className="text-center text-base/5 font-medium font-serif">
-              Your story matters too — add a few details and join the community.
+              Pick a unique username and tell us about yourself — your identity in our book community.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -365,7 +380,7 @@ export default function ProfileSetupPage() {
                       alt="@user" 
                     />
                     <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
-                      {name ? name.charAt(0).toUpperCase() : "U"}
+                      {username ? username.charAt(0).toUpperCase() : "U"}
                     </AvatarFallback>
                   </Avatar>
                   <Button
@@ -400,28 +415,33 @@ export default function ProfileSetupPage() {
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-0">
-                  <Label htmlFor="name">Full Name *</Label>
+                  <Label htmlFor="username">Username * <span className="text-xs text-muted-foreground">(Your public display name)</span></Label>
                   <Input
-                    id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    id="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     className="bg-white/60 text-secondary border border-secondary-light file:text-bookWhite placeholder:text-secondary/70"
-                    placeholder="Your full name"
+                    placeholder="bookworm123"
                     disabled={isSubmitting}
                     required
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    This is how others will see you. Must be unique and 3+ characters.
+                  </p>
                 </div>
                 <div className="space-y-0">
-                  <Label htmlFor="nickname">Username *</Label>
+                  <Label htmlFor="fullName">Real Name <span className="text-xs text-muted-foreground">(Optional, private)</span></Label>
                   <Input
-                    id="nickname"
-                    value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
+                    id="fullName"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
                     className="bg-white/60 text-secondary border border-secondary-light file:text-bookWhite placeholder:text-secondary/70"
-                    placeholder="Your username"
+                    placeholder="Jane Doe"
                     disabled={isSubmitting}
-                    required
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Only visible to you, used for personal records.
+                  </p>
                 </div>
                 <div className="space-y-0">
                   <Label htmlFor="kindle-email">Kindle Email (Optional)</Label>

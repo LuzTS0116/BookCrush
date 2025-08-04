@@ -127,7 +127,7 @@ export async function GET(req: NextRequest) {
                   select: {
                     id: true,
                     display_name: true,
-                    nickname: true,
+                    
                     avatar_url: true,
                   },
                 },
@@ -160,7 +160,7 @@ export async function GET(req: NextRequest) {
       members: membership.club.memberships.map(member => ({
         id: member.user.id,
         display_name: member.user.display_name,
-        nickname: member.user.nickname,
+        
         avatar_url: processAvatarUrl(member.user.avatar_url), // Synchronous processing!
         role: member.role,
         joined_at: member.joined_at,

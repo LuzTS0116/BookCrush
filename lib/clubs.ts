@@ -44,7 +44,7 @@ interface ClubInvitation {
     members?: Array<{
       id: string;
       display_name: string;
-      nickname?: string;
+      
       avatar_url?: string;
       role: 'OWNER' | 'ADMIN' | 'MEMBER';
       joined_at: string;
@@ -77,7 +77,7 @@ interface Club {
   members?: Array<{
     id: string;
     display_name: string;
-    nickname?: string;
+    
     avatar_url?: string;
     role: 'OWNER' | 'ADMIN' | 'MEMBER';
     joined_at: string;

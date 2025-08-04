@@ -67,7 +67,6 @@ export async function GET(request: Request) {
           select: {
             id: true,
             display_name: true,
-            nickname: true,
             avatar_url: true
           }
         },
@@ -80,8 +79,7 @@ export async function GET(request: Request) {
             is_favorite: true,
             user: {
               select: {
-                display_name: true,
-                nickname: true
+                display_name: true
               }
             }
           }
@@ -178,7 +176,7 @@ export async function GET(request: Request) {
         friendShelfStatus = {
           shelf: friendBook.shelf,
           status: friendBook.status,
-          user_name: friendBook.user.nickname || friendBook.user.display_name
+          user_name: friendBook.user.display_name
         };
       }
 

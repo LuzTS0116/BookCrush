@@ -55,7 +55,6 @@ export async function GET(
           select: {
             id: true,
             display_name: true,
-            nickname: true,
             avatar_url: true,
           }
         },
@@ -63,7 +62,6 @@ export async function GET(
           select: {
             id: true,
             display_name: true,
-            nickname: true,
             avatar_url: true,
           }
         }
@@ -92,7 +90,6 @@ export async function GET(
           select: {
             id: true,
             display_name: true,
-            nickname: true,
             avatar_url: true,
           }
         },
@@ -112,10 +109,9 @@ export async function GET(
     // Format the response
     const preFormat = friendsWithBook.map(userBook => ({
       id: userBook.user.id,
-      name: userBook.user.display_name || userBook.user.nickname || 'Unknown',
-      nickname: userBook.user.nickname,
+      name: userBook.user.display_name || 'Unknown',
       avatar: userBook.user.avatar_url,
-      initials: (userBook.user.display_name || userBook.user.nickname || 'U').charAt(0).toUpperCase(),
+      initials: (userBook.user.display_name || 'U').charAt(0).toUpperCase(),
       shelf: userBook.shelf,
       status: userBook.status,
       media_type: userBook.media_type,

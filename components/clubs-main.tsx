@@ -68,7 +68,7 @@ const calculateDaysUntilMeeting = (meetingDate: string | Date): string => {
 
 // Reusable component for displaying club members
 function ClubMembersSection({ members, memberCount }: { 
-  members?: Array<{ id: string; display_name: string; nickname?: string; avatar_url?: string; role: string; joined_at: string; }>;
+  members?: Array<{ id: string; display_name: string;  avatar_url?: string; role: string; joined_at: string; }>;
   memberCount: number;
 }) {
   // No need for API call anymore since we have the data

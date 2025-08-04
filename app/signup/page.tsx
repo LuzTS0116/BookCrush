@@ -22,7 +22,7 @@ export default function SignupPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [nickname, setNickname] = useState("")
+  const [username, setUsername] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [error, setError] = useState("")
@@ -48,7 +48,7 @@ export default function SignupPage() {
       return;
     }
     
-    if (!nickname.trim()) {
+    if (!username.trim()) {
       setError("Username is required");
       return;
     }
@@ -65,8 +65,7 @@ export default function SignupPage() {
         password,
         options: {
           data: {
-            display_name: nickname.trim(),
-            nickname: nickname.trim()
+            display_name: username.trim()
           }
         }
       });
@@ -98,8 +97,8 @@ export default function SignupPage() {
       
       setLoadingStep("Redirecting...");
       
-      // Pass the nickname to profile setup page so it can be used as initial display name
-      const profileSetupUrl = `/profile-setup?nickname=${encodeURIComponent(nickname.trim())}`;
+      // Pass the username to profile setup page so it can be used as initial username
+      const profileSetupUrl = `/profile-setup?username=${encodeURIComponent(username.trim())}`;
       router.push(profileSetupUrl);
     } catch (error: unknown) {
       console.error('Authentication error:', error);
@@ -183,16 +182,16 @@ export default function SignupPage() {
                 </div>
                 </div>
                 <div className="space-y-2">
-                <Label htmlFor="nickname" className="text-bookWhite">Username</Label>
+                <Label htmlFor="username" className="text-bookWhite">Username</Label>
                 <div className="relative">
                     <User className="absolute left-3 top-2 h-4 w-4 text-bookWhite" />
                     <Input
-                    id="nickname"
+                    id="username"
                     type="text"
-                    placeholder="Your nickname"
+                    placeholder="Your username"
                     className="pl-10 text-bookWhite log-sign"
-                    value={nickname}
-                    onChange={(e) => setNickname(e.target.value)}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     disabled={isLoading}
                     required
                     />

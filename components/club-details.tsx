@@ -648,6 +648,17 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   const [isEditMeetingDialogOpen, setIsEditMeetingDialogOpen] = useState(false)
   const [deletingMeetingId, setDeletingMeetingId] = useState<string | null>(null)
   const [updatingMeeting, setUpdatingMeeting] = useState(false)
+  
+  // RSVP details dialog states
+  const [rsvpDetailsDialog, setRsvpDetailsDialog] = useState<{
+    isOpen: boolean;
+    meeting: ClubMeeting | null;
+    selectedStatus: 'ATTENDING' | 'MAYBE' | 'NOT_ATTENDING' | 'NOT_RESPONDED' | null;
+  }>({
+    isOpen: false,
+    meeting: null,
+    selectedStatus: null
+  })
   const [meetingFormData, setMeetingFormData] = useState({
     title: '',
     description: '',
@@ -1819,6 +1830,29 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     return { attending, notAttending, maybe, notResponded, total: meeting._count.attendees }
   }
 
+  // Get members by RSVP status
+  const getMembersByRsvpStatus = (meeting: ClubMeeting, status: 'ATTENDING' | 'MAYBE' | 'NOT_ATTENDING' | 'NOT_RESPONDED') => {
+    return meeting.attendees.filter(a => a.status === status)
+  }
+
+  // Open RSVP details dialog
+  const handleOpenRsvpDetails = (meeting: ClubMeeting, status: 'ATTENDING' | 'MAYBE' | 'NOT_ATTENDING' | 'NOT_RESPONDED') => {
+    setRsvpDetailsDialog({
+      isOpen: true,
+      meeting,
+      selectedStatus: status
+    })
+  }
+
+  // Close RSVP details dialog
+  const handleCloseRsvpDetails = () => {
+    setRsvpDetailsDialog({
+      isOpen: false,
+      meeting: null,
+      selectedStatus: null
+    })
+  }
+
   // Complete meeting functions
   const handleOpenCompleteMeeting = async (meetingId: string) => {
     if (!session?.supabaseAccessToken) return
@@ -2615,9 +2649,37 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                 </Button>
               </div>
             )}
-            {club.currentUserIsAdmin && (
+            {!club.current_book && club.currentUserIsAdmin && (
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => setBookDialogOpen(true)}
+                  disabled={loadingBookAction}
+                  className="bg-primary hover:bg-primary-light text-secondary rounded-full"
+                >
+                  {loadingBookAction ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                      "Set a New Book"
+                  )}
+                </Button>
+              </div>
+            )}
+            <BookSelectionDialog
+              open={bookDialogOpen}
+              onOpenChange={setBookDialogOpen}
+              onBookSelect={handleSetCurrentBook}
+              addBookDialogOpen={addBookDialogOpen}
+              setAddBookDialogOpen={setAddBookDialogOpen}
+              allBooks={allBooks}
+              setAllBooks={setAllBooks}
+              onBookAdded={handleBookAdded}
+            />
+                    
+            {/* {club.currentUserIsAdmin && club.current_book && (
               <div className="flex justify-end flex-wrap">
-                {club.current_book ? (
                   <div>
                     <Dialog onOpenChange={(open) => {
                       if (!open) {
@@ -2803,34 +2865,8 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                       </DialogContent>
                     </Dialog>
                   </div>         
-                ) : (
-                  <Button
-                    onClick={() => setBookDialogOpen(true)}
-                    disabled={loadingBookAction}
-                    className="bg-primary hover:bg-primary-light text-secondary rounded-full"
-                  >
-                    {loadingBookAction ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                        "Set a New Book"
-                    )}
-                  </Button>
-                )}
-                <BookSelectionDialog
-                  open={bookDialogOpen}
-                  onOpenChange={setBookDialogOpen}
-                  onBookSelect={handleSetCurrentBook}
-                  addBookDialogOpen={addBookDialogOpen}
-                  setAddBookDialogOpen={setAddBookDialogOpen}
-                  allBooks={allBooks}
-                  setAllBooks={setAllBooks}
-                  onBookAdded={handleBookAdded}
-                />
               </div>
-            )}
+            )} */}
             </CardFooter>
           </Card>
 
@@ -3616,12 +3652,40 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
                               {(() => {
                                 const summary = getAttendanceSummary(meeting);
+                                const isAdmin = club?.currentUserIsAdmin;
                                 return (
-                                  <div className="flex items-center justify-between text-xs text-bookBlack text">
-                                    <span className="font-medium">RSVPs:</span>
-                                    <span className="text-xs px-1.5 py-0.5 bg-secondary-light/15 rounded-full">{summary.attending} attending</span>
-                                    <span className="text-xs px-1.5 py-0.5 bg-secondary-light/15 rounded-full">{summary.maybe} maybe</span>
-                                    <span className="text-xs px-1.5 py-0.5 bg-secondary-light/15 rounded-full">{summary.notAttending} not attending</span>
+                                  <div className="flex flex-wrap items-center gap-1 text-xs text-bookBlack">
+                                    <span className="font-medium mr-1">RSVPs:</span>
+                                    <span 
+                                      className={`text-xs px-1.5 py-0.5 bg-secondary/15  text-secondary rounded-full ${isAdmin ? 'cursor-pointer hover:bg-secondary/20 transition-colors' : ''}`}
+                                      onClick={isAdmin ? () => handleOpenRsvpDetails(meeting, 'ATTENDING') : undefined}
+                                      title={isAdmin ? 'Click to see who is attending' : undefined}
+                                    >
+                                      {summary.attending} attending
+                                    </span>
+                                    <span 
+                                      className={`text-xs px-1.5 py-0.5 bg-secondary/15 text-secondary rounded-full ${isAdmin ? 'cursor-pointer hover:bg-secondary/20 transition-colors' : ''}`}
+                                      onClick={isAdmin ? () => handleOpenRsvpDetails(meeting, 'MAYBE') : undefined}
+                                      title={isAdmin ? 'Click to see who might attend' : undefined}
+                                    >
+                                      {summary.maybe} maybe
+                                    </span>
+                                    <span 
+                                      className={`text-xs px-1.5 py-0.5 bg-secondary/15 text-secondary rounded-full ${isAdmin ? 'cursor-pointer hover:bg-secondary/20 transition-colors' : ''}`}
+                                      onClick={isAdmin ? () => handleOpenRsvpDetails(meeting, 'NOT_ATTENDING') : undefined}
+                                      title={isAdmin ? 'Click to see who is not attending' : undefined}
+                                    >
+                                      {summary.notAttending} not attending
+                                    </span>
+                                    {summary.notResponded > 0 && (
+                                      <span 
+                                        className={`text-xs px-1.5 py-0.5 bg-secondary/15 text-secondary rounded-full ${isAdmin ? 'cursor-pointer hover:bg-secondary/20 transition-colors' : ''}`}
+                                        onClick={isAdmin ? () => handleOpenRsvpDetails(meeting, 'NOT_RESPONDED') : undefined}
+                                        title={isAdmin ? 'Click to see who has not responded' : undefined}
+                                      >
+                                        {summary.notResponded} no response
+                                      </span>
+                                    )}
                                   </div>
                                 );
                               })()}
@@ -3683,6 +3747,216 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               )}
             </CardContent>
           </Card>
+
+
+          {/* --- NEW: Admin section for Unfinished Book or Finished book without meeting --- */}
+          {club.currentUserIsAdmin && (
+            <Card className="mt-3">
+              <CardHeader className="px-3 pt-3 pb-0">
+                <CardTitle className="flex items-center justify-center mb-2">
+                  Manage Exceptions
+                </CardTitle>
+                <CardDescription className="font-normal text-sm text-center leading-4">
+                  Use this section only when a book was not completed by the club, or when the book was completed but no 
+                  meeting was held. If the book was completed and a meeting took place, use the 'Complete Meeting' button in the Upcoming Meetings section instead.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2 p-3">
+                {club.currentUserIsAdmin && (
+                  <div>
+                    {club.current_book && (
+                      <div className="flex flex-col gap-2 items-center">
+                        <Dialog onOpenChange={(open) => {
+                          if (!open) {
+                            // Reset form when dialog closes
+                            setNotCompletedReason("");
+                            setNotCompletedNotes("");
+                          }
+                        }}>
+                          <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                disabled={loadingBookAction}
+                                className="bg-accent/80 hover:bg-accent text-secondary/85 border-none hover:text-secondary rounded-full"
+                              >
+                                Book Not Completed
+                              </Button>
+                          </DialogTrigger>
+                          <DialogContent className="w-[85vw] rounded-2xl">
+                              <Image 
+                                src="/images/background.png"
+                                alt="Create and Manage your Book Clubs | BookCrush"
+                                width={1622}
+                                height={2871}
+                                className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+                              />
+                              <DialogHeader>
+                              <DialogTitle>Book Not Completed</DialogTitle>
+                              <DialogDescription>
+                                  Let us know why this one didn't work out.
+                              </DialogDescription>
+                              </DialogHeader>
+                              <div className="grid gap-4 py-4">
+                              <div className="flex gap-3 items-center p-3 bg-muted/30 rounded-lg">
+                                  <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
+                                  <img
+                                      src={club.current_book?.cover_url || "/placeholder.svg"} // Optional chaining
+                                      alt={`${club.current_book?.title || 'No book'} cover`}
+                                      className="max-h-full"
+                                  />
+                                  </div>
+                                  <div>
+                                  <p className="font-medium text-sm">{club.current_book?.title}</p>
+                                  <p className="text-xs text-muted-foreground">{club.current_book?.author}</p>
+                                  </div>
+                              </div>
+                              <div className="grid gap-2">
+                                  <Label htmlFor="not-completed-reason">Reason for not completing</Label>
+                                  <Select value={notCompletedReason} onValueChange={setNotCompletedReason}>
+                                  <SelectTrigger id="not-completed-reason" className="font-medium">
+                                      <SelectValue placeholder="Select reason" className="font-medium"/>
+                                  </SelectTrigger>
+                                  <SelectContent className="font-medium">
+                                    <SelectItem value="1">📖 Lost interest in the story</SelectItem>
+                                    <SelectItem value="2">🕒 Didn't have enough time</SelectItem>
+                                    <SelectItem value="3">🤯 Too confusing or hard to follow</SelectItem>
+                                    <SelectItem value="4">😔 Not in the right mood for this book</SelectItem>
+                                    <SelectItem value="5">🔁 Planning to finish later</SelectItem>
+                                    <SelectItem value="6">😐 Didn't connect with the characters or style</SelectItem>
+                                    <SelectItem value="7">❌ Offensive or uncomfortable content</SelectItem>
+                                    <SelectItem value="8">💤 Too slow-paced or boring</SelectItem>
+                                    <SelectItem value="9">📚 Overwhelmed by other reads</SelectItem>
+                                    <SelectItem value="10">✍️ Other (will explain below)</SelectItem>
+                                  </SelectContent>
+                                  </Select>
+                              </div>
+                              <div className="grid gap-2">
+                                  <Label htmlFor="not-completed-notes">Notes or Thoughts</Label>
+                                  <Textarea
+                                  id="not-completed-notes"
+                                  placeholder="Summarize the reasons for this book to be not completed"
+                                  value={notCompletedNotes}
+                                  onChange={(e) => setNotCompletedNotes(e.target.value)}
+                                  className="bg-bookWhite font-serif font-medium text-secondary placeholder:text-secondary/50 placeholder:font-serif placeholder:italic placeholder:text-sm"
+                                  rows={4}
+                                  />
+                              </div>
+                              </div>
+                              <DialogFooter>
+                                <Button
+                                  variant="outline"
+                                  type="submit"
+                                  onClick={handleNotCompleteBook}
+                                  disabled={loadingBookAction || !notCompletedReason || !notCompletedNotes.trim()}
+                                  className="bg-secondary-light hover:bg-secondary text-bookWhite rounded-full"
+                                >
+                                  {loadingBookAction ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Processing...
+                                    </>
+                                  ) : (
+                                    "Book Not Completed"
+                                  )}
+                                </Button>
+                              </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+
+                        <Dialog onOpenChange={(open) => {
+                          if (!open) {
+                            // Reset form when dialog closes
+                            setBookRating("");
+                            setDiscussionNotes("");
+                          }
+                        }}>
+                          <DialogTrigger asChild>
+                              <Button variant="outline" className="ml-2 text-secondary rounded-full bg-primary hover:bg-primary-dark hover:text-secondary border-none">
+                              Completed Book Without Meeting
+                              </Button>
+                          </DialogTrigger>
+                          <DialogContent className="w-[85vw] rounded-2xl">
+                              <Image 
+                                src="/images/background.png"
+                                alt="Create and Manage your Book Clubs | BookCrush"
+                                width={1622}
+                                height={2871}
+                                className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+                              />
+                              <DialogHeader>
+                              <DialogTitle>Complete Book Meeting</DialogTitle>
+                              <DialogDescription>
+                                  Mark the current book as completed and add it to history.
+                              </DialogDescription>
+                              </DialogHeader>
+                              <div className="grid gap-4 py-4">
+                              <div className="flex gap-3 items-center p-3 bg-muted/30 rounded-lg">
+                                  <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
+                                  <img
+                                      src={club.current_book?.cover_url || "/placeholder.svg"} // Optional chaining
+                                      alt={`${club.current_book?.title || 'No book'} cover`}
+                                      className="max-h-full"
+                                  />
+                                  </div>
+                                  <div>
+                                  <p className="font-medium text-sm">{club.current_book?.title}</p>
+                                  <p className="text-xs text-muted-foreground">{club.current_book?.author}</p>
+                                  </div>
+                              </div>
+                              <div className="grid gap-2">
+                                  <Label htmlFor="rating">Book Rating</Label>
+                                  <Select value={bookRating} onValueChange={setBookRating}>
+                                  <SelectTrigger id="rating" className="font-medium">
+                                      <SelectValue placeholder="Select rating" className="font-medium text-secondary"/>
+                                  </SelectTrigger>
+                                  <SelectContent className="font-medium">
+                                    <SelectItem value="1">1 - DNF / Frustrating Read</SelectItem>
+                                    <SelectItem value="2">2 - Underwhelming</SelectItem>
+                                    <SelectItem value="3">3 - Decent, not memorable</SelectItem>
+                                    <SelectItem value="4">4 - Like it / Great discussion pick</SelectItem>
+                                    <SelectItem value="5">5 - Masterpiece / Instant favorite</SelectItem>
+                                  </SelectContent>
+                                  </Select>
+                              </div>
+                              <div className="grid gap-2">
+                                  <Label htmlFor="discussion-notes">Discussion Notes</Label>
+                                  <Textarea
+                                  id="discussion-notes"
+                                  placeholder="Summarize the key points from your discussion"
+                                  value={discussionNotes}
+                                  onChange={(e) => setDiscussionNotes(e.target.value)}
+                                  className="bg-bookWhite font-serif font-medium text-secondary text-sm leading-none placeholder:font-serif placeholder:italic placeholder:text-sm"
+                                  rows={4}
+                                  />
+                              </div>
+                              </div>
+                              <DialogFooter>
+                              <Button 
+                                type="submit" 
+                                onClick={handleCompleteBook}
+                                disabled={loadingBookAction || !bookRating || !discussionNotes.trim()}
+                                className="bg-primary hover:bg-primary-light text-primary-foreground rounded-full"
+                              >
+                                {loadingBookAction ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Completing...
+                                  </>
+                                ) : (
+                                  "Complete & Archive"
+                                )}
+                              </Button>
+                              </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>         
+                    )} 
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           
           {/* Leave Club Button - Only show to active members who are not owners */}
           {club.currentUserMembershipStatus === 'ACTIVE' && !club.currentUserIsAdmin && club.ownerId !== session?.user?.id && (
@@ -3747,7 +4021,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
           
           {meetingCompletionData && (
             <div className="flex-1 overflow-y-auto px-2">
-              <div className="space-y-2 pb-2">
+              <div className="pb-2">
               {/* Meeting Info */}
               <div className="bg-bookWhite/15 p-2 rounded-lg">
                 <div className="flex items-center gap-1">
@@ -3784,7 +4058,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               </div>
 
               {/* Meeting Notes - Required for all meeting types */}
-              <div className="space-y-1 mb-3">
+              <div className="space-y-1 mt-3">
                 <Label htmlFor="meeting-notes" className="text-sm">Meeting Notes *</Label>
                 <Textarea
                   id="meeting-notes"
@@ -3800,7 +4074,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               {meetingCompletionData.meeting.meeting_type === 'DISCUSSION' && 
                meetingCompletionData.meeting.current_book && 
                meetingCompletionData.meeting.book?.id === meetingCompletionData.meeting.current_book.id && (
-                <div className="space-y-1 p-3 bg-primary/15 rounded-lg mt-3">
+                <div className="space-y-1 p-3 bg-primary/15 rounded-lg mt-6">
                   <h4 className="font-medium text-sm text-bookWhite leading-4">Book Discussion Status & Rating</h4>
                   <p className="text-xs text-bookWhite font-serif leading-4">
                     Since this is a discussion meeting about your current book "{meetingCompletionData.meeting.current_book.title}", 
@@ -3864,35 +4138,23 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               )}
 
               {/* Attendance Marking */}
-              <div className="space-y-3 pt-2">
+              <div className="space-y-2 pt-6">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-sm">Mark Actual Attendance</h4>
-                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                    <Check className="h-3 w-3 mr-1" />
+                  <h4 className="font-medium text-sm text-bookWhite">Mark Attendance</h4>
+                  <Badge variant="outline" className="text-xs bg-bookWhite/20 text-primary font-thin border-none">
                     {Object.values(attendanceMarks).filter(Boolean).length} / {meetingCompletionData.attendees.length} attended
                   </Badge>
                 </div>
                 
-                <p className="text-xs text-muted-foreground">
-                  Use the sliders to mark who actually attended. 
-                  <span className="font-medium text-green-600">Green = Attended</span>, 
-                  <span className="font-medium text-red-600">Red = Absent</span>. 
-                  Defaults set from RSVP status.
-                </p>
+                <p className="text-xs text-bookWhite font-serif"> Use the sliders to mark who actually attended. Defaults set from RSVP status. </p>
 
-                <ScrollArea className="h-[200px] md:h-[300px] pr-4">
+                <ScrollArea className="h-[200px] md:h-[300px] bg-bookWhite/15 rounded-lg p-3 mt-2">
                   <div className="space-y-2">
                     {meetingCompletionData.attendees.map((attendee) => {
                       const isMarkedAsAttended = attendanceMarks[attendee.userId] ?? false;
-                      const rsvpStatusColors = {
-                        'ATTENDING': 'text-green-600 bg-green-50',
-                        'NOT_ATTENDING': 'text-red-600 bg-red-50',
-                        'MAYBE': 'text-yellow-600 bg-yellow-50',
-                        'NOT_RESPONDED': 'text-gray-600 bg-gray-50'
-                      };
                       
                       return (
-                        <div key={attendee.userId} className="flex items-center justify-between p-3 bg-bookWhite/80 rounded-lg border">
+                        <div key={attendee.userId} className="flex items-center justify-between p-2 bg-bookWhite/80 rounded-lg">
                           <div className="flex items-center gap-3 flex-1">
                             <Avatar className="h-8 w-8">
                               <AvatarImage 
@@ -3904,12 +4166,12 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{attendee.user.display_name}</p>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">RSVP:</span>
+                              <p className="text-sm font-medium truncate text-secondary">{attendee.user.display_name}</p>
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs text-secondary">RSVP:</span>
                                 <Badge 
                                   variant="outline" 
-                                  className={`text-xs border-none ${rsvpStatusColors[attendee.rsvpStatus]}`}
+                                  className='text-xs border-none bg-bookWhite text-secondary/60'
                                 >
                                   {attendee.rsvpStatus.toLowerCase().replace('_', ' ')}
                                 </Badge>
@@ -3919,26 +4181,26 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                           
                           <div className="flex flex-col items-end gap-1">
                             <div className="flex items-center gap-2">
-                              <span className={`text-xs font-medium min-w-[45px] text-right ${!isMarkedAsAttended ? 'text-red-600' : 'text-gray-400'}`}>
+                              {/* <span className={`text-xs font-medium min-w-[45px] text-right ${!isMarkedAsAttended ? 'text-red-600' : 'text-gray-400'}`}>
                                 Absent
-                              </span>
+                              </span> */}
                               <Switch
                                 checked={isMarkedAsAttended}
                                 onCheckedChange={() => toggleAttendanceMark(attendee.userId)}
                                 className="data-[state=checked]:bg-green-600"
                               />
-                              <span className={`text-xs font-medium min-w-[55px] ${isMarkedAsAttended ? 'text-green-600' : 'text-gray-400'}`}>
+                              {/* <span className={`text-xs font-medium min-w-[55px] ${isMarkedAsAttended ? 'text-green-600' : 'text-gray-400'}`}>
                                 Attended
-                              </span>
+                              </span> */}
                             </div>
                             {/* Visual indicator of default vs manual change */}
-                            {attendee.actuallyAttended === null && (
+                            {/* {attendee.actuallyAttended === null && (
                               <span className="text-xs text-blue-600 font-medium">
                                 {((attendee.rsvpStatus === 'ATTENDING' || attendee.rsvpStatus === 'MAYBE') && isMarkedAsAttended) ||
                                  ((attendee.rsvpStatus === 'NOT_ATTENDING' || attendee.rsvpStatus === 'NOT_RESPONDED') && !isMarkedAsAttended)
                                   ? 'Auto-set' : 'Modified'}
                               </span>
-                            )}
+                            )} */}
                           </div>
                         </div>
                       );
@@ -3950,7 +4212,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
             </div>
           )}
           
-          <DialogFooter className="pt-4 flex-shrink-0 border-t border-border/20 bg-bookWhite/80 backdrop-blur-sm">
+          <DialogFooter className="pt-2 flex-shrink-0">
             <Button 
               variant="outline" 
               onClick={() => {
@@ -3985,6 +4247,94 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* RSVP Details Dialog */}
+      <Dialog open={rsvpDetailsDialog.isOpen} onOpenChange={handleCloseRsvpDetails}>
+        <DialogContent className="w-[85vw] rounded-2xl max-h-[90vh] flex flex-col p-3">
+          <Image 
+            src="/images/background.png"
+            alt="RSVP Details"
+            width={1622}
+            height={2871}
+            className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+          />
+          <DialogHeader className="pt-4 flex-shrink-0 pb-2">
+            <DialogTitle>
+              RSVP: {rsvpDetailsDialog.meeting && rsvpDetailsDialog.selectedStatus ? `${rsvpDetailsDialog.selectedStatus.toLowerCase().replace('_', ' ')}` : 'Details' }
+            </DialogTitle>
+          </DialogHeader>
+          
+          {rsvpDetailsDialog.meeting && rsvpDetailsDialog.selectedStatus && (
+            <div className="flex-1 overflow-y-auto px-2">
+              <div className="space-y-2 pb-4">
+                {(() => {
+                  const members = getMembersByRsvpStatus(rsvpDetailsDialog.meeting, rsvpDetailsDialog.selectedStatus);
+                  
+                  if (members.length === 0) {
+                    return (
+                      <div className="text-center py-8">
+                        <p className="text-sm text-muted-foreground">
+                          {rsvpDetailsDialog.selectedStatus === 'NOT_RESPONDED' ? 'All members responded' : `No members have responded "${rsvpDetailsDialog.selectedStatus.toLowerCase().replace('_', ' ')}" yet`}
+                        </p>
+                      </div>
+                    );
+                  }
+                  
+                  return members.map((attendee) => (
+                    <div key={attendee.user_id} className="flex items-center gap-3 p-2 bg-bookWhite/80 rounded-lg">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage 
+                          src={attendee.user.avatar_url || "/placeholder.svg"} 
+                          alt={attendee.user.display_name} 
+                        />
+                        <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                          {attendee.user.display_name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="font-medium text-sm text-secondary">{attendee.user.display_name}</p>
+                        <div className="flex items-center gap-1">
+                          {/* <Badge 
+                            variant="outline" 
+                            className={`text-xs border-none ${
+                              rsvpDetailsDialog.selectedStatus === 'ATTENDING' ? 'bg-green-100 text-green-700' :
+                              rsvpDetailsDialog.selectedStatus === 'MAYBE' ? 'bg-yellow-100 text-yellow-700' :
+                              rsvpDetailsDialog.selectedStatus === 'NOT_ATTENDING' ? 'bg-red-100 text-red-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}
+                          >
+                            {rsvpDetailsDialog.selectedStatus.toLowerCase().replace('_', ' ')}
+                          </Badge> */}
+                          {attendee.responded_at && (
+                            <span className="text-xs text-secondary font-serif">
+                              {new Date(attendee.responded_at).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          )}
+          
+          {/* <DialogFooter className="pt-2 flex-shrink-0">
+            <Button 
+              variant="outline" 
+              onClick={handleCloseRsvpDetails}
+              className="rounded-full"
+            >
+              Close
+            </Button>
+          </DialogFooter> */}
         </DialogContent>
       </Dialog>
 

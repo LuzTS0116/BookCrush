@@ -62,7 +62,7 @@ const getCommentDisplay = (comment: UserBook['comment']) => {
 interface ProfileData {
   id: string;
   display_name: string | null;
-  nickname: string | null;
+  full_name: string | null;
   avatar_url: string | null;
   about: string | null;
   favorite_genres: string[] | null;
@@ -194,7 +194,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
 
     // Show confirmation dialog
     const confirmed = window.confirm(
-      `Are you sure you want to unfriend ${profile.display_name || profile.nickname || 'this user'}? This action cannot be undone.`
+      `Are you sure you want to unfriend ${profile.display_name  || 'this user'}? This action cannot be undone.`
     );
     
     if (!confirmed) {
@@ -217,7 +217,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
         throw new Error(errorData.error || 'Failed to unfriend user');
       }
 
-      toast.success(`You are no longer friends with ${profile.display_name || profile.nickname || 'this user'}`);
+      toast.success(`You are no longer friends with ${profile.display_name ||  'this user'}`);
       
       // Refetch profile data to update UI
       await fetchProfile();
@@ -261,7 +261,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
   }
 
   // Get display name with fallback
-  const displayName = profile.display_name || profile.nickname || 'Anonymous User';
+  const displayName = profile.full_name || profile.display_name || 'Anonymous User';
   const avatarFallback = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   const currentFriends = profile._count.friendshipsAsUser1 + profile._count.friendshipsAsUser2;
 
@@ -342,7 +342,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                         <div className="flex flex-col justify-end pb-2">
                             <h2 className="text-lg/4 font-semibold text-secondary-light">{displayName}</h2>
                             <p className="text-sm text-secondary-light/70 font-normal">
-                                {profile.nickname}
+                                {profile.display_name}
                             </p>
                             <p className="text-xs text-secondary/50 font-normal">
                                 <span>{currentFriends} friend{currentFriends !== 1 ? 's' : ''}</span>
