@@ -90,11 +90,11 @@ export async function GET(
             } 
           },
         },
-        // where gt new date
+        // Show all non-completed meetings (regardless of date)
         meetings: {
           where: {
-            meeting_date: {
-              gt: new Date()
+            status: {
+              not: 'COMPLETED'
             }
           },
           include: {

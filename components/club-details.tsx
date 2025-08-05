@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { BookOpen, CalendarDays, Calendar, Plus, Search, Link2, Settings, Send, MessageSquare, Clock, Loader2, Check, ArrowLeft, MapPin, Reply, Edit, Trash2, MoreVertical, ChevronDown, ChevronUp, BookMarked, Play, Pause, Save, X, Pencil, Monitor, Users } from "lucide-react" // Added Play, Pause, Save, X, Monitor, Users icons
+import { BookOpen, CalendarDays, Calendar, Plus, Search, Link2, Settings, Send, MessageSquare, Clock, Loader2, Check, ArrowLeft, MapPin, Reply, Edit, Trash2, MoreVertical, ChevronDown, ChevronUp, BookMarked, Play, Pause, Save, X, Pencil, Monitor, Users, AlertCircle } from "lucide-react" // Added Play, Pause, Save, X, Monitor, Users, AlertCircle icons
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
@@ -2133,6 +2133,11 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   const getSafeUrl = (url: string) =>
   url.startsWith("http://") || url.startsWith("https://") ? url : `https://${url}`;
 
+  // Helper function to check if a meeting is past due
+  const isMeetingPastDue = (meeting: ClubMeeting): boolean => {
+    return new Date(meeting.meeting_date) < new Date();
+  };
+
   const formatVotingEndDate = (club: ClubData) => {
     if (!club.voting_cycle_active || !club.voting_ends_at) {
       return "No active voting cycle"
@@ -3487,7 +3492,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
           <Card className="mt-3">
             <CardHeader className="px-3 pt-3 pb-1 flex flex-row justify-between">
-              <CardTitle className="break-words">Upcoming Meetings</CardTitle>
+              <CardTitle className="break-words">Active Meetings</CardTitle>
               {club.currentUserIsAdmin && (
                 <Link href="/calendar">
                   <div className="flex flex-row items-center bg-secondary-light/10 rounded-full cursor-pointer text-secondary-light/60 hover:bg-secondary-light/20 hover:text-secondary-light py-1 px-2">
@@ -3497,11 +3502,24 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               )}
             </CardHeader>
             <CardContent className="px-3 pt-3 pb-5 space-y-3">
+              {/* Admin note about past due meetings */}
+              {club.currentUserIsAdmin && club.meetings.some(meeting => isMeetingPastDue(meeting)) && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <AlertCircle className="h-4 w-4 text-orange-600" />
+                    <p className="text-sm font-medium text-orange-800">Past Due Meetings</p>
+                  </div>
+                  <p className="text-xs text-orange-700">
+                    Some meetings have passed their scheduled date. You can still mark them as completed using the "Complete Meeting" button below.
+                  </p>
+                </div>
+              )}
+              
               {club.meetings.length === 0 ? (
                 <div>
                   <div className="flex flex-col items-center justify-center">
                     <CalendarDays className="text-secondary-light/20 h-16 w-16 mb-1" />
-                    <p className="text-secondary-light/30 text-center">No upcoming meeting</p>
+                    <p className="text-secondary-light/30 text-center">No active meetings</p>
                   </div>
                   {club.currentUserIsAdmin && (
                     <div className="flex flex-col items-center gap-2">
@@ -3513,16 +3531,25 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                   )}
                 </div>
               ) : (
-                club.meetings.map((meeting) => (
-                  <div key={meeting.id} className="space-y-2 bg-secondary/10 py-3 rounded-lg">
+                club.meetings.map((meeting) => {
+                  const isPastDue = isMeetingPastDue(meeting);
+                  return (
+                  <div key={meeting.id} className={`space-y-2 py-3 rounded-lg ${isPastDue ? 'bg-orange-50 border-l-4 border-orange-400' : 'bg-secondary/10'}`}>
                     <div className="space-y-1">
                       <div className="flex flex-row justify-between pr-3 mb-2">
-                        <p className="bg-accent-variant/25 rounded-r-full px-2">
-                          {meeting.meeting_type === 'AUTHOR_QA' 
-                            ? 'AUTHOR Q&A' : meeting.meeting_type === 'DISCUSSION'
-                            ? 'BOOK DISCUSSION'
-                            : meeting.meeting_type.replace(/_/g, ' ')}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="bg-accent-variant/25 rounded-r-full px-2">
+                            {meeting.meeting_type === 'AUTHOR_QA' 
+                              ? 'AUTHOR Q&A' : meeting.meeting_type === 'DISCUSSION'
+                              ? 'BOOK DISCUSSION'
+                              : meeting.meeting_type.replace(/_/g, ' ')}
+                          </p>
+                          {isPastDue && (
+                            <Badge variant="destructive" className="text-xs">
+                              Past Due
+                            </Badge>
+                          )}
+                        </div>
                         <Badge variant="secondary" className="w-fit ml-1 bg-primary/50 text-secondary-light/50">
                           {meeting.meeting_mode?.replace('_', ' ')}
                         </Badge>
@@ -3743,7 +3770,8 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                       </div>
                     </div>
                   </div>
-                ))
+                  );
+                })
               )}
             </CardContent>
           </Card>
@@ -3758,7 +3786,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                 </CardTitle>
                 <CardDescription className="font-normal text-sm text-center leading-4">
                   Use this section only when a book was not completed by the club, or when the book was completed but no 
-                  meeting was held. If the book was completed and a meeting took place, use the 'Complete Meeting' button in the Upcoming Meetings section instead.
+                  meeting was held. If the book was completed and a meeting took place, use the 'Complete Meeting' button in the Active Meetings section above (works for both upcoming and past due meetings).
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2 p-3">
