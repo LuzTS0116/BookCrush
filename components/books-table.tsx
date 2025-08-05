@@ -11,6 +11,7 @@ import { Heart } from "@phosphor-icons/react"
 import Link from "next/link"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
 import { BookDetails } from "@/types/book"
 import { AddBookDialog } from "./add-book-dialog"
@@ -57,11 +58,12 @@ interface ExtendedBookDetails extends BookDetails {
     shelf: 'favorite' | 'currently_reading' | 'queue' | 'history'
     status?: 'in_progress' | 'almost_done' | 'finished' | 'unfinished'
   }
-  friend_shelf_status?: {
+  friends_shelf_statuses?: Array<{
     shelf: 'favorite' | 'currently_reading' | 'queue' | 'history'
     status?: 'in_progress' | 'almost_done' | 'finished' | 'unfinished'
     user_name: string
-  }
+    user_id: string
+  }>
 }
 
 // Helper function to get shelf badge display info
@@ -106,6 +108,69 @@ const ShelfStatusBadge = React.memo(({ shelf, status, userName }: { shelf: strin
 });
 
 ShelfStatusBadge.displayName = 'ShelfStatusBadge'
+
+// Component for displaying multiple friends' shelf statuses
+const MultipleFriendsShelfStatus = React.memo(({ 
+  friendsShelfStatuses 
+}: { 
+  friendsShelfStatuses: Array<{
+    shelf: string
+    status?: string
+    user_name: string
+    user_id: string
+  }>
+}) => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  
+  if (!friendsShelfStatuses || friendsShelfStatuses.length === 0) {
+    return null
+  }
+  
+  // If only one friend, show the regular badge
+  if (friendsShelfStatuses.length === 1) {
+    const friend = friendsShelfStatuses[0]
+    return (
+      <ShelfStatusBadge 
+        shelf={friend.shelf} 
+        status={friend.status}
+        userName={friend.user_name}
+      />
+    )
+  }
+  
+  // If multiple friends, show the "+n friends" clickable text with dialog
+  return (
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <DialogTrigger asChild>
+        <button className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer">
+          +{friendsShelfStatuses.length} friends
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Friends who have this book</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 max-h-64 overflow-y-auto">
+          {friendsShelfStatuses.map((friend, index) => (
+            <div key={`${friend.user_id}-${index}`} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div>
+                <p className="font-medium text-sm">{friend.user_name}</p>
+              </div>
+              <div>
+                <ShelfStatusBadge 
+                  shelf={friend.shelf} 
+                  status={friend.status}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+})
+
+MultipleFriendsShelfStatus.displayName = 'MultipleFriendsShelfStatus'
 
 // ✅ IMPROVEMENT 2: Custom hook for debouncing
 function useDebounce<T>(value: T, delay: number): T {
@@ -232,7 +297,11 @@ const BookCard = React.memo(({
                       disabled={isLoading}
                       aria-label="Add book to shelf"
                     >
-                      <Plus className="h-4 w-4 text-muted-foreground" />
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4 text-muted-foreground" />
+                      )}
                     </Button>
                   </DropdownMenu.Trigger>
 
@@ -298,17 +367,17 @@ const BookCard = React.memo(({
             ))}
             
             {/* Shelf Status Badge */}
-            {activeTab === 'friends-library' && book.friend_shelf_status ? (
-              <ShelfStatusBadge 
-                shelf={book.friend_shelf_status.shelf} 
-                status={book.friend_shelf_status.status}
-                userName={book.friend_shelf_status.user_name}
+            {activeTab === 'friends-library' && book.friends_shelf_statuses && book.friends_shelf_statuses.length > 0 ? (
+              <MultipleFriendsShelfStatus 
+                friendsShelfStatuses={book.friends_shelf_statuses}
               />
             ) : book.user_shelf_status ? (
-              <ShelfStatusBadge 
-                shelf={book.user_shelf_status.shelf} 
-                status={book.user_shelf_status.status}
-              />
+              <div className="animate-in fade-in duration-300">
+                <ShelfStatusBadge 
+                  shelf={book.user_shelf_status.shelf} 
+                  status={book.user_shelf_status.status}
+                />
+              </div>
             ) : null}
           </div>
 
@@ -725,10 +794,36 @@ export default function BooksTableOptimized() {
       return
     }
 
+    // Find the current book to store its previous state for rollback
+    const currentBook = books.find(book => book.id === bookId)
+    if (!currentBook) return
+
+    // Set loading state
     setShelfActionsStatus(prev => ({
       ...prev,
       [bookId]: { isLoading: true, message: null }
     }))
+    
+    // Optimistic update: immediately update the book's shelf status
+    const optimisticShelfStatus = {
+      shelf: shelf as 'favorite' | 'currently_reading' | 'queue' | 'history',
+      status: 'in_progress' as 'in_progress' | 'almost_done' | 'finished' | 'unfinished'
+    }
+    
+    setBooks(prevBooks => 
+      prevBooks.map(book => 
+        book.id === bookId 
+          ? { 
+              ...book, 
+              user_shelf_status: optimisticShelfStatus
+            }
+          : book
+      )
+    )
+    
+    // Show immediate visual feedback
+    const shelfDisplayName = shelf.replace(/_/g, ' ')
+    toast.success(`📚 Adding to ${shelfDisplayName}...`, { duration: 1000 })
     
     try {
       const response = await fetch('/api/shelf', {
@@ -741,12 +836,24 @@ export default function BooksTableOptimized() {
       })
       
       if (!response.ok) {
+        // Rollback optimistic update on error
+        setBooks(prevBooks => 
+          prevBooks.map(book => 
+            book.id === bookId 
+              ? { 
+                  ...book, 
+                  user_shelf_status: currentBook.user_shelf_status
+                }
+              : book
+          )
+        )
+        
         const errorData = await response.json()
         throw new Error(errorData.error || 'Failed to add book to shelf')
       }
       
       const shelfDisplayName = shelf.replace(/_/g, ' ')
-      toast.success(`📚 Added to ${shelfDisplayName}!`)
+      toast.success(`✅ Successfully added to ${shelfDisplayName}!`)
 
     } catch (err: any) {
       console.error("Error adding book to shelf:", err)
@@ -757,7 +864,7 @@ export default function BooksTableOptimized() {
         [bookId]: { isLoading: false, message: null }
       }))
     }
-  }, [session?.supabaseAccessToken])
+  }, [session?.supabaseAccessToken, books])
 
   const handleRecommendBook = useCallback((book: ExtendedBookDetails) => {
     setRecommendDialog({ isOpen: true, book })
@@ -1165,17 +1272,17 @@ export default function BooksTableOptimized() {
                               ))}
                             </TableCell>
                             <TableCell>
-                              {state.activeTab === 'friends-library' && book.friend_shelf_status ? (
-                                <ShelfStatusBadge 
-                                  shelf={book.friend_shelf_status.shelf} 
-                                  status={book.friend_shelf_status.status}
-                                  userName={book.friend_shelf_status.user_name}
+                              {state.activeTab === 'friends-library' && book.friends_shelf_statuses && book.friends_shelf_statuses.length > 0 ? (
+                                <MultipleFriendsShelfStatus 
+                                  friendsShelfStatuses={book.friends_shelf_statuses}
                                 />
                               ) : book.user_shelf_status ? (
-                                <ShelfStatusBadge 
-                                  shelf={book.user_shelf_status.shelf} 
-                                  status={book.user_shelf_status.status}
-                                />
+                                <div className="animate-in fade-in duration-300">
+                                  <ShelfStatusBadge 
+                                    shelf={book.user_shelf_status.shelf} 
+                                    status={book.user_shelf_status.status}
+                                  />
+                                </div>
                               ) : (
                                 <span className="text-xs text-muted-foreground">-</span>
                               )}

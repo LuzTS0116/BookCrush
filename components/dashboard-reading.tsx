@@ -1068,6 +1068,59 @@ export default function DashboardReading() {
                     const currentMediaTypeDisplay = getMediaTypeDisplay(userBook.media_type);
                     return (
                       <Card key={userBook.book_id} className="relative overflow-hidden bg-bookWhite py-3">
+                        {/* Three dots menu - positioned absolutely relative to the entire card */}
+                        {bookId && (
+                          <div className="absolute top-3 right-3 z-20">
+                            <DropdownMenu.Root>
+                              <DropdownMenu.Trigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs flex items-center justify-center w-6 h-6 p-0 rounded-full bg-bookWhite/80 border-none hover:bg-bookWhite shadow-sm"
+                                  disabled={currentShelfStatus?.isLoading}
+                                >
+                                  {currentShelfStatus?.isLoading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                  ) : (
+                                    <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                </Button>
+                              </DropdownMenu.Trigger>
+
+                              <DropdownMenu.Portal>
+                                <DropdownMenu.Content
+                                  className="rounded-xl flex flex-col justify-end bg-transparent shadow-xl px-1 mr-8 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                                  sideOffset={5}
+                                >
+                                {SHELF_OPTIONS.filter(shelf => shelf.value !== userBook.shelf).map((shelf) => (
+                                  <DropdownMenu.Item
+                                    key={shelf.value}
+                                    onSelect={() => handleAddToShelf(bookId, shelf.value)}
+                                    className="px-3 py-2 text-xs text-center bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
+                                    disabled={currentShelfStatus?.isLoading}
+                                  >
+                                    {shelf.label}
+                                  </DropdownMenu.Item>
+                                ))}
+                                <DropdownMenu.Item
+                                  onSelect={() => showRemoveConfirmation(bookId, userBook.book.title, 'currently_reading')}
+                                  className="px-3 py-2 w-[132px] self-end text-xs text-end bg-red-700/90 rounded-md cursor-pointer hover:bg-red-600 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
+                                  disabled={currentShelfStatus?.isLoading}
+                                >
+                                  Remove from Shelf
+                                </DropdownMenu.Item>
+                                </DropdownMenu.Content>
+                              </DropdownMenu.Portal>
+                            </DropdownMenu.Root>
+                            {/* Display action status message */}
+                            {currentShelfStatus?.message && (
+                              <p className="absolute top-full mb-1 right-0 text-nowrap text-xs mt-1 bg-primary/85 py-1 px-2 text-center flex-1 rounded-xl z-50" style={{ color: currentShelfStatus.message.startsWith('Error') ? 'red' : 'secondary' }}>
+                                {currentShelfStatus.message}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        
                         <div className="flex flex-row gap-3 px-4">
                           {/* Book Image */}
                           <div className="w-[100px] flex-shrink-0">
@@ -1082,66 +1135,13 @@ export default function DashboardReading() {
                           {/* Content */}
                           <div className="flex flex-col justify-between flex-1">
                             <CardHeader className="pb-2 px-0 pt-0">
-                              <div className="flex flex-row justify-between items-start">
+                              {/* Title and Author - no more right padding needed */}
+                              <div>
                                 <Link href={`/books/${userBook.book_id}`}>
                                   <CardTitle className="leading-5">{userBook.book.title}</CardTitle>
                                 </Link>
-                                <div>
-                                  {/* --- NEW: Change Shelf Dropdown --- */}
-                                  {bookId && (
-                                  <div className="flex items-start relative">
-                                    <DropdownMenu.Root>
-                                      <DropdownMenu.Trigger asChild>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none hover:bg-transparent"
-                                          disabled={currentShelfStatus?.isLoading} // Disable while action is loading
-                                        >
-                                          {currentShelfStatus?.isLoading ? (
-                                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                          ) : (
-                                            <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
-                                          )}
-                                        </Button>
-                                      </DropdownMenu.Trigger>
-
-                                      <DropdownMenu.Portal>
-                                        <DropdownMenu.Content
-                                          className="rounded-xl flex flex-col justify-end bg-transparent shadow-xl px-1 mr-8 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
-                                          sideOffset={5}
-                                        >
-                                        {SHELF_OPTIONS.filter(shelf => shelf.value !== userBook.shelf).map((shelf) => (
-                                          <DropdownMenu.Item
-                                            key={shelf.value}
-                                            onSelect={() => handleAddToShelf(bookId, shelf.value)}
-                                            className="px-3 py-2 text-xs text-center bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
-                                            disabled={currentShelfStatus?.isLoading}
-                                          >
-                                            {shelf.label}
-                                          </DropdownMenu.Item>
-                                        ))}
-                                        <DropdownMenu.Item
-                                          onSelect={() => showRemoveConfirmation(bookId, userBook.book.title, 'currently_reading')}
-                                          className="px-3 py-2 w-[132px] self-end text-xs text-end bg-red-700/90 rounded-md cursor-pointer hover:bg-red-600 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
-                                          disabled={currentShelfStatus?.isLoading}
-                                        >
-                                          Remove from Shelf
-                                        </DropdownMenu.Item>
-                                        </DropdownMenu.Content>
-                                      </DropdownMenu.Portal>
-                                    </DropdownMenu.Root>
-                                    {/* Display action status message */}
-                                    {currentShelfStatus?.message && (
-                                      <p className="absolute top-full mb-1 right-0 text-nowrap text-xs mt-1 bg-primary/85 py-1 px-2 text-center flex-1 rounded-xl z-50" style={{ color: currentShelfStatus.message.startsWith('Error') ? 'red' : 'secondary' }}>
-                                        {currentShelfStatus.message}
-                                      </p>
-                                    )}
-                                  </div>
-                                  )}
-                                </div>
+                                <CardDescription>{userBook.book.author}</CardDescription>
                               </div>
-                              <CardDescription>{userBook.book.author}</CardDescription>
                             </CardHeader>
 
                             <CardContent className="pb-0 px-0">
@@ -1334,6 +1334,49 @@ export default function DashboardReading() {
                     const currentMediaTypeDisplay = getMediaTypeDisplay(userBook.media_type);
                     return (
                       <Card key={userBook.book_id} className="relative overflow-hidden bg-bookWhite py-3">
+                        {/* Three dots menu - positioned absolutely relative to the entire card */}
+                        {bookId && (
+                          <div className="absolute top-3 right-3 z-20">
+                            <DropdownMenu.Root>
+                              <DropdownMenu.Trigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs flex items-center justify-center w-6 h-6 p-0 rounded-full bg-bookWhite/80 border-none hover:bg-bookWhite shadow-sm"
+                                  disabled={currentShelfStatus?.isLoading}
+                                >
+                                  {currentShelfStatus?.isLoading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                  ) : (
+                                    <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                </Button>
+                              </DropdownMenu.Trigger>
+
+                              <DropdownMenu.Portal>
+                                <DropdownMenu.Content
+                                  className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                                  sideOffset={5}
+                                >
+                                  <DropdownMenu.Item
+                                    onSelect={() => showRemoveConfirmation(bookId, userBook.book.title, 'queue')}
+                                    className="px-3 py-2 text-xs text-center bg-red-700/90 my-2 rounded-md cursor-pointer hover:bg-red-800 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
+                                    disabled={currentShelfStatus?.isLoading}
+                                  >
+                                    Remove from Shelf
+                                  </DropdownMenu.Item>
+                                </DropdownMenu.Content>
+                              </DropdownMenu.Portal>
+                            </DropdownMenu.Root>
+                            {/* Display action status message */}
+                            {currentShelfStatus?.message && (
+                              <p className="absolute top-full mb-1 right-0 text-nowrap text-xs mt-1 bg-primary/85 py-1 px-2 text-center flex-1 rounded-xl z-50" style={{ color: currentShelfStatus.message.startsWith('Error') ? 'red' : 'secondary' }}>
+                                {currentShelfStatus.message}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        
                         <div className="flex flex-row gap-2 px-4">
                           {/* Book Image */}
                           <div className="w-[100px] flex-shrink-0">
@@ -1348,56 +1391,13 @@ export default function DashboardReading() {
                           {/* Content */}
                           <div className="flex flex-col">
                             <CardHeader className="pb-0.5 px-0 pt-0">
-                              <div className="flex flex-row justify-between items-start">
+                              {/* Title and Author - no more right padding needed */}
+                              <div>
                                 <Link href={`/books/${userBook.book_id}`}>
                                   <CardTitle className="leading-5">{userBook.book.title}</CardTitle>
                                 </Link>
-                                <div>
-                                  {/* Queue Management Dropdown */}
-                                  {bookId && (
-                                  <div className="flex items-start relative">
-                                    <DropdownMenu.Root>
-                                      <DropdownMenu.Trigger asChild>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none hover:bg-transparent"
-                                          disabled={currentShelfStatus?.isLoading}
-                                        >
-                                          {currentShelfStatus?.isLoading ? (
-                                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                          ) : (
-                                            <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
-                                          )}
-                                        </Button>
-                                      </DropdownMenu.Trigger>
-
-                                      <DropdownMenu.Portal>
-                                        <DropdownMenu.Content
-                                          className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
-                                          sideOffset={5}
-                                        >
-                                          <DropdownMenu.Item
-                                            onSelect={() => showRemoveConfirmation(bookId, userBook.book.title, 'queue')}
-                                            className="px-3 py-2 text-xs text-center bg-red-700/90 my-2 rounded-md cursor-pointer hover:bg-red-800 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
-                                            disabled={currentShelfStatus?.isLoading}
-                                          >
-                                            Remove from Shelf
-                                          </DropdownMenu.Item>
-                                        </DropdownMenu.Content>
-                                      </DropdownMenu.Portal>
-                                    </DropdownMenu.Root>
-                                    {/* Display action status message */}
-                                    {currentShelfStatus?.message && (
-                                      <p className="absolute top-full mb-1 right-0 text-nowrap text-xs mt-1 bg-primary/85 py-1 px-2 text-center flex-1 rounded-xl z-50" style={{ color: currentShelfStatus.message.startsWith('Error') ? 'red' : 'secondary' }}>
-                                        {currentShelfStatus.message}
-                                      </p>
-                                    )}
-                                  </div>
-                                  )}
-                                </div>
+                                <CardDescription>{userBook.book.author}</CardDescription>
                               </div>
-                              <CardDescription>{userBook.book.author}</CardDescription>
                             </CardHeader>
                             <CardContent className="pb-0 px-0">
                               <div className="flex flex-wrap gap-1.5 mb-1 items-center">

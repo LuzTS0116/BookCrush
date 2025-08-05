@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: e.message }, { status: 400 });
     }
 
-    let statusType: status_type;
+    let statusType: status_type | null;
     if (statusString) {
       try {
         statusType = parseStatusType(statusString);
@@ -58,8 +58,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: e.message }, { status: 400 });
       }
     } else {
-      // Default status for a new entry
-      statusType = 'in_progress';
+      // Default status based on shelf type
+      if (shelfType === shelf_type.currently_reading) {
+        statusType = 'in_progress';
+      } else if (shelfType === shelf_type.queue) {
+        statusType = null; // No status for queue items
+      } else {
+        statusType = 'in_progress'; // Default for other shelves
+      }
     }
 
     // 3. Handle "Move" or "Add" Logic

@@ -377,18 +377,22 @@ export async function GET(req: NextRequest) {
       // Find user's shelf status
       const userBook = book.UserBook.find(ub => ub.user_id === user.id);
 
-      // For friends' books, find the friend's shelf status
-      let friendShelfStatus = null;
+      // For friends' books, find ALL friends' shelf statuses
+      let friendShelfStatuses: Array<{
+        shelf: string;
+        status: string | null;
+        user_name: string;
+        user_id: string;
+      }> = [];
       if (filter === 'friends') {
-        // Find any friend who has this book on their shelf
-        const friendBook = book.UserBook.find(ub => friendIds.includes(ub.user_id));
-        if (friendBook) {
-          friendShelfStatus = {
-            shelf: friendBook.shelf,
-            status: friendBook.status,
-            user_name: friendBook.user.display_name
-          };
-        }
+        // Find all friends who have this book on their shelf
+        const friendBooks = book.UserBook.filter(ub => friendIds.includes(ub.user_id));
+        friendShelfStatuses = friendBooks.map(friendBook => ({
+          shelf: friendBook.shelf,
+          status: friendBook.status,
+          user_name: friendBook.user.display_name,
+          user_id: friendBook.user_id
+        }));
       }
 
       // Convert reaction counts to the format needed for the UI
@@ -414,7 +418,7 @@ export async function GET(req: NextRequest) {
           shelf: userBook.shelf,
           status: userBook.status
         } : null,
-        friend_shelf_status: friendShelfStatus
+        friends_shelf_statuses: friendShelfStatuses
       };
     });
 

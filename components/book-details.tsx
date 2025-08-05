@@ -219,6 +219,24 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
     book: null
   });
 
+  // State for active tab
+  const [activeTab, setActiveTab] = useState("reviews");
+
+  // Function to scroll to reviews section
+  const scrollToReviews = () => {
+    setActiveTab("reviews");
+    // Small delay to ensure tab content is rendered before scrolling
+    setTimeout(() => {
+      const reviewsSection = document.getElementById('reviews-section');
+      if (reviewsSection) {
+        reviewsSection.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
+    }, 100);
+  };
+
   // Add a function to fetch book files
   const fetchBookFiles = async () => {
     try {
@@ -256,6 +274,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
     if (id) {
       fetchBookFiles();
       fetchFriendsShelves();
+      
     }
   }, [id]);
 
@@ -280,6 +299,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
       if (response.ok) {
         const friendsData = await response.json();
         setFriendsShelves(friendsData);
+        console.log(friendsData)
       } else {
         const errorData = await response.json();
         setFriendsError(errorData.error || 'Failed to fetch friends shelves');
@@ -913,7 +933,12 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                           <span className="font-serif font-medium text-xs text-secondary">{reactions.THUMBS_DOWN}</span>
                       </div>
                   </div>
-                  <p className="underline text-center font-serif text-xs text-secondary-light">view reviews</p>
+                  <button 
+                    onClick={scrollToReviews}
+                    className="underline text-center font-serif text-xs text-secondary-light hover:text-secondary transition-colors cursor-pointer"
+                  >
+                    view reviews
+                  </button>
                 </div>
 
                 <div className="flex flex-wrap gap-1 mt-2 mb-2">
@@ -1277,7 +1302,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
           </div> */}
 
           <div className="">
-            <Tabs defaultValue="reviews" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" id="book-tabs">
               <TabsList className="grid w-full grid-cols-3 bg-secondary-light text-primary rounded-full">
                 <TabsTrigger 
                     value="reviews"
@@ -1293,7 +1318,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                 >Friends</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="reviews" className="mt-3">
+              <TabsContent value="reviews" className="mt-3" id="reviews-section">
                 <Card className="p-3">
                   <CardHeader className="p-0">
                     <CardTitle className="">Reviews</CardTitle>
