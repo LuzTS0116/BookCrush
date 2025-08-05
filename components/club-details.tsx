@@ -3492,7 +3492,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
           <Card className="mt-3">
             <CardHeader className="px-3 pt-3 pb-1 flex flex-row justify-between">
-              <CardTitle className="break-words">Active Meetings</CardTitle>
+              <CardTitle className="break-words">Club Meetings</CardTitle>
               {club.currentUserIsAdmin && (
                 <Link href="/calendar">
                   <div className="flex flex-row items-center bg-secondary-light/10 rounded-full cursor-pointer text-secondary-light/60 hover:bg-secondary-light/20 hover:text-secondary-light py-1 px-2">
@@ -3502,19 +3502,6 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               )}
             </CardHeader>
             <CardContent className="px-3 pt-3 pb-5 space-y-3">
-              {/* Admin note about past due meetings */}
-              {club.currentUserIsAdmin && club.meetings.some(meeting => isMeetingPastDue(meeting)) && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <AlertCircle className="h-4 w-4 text-orange-600" />
-                    <p className="text-sm font-medium text-orange-800">Past Due Meetings</p>
-                  </div>
-                  <p className="text-xs text-orange-700">
-                    Some meetings have passed their scheduled date. You can still mark them as completed using the "Complete Meeting" button below.
-                  </p>
-                </div>
-              )}
-              
               {club.meetings.length === 0 ? (
                 <div>
                   <div className="flex flex-col items-center justify-center">
@@ -3534,7 +3521,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                 club.meetings.map((meeting) => {
                   const isPastDue = isMeetingPastDue(meeting);
                   return (
-                  <div key={meeting.id} className={`space-y-2 py-3 rounded-lg ${isPastDue ? 'bg-orange-50 border-l-4 border-orange-400' : 'bg-secondary/10'}`}>
+                  <div key={meeting.id} className={`space-y-2 py-3 rounded-lg ${isPastDue ? 'bg-secondary/5 border-l-4 border-red-700/80' : 'bg-secondary/10'}`}>
                     <div className="space-y-1">
                       <div className="flex flex-row justify-between pr-3 mb-2">
                         <div className="flex items-center gap-2">
@@ -3545,7 +3532,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                               : meeting.meeting_type.replace(/_/g, ' ')}
                           </p>
                           {isPastDue && (
-                            <Badge variant="destructive" className="text-xs">
+                            <Badge variant="destructive" className="text-xs bg-red-700/80">
                               Past Due
                             </Badge>
                           )}
