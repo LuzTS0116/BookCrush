@@ -235,6 +235,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
     }
 
+    // Optimized avatar URL processing function - SYNCHRONOUS, NO ASYNC CALLS
+    function processAvatarUrl(avatarPath: string | null | undefined): string | null {
+      if (!avatarPath) return null;
+
+      // If already a full URL (Google avatars, etc.), return as-is
+      if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
+        return avatarPath;
+      }
+
+      // Convert relative path to public URL synchronously
+      if (supabase) {
+        const { data } = supabase.storage.from('profiles').getPublicUrl(avatarPath);
+        return data.publicUrl;
+      }
+
+      return null;
+    }
+
     //console.log('[API books GET] User authenticated:', user.id);
 
     // Get query parameters
@@ -340,7 +358,8 @@ export async function GET(req: NextRequest) {
             is_favorite: true,
             user: {
               select: {
-                display_name: true
+                display_name: true,
+                avatar_url: true
               }
             }
           }
@@ -391,6 +410,7 @@ export async function GET(req: NextRequest) {
           shelf: friendBook.shelf,
           status: friendBook.status,
           user_name: friendBook.user.display_name,
+          avatar_url: processAvatarUrl(friendBook.user.avatar_url),
           user_id: friendBook.user_id
         }));
       }

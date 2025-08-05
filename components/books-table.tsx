@@ -6,14 +6,15 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Filter, Plus, Search, ChevronDown, Loader2, Grid, List, BookMarked, ThumbsUp, ThumbsDown } from "lucide-react"
-import { Heart } from "@phosphor-icons/react"
+import { Filter, Plus, Search, ChevronDown, Loader2, Grid, List, BookMarked, ThumbsUp, ThumbsDown, User } from "lucide-react"
+import { Heart, Books, Bookmark, CheckCircle } from "@phosphor-icons/react"
 import Link from "next/link"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-
+import Image from "next/image"
 import { BookDetails } from "@/types/book"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { AddBookDialog } from "./add-book-dialog"
 import { RecommendBookDialog } from "./recommendations/RecommendBookDialog"
 import { toast } from "sonner"
@@ -63,6 +64,7 @@ interface ExtendedBookDetails extends BookDetails {
     status?: 'in_progress' | 'almost_done' | 'finished' | 'unfinished'
     user_name: string
     user_id: string
+    avatar_url: string | null
   }>
 }
 
@@ -70,17 +72,17 @@ interface ExtendedBookDetails extends BookDetails {
 const getShelfBadgeInfo = (shelf: string, status?: string) => {
   switch (shelf) {
     case 'currently_reading':
-      if (status === 'in_progress') return { label: '📖 Reading', color: 'bg-blue-100 text-blue-700' };
-      if (status === 'almost_done') return { label: '💫 Almost Done', color: 'bg-purple-100 text-purple-700' };
-      return { label: '📖 Reading', color: 'bg-blue-100 text-blue-700' };
+      if (status === 'in_progress') return { label: '📖 Reading', icon: Books, color: 'bg-blue-100 text-blue-700' };
+      if (status === 'almost_done') return { label: '💫 Almost Done', icon: Books, color: 'bg-purple-100 text-purple-700' };
+      return { label: '📖 Reading', icon: Books, color: 'bg-blue-100 text-blue-700' };
     case 'queue':
-      return { label: '📚 In Queue', color: 'bg-orange-100 text-orange-700' };
+      return { label: '📚 In Queue', icon: Bookmark, color: 'bg-orange-100 text-orange-700' };
     case 'history':
-      if (status === 'finished') return { label: '✅ Finished', color: 'bg-green-100 text-green-700' };
-      if (status === 'unfinished') return { label: '😑 Unfinished', color: 'bg-gray-100 text-gray-700' };
-      return { label: '📖 Read', color: 'bg-green-100 text-green-700' };
+      if (status === 'finished') return { label: '✅ Finished', icon: CheckCircle, color: 'bg-green-100 text-green-700' };
+      if (status === 'unfinished') return { label: '😑 Unfinished', icon: CheckCircle, color: 'bg-gray-100 text-gray-700' };
+      return { label: '📖 Read', icon: CheckCircle, color: 'bg-green-100 text-green-700' };
     case 'favorite':
-      return { label: '❤️ Favorite', color: 'bg-red-100 text-red-700' };  
+      return { label: '❤️ Favorite', icon: Heart, color: 'bg-red-100 text-red-700' };  
       //return null; // No badge for favorite - heart icon already shows favorite status
     default:
       return null;
@@ -96,7 +98,7 @@ const ShelfStatusBadge = React.memo(({ shelf, status, userName }: { shelf: strin
   return (
     <div className="flex items-center gap-1">
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${badgeInfo.color}`}>
-        {badgeInfo.label}
+        <badgeInfo.icon size={16}/> {badgeInfo.label}
       </span>
       {userName && (
         <span className="text-xs text-muted-foreground">
@@ -118,6 +120,7 @@ const MultipleFriendsShelfStatus = React.memo(({
     status?: string
     user_name: string
     user_id: string
+    avatar_url: string
   }>
 }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -142,18 +145,34 @@ const MultipleFriendsShelfStatus = React.memo(({
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
-        <button className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer">
-          +{friendsShelfStatuses.length} friends
+        <button className="bg-secondary-light/10 text-secondary-light/70 text-xs/3 font-medium px-2 py-1 rounded-full hover:bg-secondary-light/20 hover:text-secondary-light cursor-pointer">
+          added by {friendsShelfStatuses.length} friends
         </button>
       </DialogTrigger>
-      <DialogContent className="max-w-md">
+      <DialogContent className="w-[85vw] max-w-[500px]">
+        <Image 
+          src="/images/background.png"
+          alt="Create and Manage your Book Clubs | BookCrush"
+          width={1622}
+          height={2871}
+          className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+        />
         <DialogHeader>
-          <DialogTitle>Friends who have this book</DialogTitle>
+          <DialogTitle className="mt-3 text-lg/5">Friends with this book on their shelves</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3 max-h-64 overflow-y-auto">
+        <div className="space-y-2 max-h-64 overflow-y-auto">
           {friendsShelfStatuses.map((friend, index) => (
-            <div key={`${friend.user_id}-${index}`} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-              <div>
+            <div key={`${friend.user_id}-${index}`} className="flex items-center justify-between p-2 bg-bookWhite/15 rounded-lg">
+              <div className="flex flex-row items-center gap-1.5">
+                <Avatar className="h-6 w-6 flex-shrink-0">
+                  <AvatarImage
+                    src={friend.avatar_url || undefined}
+                    alt={friend.user_name || 'User'}
+                  />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                    {friend.user_name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
+                  </AvatarFallback>
+                </Avatar>
                 <p className="font-medium text-sm">{friend.user_name}</p>
               </div>
               <div>
@@ -204,7 +223,7 @@ function useInfiniteScroll(
       const nearBottom = scrollTop + windowHeight >= documentHeight - threshold
       
       if (nearBottom) {
-        console.log('[InfiniteScroll] Triggering load more...')
+        
         onLoadMore()
       }
     }
@@ -214,7 +233,7 @@ function useInfiniteScroll(
     
     return () => {
       window.removeEventListener('scroll', throttledHandleScroll)
-      console.log('[InfiniteScroll] Scroll listener removed')
+      
     }
   }, [enabled, onLoadMore, threshold])
 }
@@ -293,7 +312,7 @@ const BookCard = React.memo(({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none"
+                      className="text-xs flex items-start justify-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none"
                       disabled={isLoading}
                       aria-label="Add book to shelf"
                     >
@@ -306,12 +325,14 @@ const BookCard = React.memo(({
                   </DropdownMenu.Trigger>
 
                   <DropdownMenu.Portal>
-                    <DropdownMenu.Content className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6">
+                    <DropdownMenu.Content 
+                      className="flex flex-col items-end rounded-xl bg-transparent shadow-xl px-1 mr-8 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                    >
                       {SHELF_OPTIONS.map((shelf) => (
                         <DropdownMenu.Item
                           key={shelf.value}
                           onSelect={() => onAddToShelf(bookId, shelf.value)}
-                          className="px-3 py-2 text-xs text-end bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
+                          className="w-fit px-3 py-2 text-xs text-end bg-secondary/90 my-1 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
                         >
                           {shelf.label}
                         </DropdownMenu.Item>
@@ -321,7 +342,7 @@ const BookCard = React.memo(({
                         <DropdownMenu.Item
                           key={action.value}
                           onSelect={() => action.value === 'recommend' && onRecommend(book)}
-                          className="px-3 py-2 text-xs text-end bg-accent/90 my-2 text-secondary rounded-md cursor-pointer hover:bg-accent-variant hover:text-bookWhite focus:bg-accent-variant focus:outline-none transition-colors flex justify-end gap-2"
+                          className="w-fit px-3 py-2 text-xs text-end bg-accent/90 my-1 text-secondary rounded-md cursor-pointer hover:bg-accent-variant hover:text-bookWhite focus:bg-accent-variant focus:outline-none transition-colors flex justify-end gap-2"
                         >
                           {action.label}
                         </DropdownMenu.Item>
@@ -365,7 +386,9 @@ const BookCard = React.memo(({
                 {genre}
               </span>
             ))}
-            
+          </div>
+
+          <div className="flex flex-wrap gap-1 items-center">
             {/* Shelf Status Badge */}
             {activeTab === 'friends-library' && book.friends_shelf_statuses && book.friends_shelf_statuses.length > 0 ? (
               <MultipleFriendsShelfStatus 
@@ -744,6 +767,7 @@ export default function BooksTableOptimized() {
       if (!abortControllerRef.current?.signal.aborted) {
         if (page === 1) {
           setBooks(data)
+          
           setCurrentPage(1)
         } else {
           setBooks(prev => [...prev, ...data])
@@ -1212,8 +1236,8 @@ export default function BooksTableOptimized() {
                 <p>No books found matching &ldquo;{state.searchQuery}&rdquo;</p>
                 <p className="text-sm mb-4">
                   {state.activeTab === 'explore' && 'Add the book and contribute to the community!'}
-                  {state.activeTab === 'my-library' && 'Try a different search term or add more books to your library.'}
-                  {state.activeTab === 'friends-library' && 'Your friends haven&apos;t added books matching this search yet.'}
+                  {state.activeTab === 'my-library' && 'Try a different search term or the book and contribute to the community!'}
+                  {state.activeTab === 'friends-library' && 'Your friends dont have books matching this search. Add the book and contribute to the community!'}
                 </p>
                 {state.activeTab === 'explore' && (
                   <div className="flex justify-center">
