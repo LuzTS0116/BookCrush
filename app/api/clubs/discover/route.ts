@@ -149,7 +149,6 @@ export async function GET(req: NextRequest) {
             members: club.memberships.map(member => ({
               id: member.user.id,
               display_name: member.user.display_name,
-              
               avatar_url: processAvatarUrl(member.user.avatar_url), // Synchronous!
               role: member.role,
               joined_at: member.joined_at,
