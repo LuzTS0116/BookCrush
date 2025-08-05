@@ -67,14 +67,18 @@ export async function GET(request: NextRequest) {
     const transformedGoals = goals.map(goal => {
       const progress = goal.progress_tracking[0];
       const userAchievement = goal.user_achievements[0];
+      const criteria = goal.criteria as { start_date?: string; end_date?: string; time_period?: string } | null;
+      const progressData = progress?.progress_data as { start_date?: string; end_date?: string; time_period?: string } | null;
       
       return {
         id: goal.id,
         name: goal.name,
         description: goal.description,
         target_books: progress?.target_value || 0,
-        time_period: (goal.criteria as any)?.time_period || '1_month',
+        time_period: criteria?.time_period || progressData?.time_period || '1_month',
         created_at: goal.created_at,
+        start_date: criteria?.start_date || progressData?.start_date || goal.created_at,
+        end_date: criteria?.end_date || progressData?.end_date,
         progress: {
           current_value: progress?.current_value || 0,
           target_value: progress?.target_value || 0,

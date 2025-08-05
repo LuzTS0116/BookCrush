@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Share2, Calendar, MapPin, Book, Heart, Star, Target } from "lucide-react"
+import { Loader2, Share2, Calendar, MapPin, Book, Heart, Star, Target, AlertTriangle } from "lucide-react"
 import Image from "next/image"
 import html2canvas from 'html2canvas';
 import {Dialog,
@@ -17,6 +17,8 @@ import {Dialog,
 import { useSession } from "next-auth/react";
 import Link from "next/link"
 import { useRouter } from "next/navigation";
+import { launchConfettiRealistic } from '@/lib/confetti-utils';
+import { hasShownCongratulations, markCongratulationsShown } from '@/lib/goal-congratulations';
 
 function useSupabaseTokenExpiry() {
   const { data: session } = useSession();
@@ -147,6 +149,32 @@ const formatTimeAgo = (dateString: string): string => {
   }
 };
 
+// Helper function to format time remaining for goals
+const formatTimeRemaining = (endDate: string): { text: string; isPastDue: boolean } => {
+  const now = new Date();
+  const end = new Date(endDate);
+  const diffMs = end.getTime() - now.getTime();
+  
+  if (diffMs <= 0) {
+    return { text: 'Past due', isPastDue: true };
+  }
+  
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  
+  if (diffDays > 30) {
+    const months = Math.floor(diffDays / 30);
+    return { text: `${months} month${months > 1 ? 's' : ''} left`, isPastDue: false };
+  } else if (diffDays > 0) {
+    return { text: `${diffDays} day${diffDays > 1 ? 's' : ''} left`, isPastDue: false };
+  } else if (diffHours > 0) {
+    return { text: `${diffHours} hour${diffHours > 1 ? 's' : ''} left`, isPastDue: false };
+  } else {
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    return { text: `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} left`, isPastDue: false };
+  }
+};
+
 export default function DashboardPage({
   quote:  initialQuote,
   author: initialAuthor,
@@ -176,6 +204,13 @@ export default function DashboardPage({
   const [customGoals, setCustomGoals] = useState<any[]>([]);
   const [goalsLoading, setGoalsLoading] = useState(true);
   const [goalsError, setGoalsError] = useState<string | null>(null);
+
+  // Goal completion congratulations state
+  const [congratsDialog, setCongratsDialog] = useState<{
+    isOpen: boolean;
+    goal: any | null;
+  }>({ isOpen: false, goal: null });
+  const [hasFiredConfetti, setHasFiredConfetti] = useState(false);
 
   const router = useRouter();
 
@@ -318,6 +353,20 @@ useEffect(() => {
 
       const data = await response.json();
       
+      // Check for newly completed goals and show congratulations (only if not shown before)
+      const newlyCompletedGoals = data.filter((goal: any) => 
+        goal.is_completed && 
+        goal.progress.progress_percentage >= 100 &&
+        !hasShownCongratulations(goal.id) &&
+        !congratsDialog.isOpen
+      );
+      
+      if (newlyCompletedGoals.length > 0) {
+        const goalToShow = newlyCompletedGoals[0];
+        setCongratsDialog({ isOpen: true, goal: goalToShow });
+        markCongratulationsShown(goalToShow.id);
+      }
+      
       // Filter to only show active goals (not completed)
       const activeGoals = data.filter((goal: any) => !goal.is_completed);
       setCustomGoals(activeGoals);
@@ -331,6 +380,19 @@ useEffect(() => {
 
   fetchCustomGoals();
 }, [status, session?.supabaseAccessToken]);
+
+// Confetti effect for congratulations dialog
+useEffect(() => {
+  if (congratsDialog.isOpen && !hasFiredConfetti) {
+    launchConfettiRealistic();
+    setHasFiredConfetti(true);
+  }
+}, [congratsDialog.isOpen, hasFiredConfetti]);
+
+// Reset confetti flag when dialog closes
+useEffect(() => {
+  if (!congratsDialog.isOpen) setHasFiredConfetti(false);
+}, [congratsDialog.isOpen]);
 
 const handleClickShare = async () => {
   if (!quoteImageRef.current) return;
@@ -537,28 +599,55 @@ const handleClickShare = async () => {
             <Card className="bg-accent-variant text-bookWhite rounded-b-2xl">
               <CardContent className="px-3 py-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {customGoals.slice(0, 3).map((goal) => (
-                    <div key={goal.id}>
+                  {customGoals.slice(0, 3).map((goal) => {
+                    const timeInfo = goal.end_date ? formatTimeRemaining(goal.end_date) : null;
+                    return (
+                    <div key={goal.id} className={`${timeInfo?.isPastDue ? 'bg-orange-100/20 border border-orange-400/30 rounded-lg p-2' : ''}`}>
                       <div className="flex items-center justify-between mb-0.5">
-                        <div className="text-sm font-medium text-bookWhite">
-                          Reading Goal
+                        <div className="flex items-center gap-1">
+                          <div className="text-sm font-medium text-bookWhite">
+                            Reading Goal
+                          </div>
+                          {timeInfo?.isPastDue && (
+                            <AlertTriangle className="h-3 w-3 text-orange-400" />
+                          )}
                         </div>
                         <div className="text-xs text-bookWhite/70">
                           {goal.progress.current_value}/{goal.progress.target_value}
-                          {/* {goal.progress.progress_percentage}% */}
                         </div>
                       </div>
                       <div className="w-full bg-bookWhite/20 rounded-full h-2 mb-0.5">
                         <div 
-                          className="bg-gradient-to-r from-primary-dark to-accent h-2 rounded-full transition-all duration-300"
+                          className={`h-2 rounded-full transition-all duration-300 ${
+                            timeInfo?.isPastDue 
+                              ? 'bg-gradient-to-r from-orange-400 to-red-400' 
+                              : 'bg-gradient-to-r from-primary-dark to-accent'
+                          }`}
                           style={{ width: `${goal.progress.progress_percentage}%` }}
                         />
                       </div>
-                      <div className="text-xs font-serif text-bookWhite/80">
-                        {goal.description}
+                      <div className="flex justify-between items-center">
+                        <div className="text-xs font-serif text-bookWhite/80">
+                          {goal.description}
+                        </div>
+                        {timeInfo && (
+                          <div className={`text-xs font-medium ${
+                            timeInfo.isPastDue ? 'text-orange-300' : 'text-bookWhite/60'
+                          }`}>
+                            {timeInfo.text}
+                          </div>
+                        )}
                       </div>
+                      {timeInfo?.isPastDue && (
+                        <div className="mt-1">
+                          <Link href="/profile" className="text-xs text-orange-300 hover:text-orange-200 underline">
+                            Edit goal →
+                          </Link>
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 {customGoals.length > 3 && (
                   <div className="text-center mt-3">
@@ -572,6 +661,73 @@ const handleClickShare = async () => {
           )}
         </div>
       </div>
+
+      {/* Goal Completion Congratulations Dialog */}
+      <Dialog open={congratsDialog.isOpen} onOpenChange={(open) => setCongratsDialog({ isOpen: open, goal: null })}>
+        <DialogContent className="w-[85vw] rounded-2xl px-0 py-1">
+          <Image 
+            src="/images/background.png"
+            alt="Congratulations on completing your reading goal!"
+            width={1622}
+            height={2871}
+            className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+          />
+          <DialogHeader className="px-6 pt-4">
+            <DialogTitle className="mt-7 text-center text-xl">🎉 Goal Completed! 🎉</DialogTitle>
+            <DialogDescription className="text-center text-lg">
+              Congratulations on reaching your reading goal!
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4 px-6">
+            {congratsDialog.goal && (
+              <div className="text-center space-y-3">
+                <div className="bg-white/90 rounded-lg p-4 mx-4">
+                  <h3 className="font-bold text-lg text-bookBlack mb-2">
+                    {congratsDialog.goal.name}
+                  </h3>
+                  <p className="text-bookBlack/80 mb-3">
+                    {congratsDialog.goal.description}
+                  </p>
+                  <div className="bg-green-100 rounded-full h-3 mb-2">
+                    <div 
+                      className="bg-gradient-to-r from-green-400 to-green-600 h-3 rounded-full"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <p className="text-sm font-semibold text-green-700">
+                    {congratsDialog.goal.progress.current_value}/{congratsDialog.goal.progress.target_value} books completed!
+                  </p>
+                </div>
+                
+                <p className="text-bookWhite/90 text-center px-4">
+                  You've successfully completed your reading challenge. Keep up the great work and set your next goal!
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="justify-center px-6 pb-4">
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setCongratsDialog({ isOpen: false, goal: null })}
+                className="bg-white/90 text-bookBlack hover:bg-white"
+              >
+                Close
+              </Button>
+              <Link href="/profile">
+                <Button 
+                  onClick={() => setCongratsDialog({ isOpen: false, goal: null })}
+                  className="bg-primary text-secondary hover:bg-primary-dark"
+                >
+                  Set New Goal
+                </Button>
+              </Link>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
