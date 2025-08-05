@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Filter, Plus, Search, ChevronDown, Loader2, Grid, List, BookMarked, ThumbsUp, ThumbsDown, User } from "lucide-react"
+import { Filter, Plus, Search, ChevronDown, Loader2, Grid, List, BookMarked, ThumbsUp, ThumbsDown, User, CircleAlert } from "lucide-react"
 import { Heart, Books, Bookmark, CheckCircle } from "@phosphor-icons/react"
 import Link from "next/link"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
@@ -72,17 +72,17 @@ interface ExtendedBookDetails extends BookDetails {
 const getShelfBadgeInfo = (shelf: string, status?: string) => {
   switch (shelf) {
     case 'currently_reading':
-      if (status === 'in_progress') return { label: '📖 Reading', icon: Books, color: 'bg-blue-100 text-blue-700' };
-      if (status === 'almost_done') return { label: '💫 Almost Done', icon: Books, color: 'bg-purple-100 text-purple-700' };
-      return { label: '📖 Reading', icon: Books, color: 'bg-blue-100 text-blue-700' };
+      if (status === 'in_progress') return { label: 'In Progress', icon: Books, color: 'bg-secondary-light/20 text-secondary-light/90' };
+      if (status === 'almost_done') return { label: 'Almost Done', icon: Books, color: 'bg-secondary-light/20 text-secondary-light/90' };
+      return { label: 'In Progress', icon: Books, color: 'bg-secondary-light/20 text-secondary-light/90' };
     case 'queue':
-      return { label: '📚 In Queue', icon: Bookmark, color: 'bg-orange-100 text-orange-700' };
+      return { label: 'In Queue', icon: Bookmark, color: 'bg-orange-200/75 text-orange-500/75' };
     case 'history':
-      if (status === 'finished') return { label: '✅ Finished', icon: CheckCircle, color: 'bg-green-100 text-green-700' };
-      if (status === 'unfinished') return { label: '😑 Unfinished', icon: CheckCircle, color: 'bg-gray-100 text-gray-700' };
-      return { label: '📖 Read', icon: CheckCircle, color: 'bg-green-100 text-green-700' };
+      if (status === 'finished') return { label: 'Finished', icon: CheckCircle, color: 'bg-accent-variant/15 text-accent-variant' };
+      if (status === 'unfinished') return { label: 'Unfinished', icon: CircleAlert, color: 'bg-accent/15 text-accent' };
+      return { label: 'Finished', icon: CheckCircle, color: 'bg-accent-variant/15 text-accent-variant' };
     case 'favorite':
-      return { label: '❤️ Favorite', icon: Heart, color: 'bg-red-100 text-red-700' };  
+      return { label: 'Favorited', icon: Heart, color: 'bg-red-100 text-red-400' };  
       //return null; // No badge for favorite - heart icon already shows favorite status
     default:
       return null;
@@ -90,21 +90,20 @@ const getShelfBadgeInfo = (shelf: string, status?: string) => {
 };
 
 // Helper component for shelf status badge
-const ShelfStatusBadge = React.memo(({ shelf, status, userName }: { shelf: string; status?: string; userName?: string }) => {
+const ShelfStatusBadge = React.memo(({ shelf, status, userName, id }: { shelf: string; status?: string; userName?: string; id?: string }) => {
   const badgeInfo = getShelfBadgeInfo(shelf, status);
   
   if (!badgeInfo) return null;
   
   return (
     <div className="flex items-center gap-1">
-      <span className={`px-2 py-1 text-xs font-medium rounded-full ${badgeInfo.color}`}>
-        <badgeInfo.icon size={16}/> {badgeInfo.label}
-      </span>
-      {userName && (
-        <span className="text-xs text-muted-foreground">
-          by {userName}
+      <span className={`flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full max-w-[210px] truncate ${badgeInfo.color}`}>
+        <badgeInfo.icon size={14}/> {badgeInfo.label} {userName && (
+        <span className="text-xs">
+          by @<Link href={`/profile/${id}`}>{userName}</Link>
         </span>
       )}
+      </span>
     </div>
   );
 });
@@ -120,7 +119,7 @@ const MultipleFriendsShelfStatus = React.memo(({
     status?: string
     user_name: string
     user_id: string
-    avatar_url: string
+    avatar_url: string | null
   }>
 }) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -137,6 +136,7 @@ const MultipleFriendsShelfStatus = React.memo(({
         shelf={friend.shelf} 
         status={friend.status}
         userName={friend.user_name}
+        id={friend.user_id}
       />
     )
   }
@@ -158,13 +158,13 @@ const MultipleFriendsShelfStatus = React.memo(({
           className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
         />
         <DialogHeader>
-          <DialogTitle className="mt-3 text-lg/5">Friends with this book on their shelves</DialogTitle>
+          <DialogTitle className="mt-3 text-lg/5 max-w-[200px] mx-auto">Friends with this book on their shelves</DialogTitle>
         </DialogHeader>
         <div className="space-y-2 max-h-64 overflow-y-auto">
           {friendsShelfStatuses.map((friend, index) => (
-            <div key={`${friend.user_id}-${index}`} className="flex items-center justify-between p-2 bg-bookWhite/15 rounded-lg">
+            <div key={`${friend.user_id}-${index}`} className="flex items-center justify-between p-2 bg-bookWhite/95 rounded-lg">
               <div className="flex flex-row items-center gap-1.5">
-                <Avatar className="h-6 w-6 flex-shrink-0">
+                <Avatar className="h-6 w-6 flex-shrink-0 border-2 border-secondary/20">
                   <AvatarImage
                     src={friend.avatar_url || undefined}
                     alt={friend.user_name || 'User'}
@@ -173,7 +173,7 @@ const MultipleFriendsShelfStatus = React.memo(({
                     {friend.user_name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
                   </AvatarFallback>
                 </Avatar>
-                <p className="font-medium text-sm">{friend.user_name}</p>
+                <p className="font-medium text-sm text-secondary"><Link href={`/profile/${friend.user_id}`}>{friend.user_name}</Link></p>
               </div>
               <div>
                 <ShelfStatusBadge 
@@ -381,14 +381,14 @@ const BookCard = React.memo(({
             {book.genres?.slice(0, 1).map((genre: string) => (
               <span
                 key={genre}
-                className="bg-primary/10 text-primary text-xs/3 font-medium px-2 py-1 rounded-full"
+                className="bg-primary/20 text-primary-dark text-xs/3 font-medium px-2 py-1 rounded-full"
               >
                 {genre}
               </span>
             ))}
           </div>
 
-          <div className="flex flex-wrap gap-1 items-center">
+          <div className="flex flex-wrap gap-1 items-center pt-1">
             {/* Shelf Status Badge */}
             {activeTab === 'friends-library' && book.friends_shelf_statuses && book.friends_shelf_statuses.length > 0 ? (
               <MultipleFriendsShelfStatus 
@@ -415,7 +415,7 @@ const BookCard = React.memo(({
               {activeTab !== 'my-library' && book.added_by_user && (
                 <p className="text-xs leading-none text-secondary/60">
                   {activeTab === 'explore' ? 'Added by' : 'Added by'}{' '}
-                  {book.added_by_user.display_name}
+                  @<Link href={`/profile/${book.added_by_user.id}`}>{book.added_by_user.display_name}</Link>
                 </p>
               )}
               <p className="text-secondary/60 text-xs font-serif font-medium">
