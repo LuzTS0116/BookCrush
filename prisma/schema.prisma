@@ -69,6 +69,9 @@ model Profile {
   // Voting starter relation
   startedVotingCycles  Club[] @relation("VotingStarter")
 
+  // Custom Goals
+  customGoals CustomGoal[] @relation("UserCustomGoals")
+
   @@map("profiles")
   @@schema("public")
 }
@@ -697,6 +700,49 @@ model ClubBookSuggestionVote {
 }
 
 // --------------- READING STREAKS & ACHIEVEMENTS SYSTEM -----------------
+
+// Custom Goals - User-specific reading goals (separate from global achievements)
+enum CustomGoalStatus {
+  ACTIVE
+  COMPLETED
+  EXPIRED
+  CANCELLED
+  
+  @@schema("public")
+}
+
+enum CustomGoalPeriod {
+  ONE_MONTH
+  THREE_MONTHS
+  SIX_MONTHS
+  ONE_YEAR
+  
+  @@schema("public")
+}
+
+model CustomGoal {
+  id               String            @id @default(uuid()) @db.Uuid
+  user_id          String            @db.Uuid
+  name             String            // User-defined name for the goal
+  description      String?           @db.Text
+  target_books     Int               // Number of books to read
+  time_period      CustomGoalPeriod  // Duration of the goal
+  status           CustomGoalStatus  @default(ACTIVE)
+  current_progress Int               @default(0) // Current number of books read
+  start_date       DateTime          @default(now()) @db.Timestamptz(6)
+  end_date         DateTime          @db.Timestamptz(6)
+  completed_at     DateTime?         @db.Timestamptz(6) // When goal was achieved
+  created_at       DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime          @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  user Profile @relation("UserCustomGoals", fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@index([user_id, status])
+  @@index([user_id, end_date])
+  @@map("custom_goals")
+  @@schema("public")
+}
 
 enum AchievementCategory {
   READING_MILESTONE    // Books read milestones

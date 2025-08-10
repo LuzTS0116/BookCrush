@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from "framer-motion"; // Retaining these if y
 import { BookDetails, BookFile, UserBook, StatusDisplay, TabDisplay } from "@/types/book";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react"; // Add session management
+import { useGoals } from '@/lib/goals-context';
 import Image from "next/image";
 import html2canvas from "html2canvas";
 import { ShareAchievementDialog } from "./ShareAchievementDialog";
@@ -376,7 +377,8 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
 }
 
 export default function DashboardReading() {
-  const { data: session, status } = useSession(); // Add session management
+  const { data: session, status } = useSession();
+  const { optimisticallyUpdateGoalProgress, rollbackOptimisticUpdate, refreshGoals } = useGoals(); // Add session management
   // State to hold books for each shelf
   const [currentlyReadingBooks, setCurrentlyReadingBooks] = useState<UserBook[]>([]);
   const [queueBooks, setQueueBooks] = useState<UserBook[]>([]);
@@ -601,6 +603,9 @@ export default function DashboardReading() {
 
     setIsSubmittingFinishedReview(true);
     
+    // Optimistically update goal progress immediately
+    optimisticallyUpdateGoalProgress(1);
+    
     try {
       // Submit review if text is provided
       if (reviewText && reviewText.trim() && !skipReview) {
@@ -666,8 +671,15 @@ export default function DashboardReading() {
     } catch (err: any) {
       console.error("Error submitting finished book review:", err);
       toast.error(`Failed to submit: ${err.message}`);
+      // Rollback optimistic goal update on error
+      rollbackOptimisticUpdate();
     } finally {
       setIsSubmittingFinishedReview(false);
+      // Refresh goals to get the actual updated state from server
+      // This will correct any discrepancies between optimistic and actual updates
+      setTimeout(() => {
+        refreshGoals();
+      }, 1000); // Small delay to ensure server has processed the update
     }
   };
 

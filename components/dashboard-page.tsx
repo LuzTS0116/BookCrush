@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useRef, useState, useEffect } from "react"
+import React, { useRef, useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, Share2, Calendar, MapPin, Book, Heart, Star, Target, AlertTriangle } from "lucide-react"
@@ -19,6 +19,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation";
 import { launchConfettiRealistic } from '@/lib/confetti-utils';
 import { hasShownCongratulations, markCongratulationsShown } from '@/lib/goal-congratulations';
+import { useGoals } from '@/lib/goals-context';
 
 function useSupabaseTokenExpiry() {
   const { data: session } = useSession();
@@ -200,10 +201,8 @@ export default function DashboardPage({
   const [bookLoading, setBookLoading] = useState(true);
   const [bookError, setBookError] = useState<string | null>(null);
 
-  // Custom goals state
-  const [customGoals, setCustomGoals] = useState<any[]>([]);
-  const [goalsLoading, setGoalsLoading] = useState(true);
-  const [goalsError, setGoalsError] = useState<string | null>(null);
+  // Use goals context instead of local state
+  const { goals: customGoals, isLoading: goalsLoading, error: goalsError, setGoalCompletedCallback } = useGoals();
 
   // Goal completion congratulations state
   const [congratsDialog, setCongratsDialog] = useState<{
@@ -212,7 +211,40 @@ export default function DashboardPage({
   }>({ isOpen: false, goal: null });
   const [hasFiredConfetti, setHasFiredConfetti] = useState(false);
 
+  // Handle goal completion callback
+  const handleGoalCompleted = useCallback((goal: any) => {
+    console.log('[Dashboard] Goal completed callback received:', goal);
+    console.log('[Dashboard] Goal data:', JSON.stringify(goal, null, 2));
+    
+    // Add null check to prevent errors
+    if (!goal || !goal.id) {
+      console.error('[Dashboard] Invalid goal data received in completion callback:', goal);
+      return;
+    }
+    
+    const hasShown = hasShownCongratulations(goal.id);
+    console.log('[Dashboard] Has shown congratulations for goal', goal.id, ':', hasShown);
+    console.log('[Dashboard] Current congrats dialog state:', congratsDialog.isOpen);
+    
+    // Check if we already showed congratulations for this goal
+    if (!hasShown && !congratsDialog.isOpen) {
+      console.log('[Dashboard] ✅ Showing congratulations for goal:', goal.name);
+      setCongratsDialog({ isOpen: true, goal });
+      markCongratulationsShown(goal.id);
+    } else {
+      console.log('[Dashboard] ❌ NOT showing congratulations. Reason:', hasShown ? 'Already shown' : 'Dialog already open');
+    }
+  }, [congratsDialog.isOpen]);
+
   const router = useRouter();
+
+  // Set the goal completion callback
+  useEffect(() => {
+    console.log('[Dashboard] Setting goal completion callback');
+    console.log('[Dashboard] setGoalCompletedCallback function exists:', !!setGoalCompletedCallback);
+    console.log('[Dashboard] handleGoalCompleted function:', handleGoalCompleted);
+    setGoalCompletedCallback(handleGoalCompleted);
+  }, [setGoalCompletedCallback, handleGoalCompleted]);
 
 const { expired, expiryTime, timeUntilExpiry, isExpiringSoon } = useSupabaseTokenExpiry();
 
@@ -328,58 +360,15 @@ useEffect(() => {
   fetchLatestBook();
 }, [status, session?.supabaseAccessToken]);
 
-// Fetch custom goals
+// Goals are now managed by the GoalsContext, but we still need to check for congratulations
 useEffect(() => {
-  const fetchCustomGoals = async () => {
-    if (status !== 'authenticated' || !session?.supabaseAccessToken) {
-      setGoalsLoading(false);
-      return;
-    }
-
-    try {
-      setGoalsLoading(true);
-      setGoalsError(null);
-
-      const response = await fetch('/api/achievements/custom-goals', {
-        headers: {
-          'Authorization': `Bearer ${session.supabaseAccessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch goals: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      // Check for newly completed goals and show congratulations (only if not shown before)
-      const newlyCompletedGoals = data.filter((goal: any) => 
-        goal.is_completed && 
-        goal.progress.progress_percentage >= 100 &&
-        !hasShownCongratulations(goal.id) &&
-        !congratsDialog.isOpen
-      );
-      
-      if (newlyCompletedGoals.length > 0) {
-        const goalToShow = newlyCompletedGoals[0];
-        setCongratsDialog({ isOpen: true, goal: goalToShow });
-        markCongratulationsShown(goalToShow.id);
-      }
-      
-      // Filter to only show active goals (not completed)
-      const activeGoals = data.filter((goal: any) => !goal.is_completed);
-      setCustomGoals(activeGoals);
-    } catch (error) {
-      console.error('Error fetching custom goals:', error);
-      setGoalsError(error instanceof Error ? error.message : 'Failed to load goals');
-    } finally {
-      setGoalsLoading(false);
-    }
-  };
-
-  fetchCustomGoals();
-}, [status, session?.supabaseAccessToken]);
+  if (!goalsLoading && customGoals.length > 0) {
+    // This effect would run when goals are loaded via context
+    // Check for newly completed goals and show congratulations (only if not shown before)
+    // Note: This logic might need to be moved to the context or handled differently
+    // since we're now filtering out completed goals in the context
+  }
+}, [customGoals, goalsLoading]);
 
 // Confetti effect for congratulations dialog
 useEffect(() => {

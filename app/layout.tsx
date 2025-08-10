@@ -11,6 +11,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { loadEnvConfig } from '@next/env'
 import { MainNav } from "@/components/main-nav"
 import { MobileNav } from "@/components/mobile-nav"
+import { GoalsProvider } from "@/lib/goals-context"
 
 const projectDir = process.cwd()
 loadEnvConfig(projectDir)
@@ -87,13 +88,15 @@ export default async function RootLayout({
       <body>
         <AuthSessionProvider initialSession={session}>
           <SupabaseBridge>
-        <ThemeProvider attribute="class" defaultTheme="light">
-          <MainNav />
-          <div className="mb-15">{children}</div>
-          {/* <-- only one Toaster, Sonner will hook into all your toast() calls */}
-          <MobileNav />
-        </ThemeProvider>
-        </SupabaseBridge>
+            <GoalsProvider>
+              <ThemeProvider attribute="class" defaultTheme="light">
+                <MainNav />
+                <div className="mb-15">{children}</div>
+                {/* <-- only one Toaster, Sonner will hook into all your toast() calls */}
+                <MobileNav />
+              </ThemeProvider>
+            </GoalsProvider>
+          </SupabaseBridge>
         </AuthSessionProvider>
         <Toaster
           position="top-center"

@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner"
 import { useSession } from 'next-auth/react'
+import { useGoals } from '@/lib/goals-context'
 import {
   DndContext,
   closestCenter,
@@ -309,6 +310,7 @@ export default function EditableProfileMain() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { optimisticallyUpdateGoalProgress, rollbackOptimisticUpdate, refreshGoals } = useGoals()
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -834,6 +836,9 @@ export default function EditableProfileMain() {
 
     setIsSubmittingFinishedReview(true);
     
+    // Optimistically update goal progress immediately
+    optimisticallyUpdateGoalProgress(1);
+    
     try {
       // Submit review if text is provided and not skipping review
       if (reviewText && reviewText.trim() && !skipReview) {
@@ -908,8 +913,15 @@ export default function EditableProfileMain() {
     } catch (err: any) {
       console.error("Error submitting finished book review:", err);
       toast.error(`Failed to submit: ${err.message}`);
+      // Rollback optimistic goal update on error
+      rollbackOptimisticUpdate();
     } finally {
       setIsSubmittingFinishedReview(false);
+      // Refresh goals to get the actual updated state from server
+      // This will correct any discrepancies between optimistic and actual updates
+      setTimeout(() => {
+        refreshGoals();
+      }, 1000); // Small delay to ensure server has processed the update
     }
   };
 
