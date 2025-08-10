@@ -9,6 +9,7 @@ interface ShareAchievementDialogProps {
   downloadedImageUrl: string | null;
   loading: boolean;
   shareDialogCallback: () => void;
+  skipReview: boolean;
 }
 
 export function ShareAchievementDialog({
@@ -16,7 +17,8 @@ export function ShareAchievementDialog({
   onOpenChange,
   downloadedImageUrl,
   loading,
-  shareDialogCallback
+  shareDialogCallback,
+  skipReview
 }: ShareAchievementDialogProps) {
 
   function handleCallback(){
@@ -41,7 +43,7 @@ export function ShareAchievementDialog({
           <>
             <DialogHeader className="px-6 pt-4">
               <DialogTitle className="mt-0 text-center text-base font-medium text-bookWhite">
-                Your review has been submitted!🎉
+                {skipReview ? "You've finished reading!🎉" : "Your review has been submitted!🎉"}
               </DialogTitle>
               <DialogDescription className="text-center text-[12px] mt-2 text-bookWhite/80 font-serif leading-[13px]">
                 Want to share your achievement with your friends? Download this image and share it on your favorite platform!
