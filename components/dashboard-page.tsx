@@ -595,7 +595,7 @@ const handleClickShare = async () => {
           </div>
 
           {/* Custom Goals Section */}
-          {customGoals.length > 0 && (
+          {customGoals.length > 0 ? (
             <Card className="bg-accent-variant text-bookWhite rounded-b-2xl">
               <CardContent className="px-3 py-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -656,6 +656,21 @@ const handleClickShare = async () => {
                     </Link>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="bg-accent-variant text-bookWhite rounded-b-2xl">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pt-3 pb-2">
+                <CardTitle className="text-sm font-medium">Reading Goal</CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 pb-3">
+                <div>
+                  <div className="text-sm font-bold leading-6">Your next great story starts with a goal. Ready to begin?</div>
+                  {/* edit the link */}
+                  <Link href={`/clubs`}> 
+                    <p className="text-xs text-bookBlack/80 px-3 py-0.5 rounded-full inline-block bg-bookWhite/80 cursor-pointer hover:bg-bookWhite hover:text-bookBlack">set a goal</p>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           )}

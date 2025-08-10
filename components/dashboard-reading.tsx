@@ -296,7 +296,16 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
             disabled={isSubmitting}
             className="rounded-full text-bookWhite bg-secondary-light"
           >
-            Skip Review
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              </>
+            ) : (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Skip Review
+              </>
+            )}
           </Button>
           <Button
             onClick={() => handleSubmit(false)}
@@ -306,7 +315,6 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Submitting...
               </>
             ) : (
               <>
