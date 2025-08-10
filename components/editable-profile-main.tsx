@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -308,6 +308,7 @@ interface Profile {
 export default function EditableProfileMain() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -496,6 +497,18 @@ export default function EditableProfileMain() {
 
     fetchProfile()
   }, [])
+
+  // Check for URL parameter to auto-open custom goals dialog
+  useEffect(() => {
+    const openGoals = searchParams.get('openGoals')
+    if (openGoals === 'true') {
+      setIsCustomGoalsDialogOpen(true)
+      // Remove the parameter from URL without causing a navigation
+      const url = new URL(window.location.href)
+      url.searchParams.delete('openGoals')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [searchParams])
 
   const addGenre = () => {
     if (selectedGenre && !favoriteGenres.includes(selectedGenre)) {

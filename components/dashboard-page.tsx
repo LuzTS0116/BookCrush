@@ -667,8 +667,8 @@ const handleClickShare = async () => {
                 <div className="flex flex-row justify-between">
                   <div className="text-sm font-light leading-4 basis-2/3">Your next great story starts with a goal. Ready to begin?</div>
                   <div className="basis-1/3 flex justify-end">
-                    {/* edit the link */}
-                    <Link href={`/clubs`}> 
+                    {/* Navigate to profile with goal dialog */}
+                    <Link href={`/profile?openGoals=true`}> 
                       <p className="text-xs font-semibold text-bookBlack px-5 py-2 border-2 border-accent-variant/40 inline-block rounded-full bg-gradient-to-r from-primary-dark to-accent cursor-pointer hover:bg-bookWhite hover:text-bookBlack">set a goal</p>
                     </Link>
                   </div>
