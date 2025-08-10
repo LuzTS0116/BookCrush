@@ -597,12 +597,12 @@ const handleClickShare = async () => {
           {/* Custom Goals Section */}
           {customGoals.length > 0 ? (
             <Card className="bg-accent-variant text-bookWhite rounded-b-2xl">
-              <CardContent className="px-3 py-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <CardContent className="px-2 py-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1.5">
                   {customGoals.slice(0, 3).map((goal) => {
                     const timeInfo = goal.end_date ? formatTimeRemaining(goal.end_date) : null;
                     return (
-                    <div key={goal.id} className={`${timeInfo?.isPastDue ? 'bg-orange-100/20 border border-orange-400/30 rounded-lg p-2' : ''}`}>
+                    <div key={goal.id} className={`${timeInfo?.isPastDue ? 'bg-orange-100/20 border border-orange-400/30 rounded-lg p-2' : 'bg-bookWhite/10 rounded-lg p-2'}`}>
                       <div className="flex items-center justify-between mb-0.5">
                         <div className="flex items-center gap-1">
                           <div className="text-sm font-medium text-bookWhite">

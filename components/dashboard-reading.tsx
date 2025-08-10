@@ -225,7 +225,7 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
           <DialogTitle className="text-secondary-light">
             <p className="py-2 px-8 bg-accent/25 rounded-lg mt-3 mb-4 text-xl">🎉 Congratulations 🎉</p>
             <div className="flex flex-row gap-3">
-              <div className="flex justify-center mb-1">
+              <div className="flex justify-center mb-1 w-full">
                 <img
                   src={book.book.cover_url || "/placeholder.svg"}
                   alt={book.book.title}
@@ -302,7 +302,6 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
               </>
             ) : (
               <>
-                <Check className="mr-2 h-4 w-4" />
                 Skip Review
               </>
             )}
