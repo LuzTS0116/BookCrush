@@ -470,7 +470,7 @@ const handleClickShare = async () => {
                 </CardContent>
               </Card>
               
-              <Card className={`flex-1 bg-[url('/images/meeting-bg.svg')] bg-cover ${customGoals.length === 0 ? ('rounded-bl-3xl') : ''}`}>
+              <Card className={`flex-1 bg-[url('/images/meeting-bg.svg')] bg-cover`}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pt-3 pb-2">
                   <CardTitle className="text-sm font-medium">Next Meeting</CardTitle>
                 </CardHeader>
@@ -509,7 +509,7 @@ const handleClickShare = async () => {
               onClick={() => setShowOverlay((prev) => !prev)}
               className="relative group h-full col-span-2"
             >
-              <div ref={quoteImageRef} className={`h-full flex flex-col justify-between bg-[url('/images/quote-img1.png')] bg-cover rounded-lg ${customGoals.length === 0 ? ('rounded-br-3xl') : ''}`}>
+              <div ref={quoteImageRef} className={`h-full flex flex-col justify-between bg-[url('/images/quote-img1.png')] bg-cover rounded-lg`}>
                 <div className="flex-1 flex flex-col justify-center py-3 px-3">
                   <blockquote className="text-[13px]/4 text-center font-semibold text-bookBlack">
                     {quote}
@@ -659,17 +659,19 @@ const handleClickShare = async () => {
               </CardContent>
             </Card>
           ) : (
-            <Card className="bg-accent-variant text-bookWhite rounded-b-2xl">
+            <Card className="bg-[url('/images/goals-bg.svg')] bg-cover text-bookBlack rounded-b-3xl">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pt-3 pb-2">
                 <CardTitle className="text-sm font-medium">Reading Goal</CardTitle>
               </CardHeader>
               <CardContent className="px-3 pb-3">
-                <div>
-                  <div className="text-sm font-bold leading-6">Your next great story starts with a goal. Ready to begin?</div>
-                  {/* edit the link */}
-                  <Link href={`/clubs`}> 
-                    <p className="text-xs text-bookBlack/80 px-3 py-0.5 rounded-full inline-block bg-bookWhite/80 cursor-pointer hover:bg-bookWhite hover:text-bookBlack">set a goal</p>
-                  </Link>
+                <div className="flex flex-row justify-between">
+                  <div className="text-sm font-light leading-4 basis-2/3">Your next great story starts with a goal. Ready to begin?</div>
+                  <div className="basis-1/3 flex justify-end">
+                    {/* edit the link */}
+                    <Link href={`/clubs`}> 
+                      <p className="text-xs font-semibold text-bookBlack px-5 py-2 border-2 border-accent-variant/40 inline-block rounded-full bg-gradient-to-r from-primary-dark to-accent cursor-pointer hover:bg-bookWhite hover:text-bookBlack">set a goal</p>
+                    </Link>
+                  </div>
                 </div>
               </CardContent>
             </Card>
