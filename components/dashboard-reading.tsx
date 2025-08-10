@@ -66,7 +66,7 @@ interface FinishedBookDialogProps {
   isOpen: boolean;
   onClose: () => void;
   book: UserBook | null;
-  onSubmit: (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => void;
+  onSubmit: (reviewText: string | null, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null, skipReview: boolean) => void;
   isSubmitting: boolean;
   shareDialogCallback : () => void;
 }
@@ -80,6 +80,7 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
   const [downloadedImageUrl, setDownloadedImageUrl] = useState<string | null>(null);
   const [loadingImage, setLoadingImage] = useState(false);
   const [hasFiredConfetti, setHasFiredConfetti] = useState(false)
+  const [skipReview, setSkipReview] = useState(false);
 
   const imageRef = useRef(null);
 
@@ -180,14 +181,22 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
     }
   };
 
-  const handleSubmit = async () => {
-  if (!rating) {
+  const handleSubmit = async (skipReview: boolean = false) => {
+
+  if (!rating && !skipReview) {
     toast.error("Please select a rating");
     return;
   }
 
   try {
-    onSubmit(reviewText, rating); // Wait for review to be submitted
+    // If skipReview is true, submit null for reviewText and rating
+    if (skipReview) {
+
+      onSubmit(null, null, true); // Wait for review to be submitted
+      setSkipReview(true);
+    } else {
+      onSubmit(reviewText, rating, false); // Wait for review to be submitted
+    }
        // Then open share dialog
     if (isSubmitting == false){
       generateAndOpenShareDialog(book);
@@ -283,14 +292,14 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
         <DialogFooter className="gap-1">
           <Button
             variant="outline"
-            onClick={onClose}
+            onClick={() => handleSubmit(true)}
             disabled={isSubmitting}
             className="rounded-full text-bookWhite bg-secondary-light"
           >
             Skip Review
           </Button>
           <Button
-            onClick={handleSubmit}
+            onClick={() => handleSubmit(false)}
             disabled={!rating || isSubmitting}
             className="rounded-full bg-accent hover:bg-accent-variant"
           >
@@ -317,6 +326,7 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
         downloadedImageUrl={downloadedImageUrl}
         loading={loadingImage}
         shareDialogCallback={shareDialogCallback}
+        skipReview={skipReview}
         
       />
 
@@ -579,14 +589,14 @@ export default function DashboardReading() {
   }
 
   // Function to handle finished book review submission
-  const handleFinishedBookReview = async (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => {
+  const handleFinishedBookReview = async (reviewText: string | null, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null, skipReview: boolean = false) => {
     if (!finishedBookDialog.bookId || !finishedBookDialog.currentShelf) return;
 
     setIsSubmittingFinishedReview(true);
     
     try {
       // Submit review if text is provided
-      if (reviewText.trim()) {
+      if (reviewText && reviewText.trim() && !skipReview) {
         const reviewResponse = await fetch(`/api/books/${finishedBookDialog.bookId}/reviews`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -600,7 +610,7 @@ export default function DashboardReading() {
           const errorData = await reviewResponse.json();
           throw new Error(errorData.error || 'Failed to submit review');
         }
-      } else {
+      } else if (rating && !skipReview) {
         // If no review text, just submit the rating as a reaction
         const reactionResponse = await fetch('/api/reactions/toggle', {
           method: 'POST',
