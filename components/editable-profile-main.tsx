@@ -816,14 +816,14 @@ export default function EditableProfileMain() {
   };
 
   // Function to handle finished book review submission
-  const handleFinishedBookReview = async (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => {
+  const handleFinishedBookReview = async (reviewText: string | null, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null, skipReview: boolean = false) => {
     if (!finishedBookDialog.bookId || !finishedBookDialog.currentShelf) return;
 
     setIsSubmittingFinishedReview(true);
     
     try {
-      // Submit review if text is provided
-      if (reviewText.trim()) {
+      // Submit review if text is provided and not skipping review
+      if (reviewText && reviewText.trim() && !skipReview) {
         const reviewResponse = await fetch(`/api/books/${finishedBookDialog.bookId}/reviews`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -837,7 +837,7 @@ export default function EditableProfileMain() {
           const errorData = await reviewResponse.json();
           throw new Error(errorData.error || 'Failed to submit review');
         }
-      } else {
+      } else if (rating && !skipReview) {
         // If no review text, just submit the rating as a reaction
         const reactionResponse = await fetch('/api/reactions/toggle', {
           method: 'POST',
@@ -886,7 +886,11 @@ export default function EditableProfileMain() {
 
       // Close dialog and show success message
       //setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
-      toast.success('Book marked as finished! Thanks for sharing your thoughts.');
+      if (skipReview) {
+        toast.success('Book marked as finished!');
+      } else {
+        toast.success('Book marked as finished! Thanks for sharing your thoughts.');
+      }
 
     } catch (err: any) {
       console.error("Error submitting finished book review:", err);
