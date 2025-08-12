@@ -72,11 +72,11 @@ interface ExtendedBookDetails extends BookDetails {
 const getShelfBadgeInfo = (shelf: string, status?: string) => {
   switch (shelf) {
     case 'currently_reading':
-      if (status === 'in_progress') return { label: 'In Progress', icon: Books, color: 'bg-secondary-light/20 text-secondary-light/90' };
-      if (status === 'almost_done') return { label: 'Almost Done', icon: Books, color: 'bg-secondary-light/20 text-secondary-light/90' };
-      return { label: 'In Progress', icon: Books, color: 'bg-secondary-light/20 text-secondary-light/90' };
+      if (status === 'in_progress') return { label: 'In Progress', icon: Books, color: 'bg-secondary-light/15 text-secondary-light/90' };
+      if (status === 'almost_done') return { label: 'Almost Done', icon: Books, color: 'bg-secondary-light/15 text-secondary-light/90' };
+      return { label: 'In Progress', icon: Books, color: 'bg-secondary-light/15 text-secondary-light/90' };
     case 'queue':
-      return { label: 'In Queue', icon: Bookmark, color: 'bg-orange-200/75 text-orange-500/75' };
+      return { label: 'In Queue', icon: Bookmark, color: 'bg-[#DAA520]/15 text-[#B8860B]/75' };
     case 'history':
       if (status === 'finished') return { label: 'Finished', icon: CheckCircle, color: 'bg-accent-variant/15 text-accent-variant' };
       if (status === 'unfinished') return { label: 'Unfinished', icon: CircleAlert, color: 'bg-accent/15 text-accent' };
