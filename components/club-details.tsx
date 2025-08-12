@@ -2276,7 +2276,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   console.log(club);
   // --- Main Render Section ---
   return (
-    <div className='space-y-3 px-2 mb-16'>
+    <div className='space-y-3 px-2 mb-16 md:container'>
       
       {/* Header Section */}
       <Card className="bg-bookWhite/90 rounded-xl overflow-hidden mt-0">
@@ -2398,8 +2398,8 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
       </Card>
       
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
-        <div className="md:col-span-2">
+      <div className="grid grid-cols-1 gap-0">
+        <div className="">
           <Card className="bg-bookWhite/90 py-3">
             <CardHeader className="px-3 pt-0 pb-0">
               <CardTitle className="px-0 pb-2 text-secondary">Current Book</CardTitle>
@@ -3765,7 +3765,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
 
           {/* --- NEW: Admin section for Unfinished Book or Finished book without meeting --- */}
-          {club.currentUserIsAdmin && (
+          {club.currentUserIsAdmin && club.current_book && (
             <Card className="mt-3">
               <CardHeader className="px-3 pt-3 pb-0">
                 <CardTitle className="flex items-center justify-center mb-2">

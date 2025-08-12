@@ -34,7 +34,7 @@ export default async function DashboardLayout() {
   }
 
   return (
-    <div className="min-h-screen relative w-full mt-[-11px] h-auto overflow-hidden">
+    <div className="min-h-screen relative w-full mt-[-11px] h-auto overflow-hidden md:mt-5">
       <Image 
         src="/images/background.png"
         alt="Create and Manage your Book Clubs | BookCrush"
@@ -44,8 +44,10 @@ export default async function DashboardLayout() {
       />
       <DashboardPage quote={quote} author={author}/>
       <DashboardReading />
-      <ActivityCard />
-      <DashboardFeedback />
+      <div className="md:container md:w-full md:flex md:flex-row">
+        <ActivityCard />
+        <DashboardFeedback />
+      </div>
       <SupportSection />
       <DashboardFooter />
     </div>

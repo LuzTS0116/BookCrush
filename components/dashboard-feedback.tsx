@@ -72,8 +72,8 @@ export default function DashboardFeedback() {
     };
 
     return (
-        <div className="container mx-auto px-4 pb-5 pt-0 rounded-b-3xl bg-secondary-light space-y-2 shadow-sm">
-            <div className="rounded-t-lg rounded-b-2xl p-4 bg-accent">
+        <div className="container mx-auto px-4 pb-5 pt-0 rounded-b-3xl bg-secondary-light space-y-2 shadow-sm md:pt-5 md:pl-1.5 md:rounded-r-3xl md:rounded-bl-none">
+            <div className="rounded-t-lg rounded-b-2xl p-4 bg-accent md:rounded-r-2xl md:rounded-l-lg">
                 <h2 className="text-bookBlack text-xl font-bold leading-none mt-1">Feedback</h2>
                 <p className="font-serif font-medium text-secondary leading-none text-sm mt-1">
                     Let us know what you think about your app experience. Whether it's something you love,
@@ -90,7 +90,7 @@ export default function DashboardFeedback() {
                     </div>
                 ) : (
                     <>
-                        <div className="mt-3 space-y-3">
+                        <div className="mt-3 space-y-3 md:mt-6">
                             <Select value={feedbackType} onValueChange={setFeedbackType}>
                                 <SelectTrigger className="bg-bookWhite/80 border-none text-secondary font-medium">
                                     <SelectValue placeholder="Select feedback type" />

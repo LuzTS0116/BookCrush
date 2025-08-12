@@ -275,8 +275,8 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
 
   return (
     <div className="container mx-auto px-2 py-2">
-      <div className="flex flex-col bg-transparent md:flex-row gap-2">
-        <div className="md:w-1/3 bg-transparent">
+      <div className="flex flex-col bg-transparent gap-2 md:items-center">
+        <div className="md:w-1/2 bg-transparent">
           <Card className="px-0 bg-bookWhite/90 rounded-b-3xl rounded-t-none overflow-hidden">
             <CardHeader className="relative p-0">
                 {/* Banner */}
@@ -385,7 +385,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
           </Card>
         </div>
 
-        <div className="md:w-2/3">
+        <div className="md:w-1/2">
           {profile.isFriend ? (
             <Tabs defaultValue="currently-reading" className="w-full">
               <TabsList className="grid w-full grid-cols-5 rounded-full h-auto p-1 bg-bookWhite/10 text-primary">

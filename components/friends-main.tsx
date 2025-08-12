@@ -285,7 +285,7 @@ export default function FriendsMain() {
           {friends.length === 0 ? (
             <p className="text-muted-foreground text-center">You don't have any friends yet.</p>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4">
               {friends.map((friendship) => (
                 // FriendCard expects 'friend' to be a UserProfileMinimal-like object
                 // Ensure your API returns the `friendUser` populated correctly or transform it here.
@@ -303,7 +303,7 @@ export default function FriendsMain() {
           {receivedRequests.length === 0 ? (
             <p className="text-muted-foreground text-center">No received friend requests pending.</p>
           ) : (
-            <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
+            <div className="grid gap-4">
               {receivedRequests.map((request) => (
                 <FriendRequestCard key={request.id} request={request} onActionComplete={handleRequestAction} />
               ))}
@@ -315,7 +315,7 @@ export default function FriendsMain() {
           {sentRequests.length === 0 ? (
             <p className="text-muted-foreground text-center">No sent friend requests pending.</p>
           ) : (
-            <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2">
+            <div className="grid gap-4">
               {sentRequests.map((request) => (
                 <SentRequestCard 
                   key={request.id} 

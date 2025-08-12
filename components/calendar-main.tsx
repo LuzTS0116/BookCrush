@@ -856,7 +856,7 @@ export default function CalendarMain() {
             </DialogContent>
           </Dialog>
 
-          <div className="grid gap-6 md:grid-cols-[300px_1fr]">
+          <div className="grid gap-6 md:grid-cols-[332px_1fr]">
             <Card className="bg-secondary-light/35 rounded-xl">
               <CardContent className="p-0 py-3">
                 <Calendar 
@@ -910,7 +910,7 @@ export default function CalendarMain() {
                       <p className="text-center text-muted-foreground py-8">No upcoming meetings scheduled.</p>
                     ) : (
                       upcomingMeetings.map((meeting) => (
-                        <div key={meeting.id} className="flex flex-col md:flex-row gap-0 p-4 rounded-lg bg-secondary-light/5">
+                        <div key={meeting.id} className="flex flex-col gap-0 p-4 rounded-lg bg-secondary-light/5">
                           <div className="flex flex-row items-start justify-between">
                             <div className="flex flex-col">
                               {meeting.club.name && (
@@ -961,7 +961,7 @@ export default function CalendarMain() {
                             </div>
                           </div>
 
-                          <div className="md:w-3/4 mt-2">
+                          <div className="mt-2">
 
                             <p className="py-1 pl-2 pr-2.5 rounded-r-full bg-secondary/10 text-secondary/50 font-semibold text-xs leading-3 mb-1 inline-block">{meeting.meeting_type.replace('_', ' ')}</p>
 
@@ -1031,7 +1031,7 @@ export default function CalendarMain() {
                   <CardContent className="px-2">
                     <div className="space-y-3">
                       {pastMeetings.slice(0, 3).map((meeting) => (
-                        <div key={meeting.id} className="flex flex-col md:flex-row gap-0 p-4 rounded-lg bg-secondary-light/5">
+                        <div key={meeting.id} className="flex flex-col gap-0 p-4 rounded-lg bg-secondary-light/5">
                           <div className="flex flex-row items-start justify-between">
                             <div className="flex flex-col">
                               {meeting.club.name && (
@@ -1043,6 +1043,9 @@ export default function CalendarMain() {
                               </>
                               )}
                               </div>
+                              <Badge variant="secondary" className="w-fit ml-1">
+                                {meeting.meeting_mode.replace('_', ' ')}
+                              </Badge>
                           </div>
                           <div className="flex flex-row gap-2 items-center">
                             {meeting.book && (
@@ -1079,7 +1082,7 @@ export default function CalendarMain() {
                             </div>
                           </div>
 
-                          <div className="md:w-3/4 mt-2">
+                          <div className="mt-2">
                             <p className="py-1 pl-2 pr-2.5 rounded-r-full bg-secondary/10 text-secondary/50 font-semibold text-xs leading-3 mb-1 inline-block">{meeting.meeting_type.replace('_', ' ')}</p>
                             <div className="flex flex-col md:flex-row justify-between">
                               <h3 className="font-semibold text-sm leading-none">{meeting.title}</h3>

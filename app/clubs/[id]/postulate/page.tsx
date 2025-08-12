@@ -405,7 +405,7 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="md:col-span-2">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
               <TabsList className="grid w-full grid-cols-2 bg-secondary-light text-primary rounded-full">

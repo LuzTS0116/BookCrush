@@ -406,7 +406,7 @@ const handleClickShare = async () => {
 };
 
   return (
-    <div className="container mx-auto pt-8 pb-4 px-4 mt-[-10px] mb-4 bg-secondary-light rounded-b-3xl">
+    <div className="container mx-auto pt-8 pb-4 px-4 mt-[-10px] mb-4 bg-secondary-light rounded-b-3xl md:rounded-t-3xl md:mt-0">
       <div className="space-y-4">
         <div className="flex flex-col md:flex-row justify-between gap-2">
           <div>

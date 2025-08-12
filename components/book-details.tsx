@@ -826,7 +826,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
   return (
     <div className="space-y-3 px-2 mb-16">
       {/* Header Section */}
-        <Card className="bg-bookWhite/90 rounded-xl overflow-hidden mt-0">
+        <Card className="bg-bookWhite/90 rounded-xl overflow-hidden mt-0 md:w-3/4 md:mx-auto">
           <CardHeader className="relative p-0">
             {/* Banner */}
             <div className="relative h-32 w-full bg-gradient-to-r from-primary rounded-b-2xl to-accent">
@@ -1301,7 +1301,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
             )}
           </div> */}
 
-          <div className="">
+          <div className="md:w-3/4 md:mx-auto">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" id="book-tabs">
               <TabsList className="grid w-full grid-cols-3 bg-secondary-light text-primary rounded-full">
                 <TabsTrigger 

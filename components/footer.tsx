@@ -22,7 +22,8 @@ export default function Footer() {
             Connect with friends, share your bookshelves, and discover your next favorite book.
             </p>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+        <div className="md:flex md:flex-col">
+        <div className="grid grid-cols-2 gap-8">
             <div>
             <h3 className="font-bold mb-2 text-primary">Company</h3>
             <ul className="space-y-1 text-bookWhite/40">
@@ -42,7 +43,8 @@ export default function Footer() {
         </div>
         <p className="text-bookWhite/70 mt-8 text-sm italic max-w-md">
             *footer links not available in this early stage.
-            </p>
+        </p>
+        </div>
         </div>
         <div className="border-t border-bookWhite/10 mt-9 pt-8 text-center text-bookWhite/50">
         <p className="text-base mb-4 text-center">

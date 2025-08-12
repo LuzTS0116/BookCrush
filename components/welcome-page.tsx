@@ -33,7 +33,7 @@ export default function Welcome() {
       </header>
 
       <main className="">
-        <div className="flex flex-col md:flex-row gap-12 px-5 items-center">
+        <div className="flex flex-col gap-12 px-5 items-center">
           <div className="relative flex flex-col justify-center space-y-4 text-center h-[70vh] min-h-[500px]">
             {/* ✨ Top Left Sparkles */}
             <img
@@ -86,7 +86,7 @@ export default function Welcome() {
           </div>
         </div>
 
-        <div className="bg-secondary-light px-5 py-5 mt-12 rounded-2xl grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="bg-secondary-light px-5 py-5 mt-12 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-5">
           <div className="bg-[url('/images/share.png')] bg-cover p-4 rounded-xl flex flex-col items-center text-center">
             <h3 className="text-xl font-bold text-secondary mb-1">Share your bookshelf</h3>
             <p className="text-bookBlack/80 font-serif font-normal leading-4">
@@ -116,7 +116,7 @@ export default function Welcome() {
           </div>
         </div>
 
-        <div className="relative my-12 flex flex-col items-center text-center py-20 px-4 sm:px-8 md:px-12 rounded-3xl overflow-hidden">
+        <div className="relative my-12 flex flex-col items-center text-center py-20 px-4 rounded-3xl overflow-hidden">
           {/* Sparkle glow behind */}
           <img
             src="/images/sparkle.svg"
@@ -126,9 +126,8 @@ export default function Welcome() {
           <img
             src="/images/sparkle.svg"
             alt="sparkle"
-            className="absolute bottom-0 right-1/4 w-14 opacity-20 animate-float-slow-twinkle"
+            className="absolute bottom-0 right-1/4 md:right-9 w-14 opacity-20 animate-float-slow-twinkle"
           />
-
           <h2 className="text-4xl sm:text-5xl font-bold text-bookWhite tracking-tight mb-2 z-10">
             Celebrate <span className="text-primary italic">stories</span> with friends
           </h2>
