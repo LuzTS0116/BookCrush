@@ -311,7 +311,7 @@ export default function ProfileSetupPage() {
         alt="Create and Manage your Book Clubs | BookCrush"
         width={1622}
         height={2871}
-        className="absolute inset-0 w-auto h-full lg:w-full lg:h-auto object-cover z-[-1]"
+        className="absolute inset-0 w-auto h-full md:w-full md:h-auto object-cover z-[-1]"
       />
       <div className="min-h-screen flex flex-col items-center justify-center bg-transparent px-4 pt-6 pb-6">
         <Link href="/" className="flex items-center gap-2 mb-8 w-[40vw] max-w-[250px]">
