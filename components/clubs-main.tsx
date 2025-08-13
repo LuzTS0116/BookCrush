@@ -717,7 +717,12 @@ console.log(pendingInvitations);
                             <Card className="bg-secondary/5 p-2 rounded-lg">
                               <CardHeader className="pb-0 px-0 pt-0">
                                 <CardTitle className="text-secondary-light text-sm font-medium flex items-center gap-2">
-                                  <Users className="h-4 w-4" />
+                                  <Avatar className="h-6 w-6">
+                                    <AvatarImage src={invitation.inviter_avatar || "/placeholder.svg"} alt={invitation.inviter_name} />
+                                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                                      {invitation.inviter_name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
                                   {invitation.inviter_name} invited you to join this club!
                                 </CardTitle>
                                 <span className="text-xs text-secondary/60 font-serif pl-6">

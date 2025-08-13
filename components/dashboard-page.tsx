@@ -453,7 +453,7 @@ const handleClickShare = async () => {
                   ) : (
                     <div>
                       <div className="text-xl font-bold">No books yet</div>
-                      <p className="text-xs text-bookBlack">Add your first book to get started</p>
+                      <p className="text-xs text-bookBlack">Check the book tab to get started</p>
                     </div>
                   )}
                 </CardContent>
@@ -653,12 +653,15 @@ const handleClickShare = async () => {
                 <CardTitle className="text-sm font-medium">Reading Goal</CardTitle>
               </CardHeader>
               <CardContent className="px-3 pb-3">
-                <div className="flex flex-row justify-between">
-                  <div className="text-sm font-light leading-4 basis-2/3">Your next great story starts with a goal. Ready to begin?</div>
-                  <div className="basis-1/3 flex justify-end">
+                <div className="flex flex-row justify-between items-end">
+                  <div className="flex flex-col">
+                    <div className="text-xl font-bold leading-6">No goals yet</div>
+                    <div className="text-xs font-light leading-4"> Make every page count. Ready to begin?</div>
+                  </div>
+                  <div className="">
                     {/* Navigate to profile with goal dialog */}
                     <Link href={`/profile?openGoals=true`}> 
-                      <p className="text-xs font-semibold text-bookBlack px-5 py-2 border-2 border-accent-variant/40 inline-block rounded-full bg-gradient-to-r from-primary-dark to-accent cursor-pointer hover:bg-bookWhite hover:text-bookBlack">set a goal</p>
+                      <p className="text-xs font-medium text-bookBlack px-2.5 py-1 border-[6px] border-bookWhite/70 inline-block rounded-full bg-gradient-to-r from-primary-dark to-accent cursor-pointer hover:bg-bookWhite hover:text-bookBlack">set a goal</p>
                     </Link>
                   </div>
                 </div>
