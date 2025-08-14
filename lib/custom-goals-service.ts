@@ -94,8 +94,9 @@ export class CustomGoalsService {
 
     // Generate goal name and description
     const timeLabel = this.timeLabels[timePeriod as keyof typeof this.timeLabels];
-    const goalName = `Read ${targetBooks} books in ${timeLabel}`;
-    const goalDescription = `Personal goal to read ${targetBooks} books within ${timeLabel}`;
+    const bookWord = targetBooks === 1 ? "book" : "books";
+    const goalName = `Read ${targetBooks} ${bookWord} in ${timeLabel}`;
+    const goalDescription = `Read ${targetBooks} ${bookWord} within ${timeLabel}`;
 
     const goal = await prisma.customGoal.create({
       data: {
@@ -156,8 +157,9 @@ export class CustomGoalsService {
 
     // Update goal name and description
     const timeLabel = this.timeLabels[timePeriod as keyof typeof this.timeLabels];
-    const goalName = `Read ${targetBooks} books in ${timeLabel}`;
-    const goalDescription = `Personal goal to read ${targetBooks} books within ${timeLabel}`;
+    const bookWord = targetBooks === 1 ? "book" : "books";
+    const goalName = `Read ${targetBooks} ${bookWord} in ${timeLabel}`;
+    const goalDescription = `Read ${targetBooks} ${bookWord} within ${timeLabel}`;
 
     const updatedGoal = await prisma.customGoal.update({
       where: { id: goalId },

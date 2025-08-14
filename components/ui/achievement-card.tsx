@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Button } from './button';
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { EllipsisVertical, Loader2 } from 'lucide-react';
+import { EllipsisVertical, Loader2, Edit2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -60,7 +60,14 @@ export function AchievementCard({
   showProgress = false, 
   onDelete, 
   showDeleteButton = false,
-  isDeleting = false 
+  isDeleting = false, 
+  pastDueTime, 
+  timeInfo,
+  dropDelete,
+  goalStatus,
+  dropSelect1,
+  dropSelect2,
+
 }: AchievementCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
@@ -97,6 +104,49 @@ export function AchievementCard({
               <p className={`text-xs mb-1 ${isEarned ? 'text-gray-700' : 'text-gray-500'}`}>
                 {achievement.description}
               </p>
+            </div>
+            <div>
+              {/* Always show dropdown in top right */}
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs flex items-center px-1 py-1 rounded-full h-6 w-6 bg-transparent border border-none hover:bg-bookWhite/20"
+                    disabled={dropDelete}
+                  >
+                    {dropDelete ? (
+                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                    ) : (
+                      <EllipsisVertical className="h-3 w-3 text-secondary/60" />
+                    )}
+                  </Button>
+                </DropdownMenu.Trigger>
+
+                <DropdownMenu.Content
+                  className="w-auto min-w-[120px] rounded-xl bg-bookWhite shadow-xl p-1 border border-gray-200 z-[100]"
+                  sideOffset={5}
+                  align="end"
+                >
+                  {pastDueTime && !goalStatus && (
+                    <DropdownMenu.Item
+                      onSelect={dropSelect1}
+                      className="px-3 py-2 text-xs text-center bg-orange-600/90 text-bookWhite rounded-md cursor-pointer hover:bg-orange-500 focus:bg-orange-500 focus:outline-none transition-colors mb-1"
+                      disabled={dropDelete}
+                    >
+                      <Edit2 className="h-3 w-3 mr-1 inline" />
+                      Edit Goal
+                    </DropdownMenu.Item>
+                  )}
+                  <DropdownMenu.Item
+                    onSelect={dropSelect2}
+                    className="px-3 py-2 text-xs text-center bg-red-700/90 text-bookWhite rounded-md cursor-pointer hover:bg-red-600 focus:bg-red-600 focus:outline-none transition-colors"
+                    disabled={dropDelete}
+                  >
+                    Delete Goal
+                  </DropdownMenu.Item>
+                </DropdownMenu.Content>
+              </DropdownMenu.Root>
             </div>
           </div>
 

@@ -336,7 +336,7 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
             Reading Goals
           </DialogTitle>
           <DialogDescription className="text-bookWhite/80 font-serif">
-            Set and track your personal book reading goals
+            Plan, track, and conquer your reading goals
           </DialogDescription>
         </DialogHeader>
         
@@ -384,7 +384,7 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
                           </div>
                         )}
                         
-                                                 {/* Always show dropdown in top right */}
+                          {/* Always show dropdown in top right */}
                           <DropdownMenu.Root>
                             <DropdownMenu.Trigger asChild>
                               <Button
@@ -442,6 +442,12 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
                             target_value: goal.progress.target_value,
                             progress_percentage: goal.progress.progress_percentage,
                           }}
+                          pastDueTime={isPastDue}
+                          timeInfo={timeInfo}
+                          dropDelete={isDeleting[goal.id]}
+                          goalStatus={goal.is_completed}
+                          dropSelect1={() => startEditingGoal(goal)}
+                          dropSelect2={() => showDeleteConfirmation(goal.id, goal.name)}
                           isEarned={goal.is_completed || false}
                           showProgress={true}
                         />
