@@ -14,6 +14,7 @@ import { useSession } from 'next-auth/react';
 import { Separator } from '@radix-ui/react-dropdown-menu';
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { removeCongratulationsForGoal } from '@/lib/goal-congratulations';
+import { useGoals } from '@/lib/goals-context';
 
 interface CustomGoal {
   id: string;
@@ -46,8 +47,12 @@ const TIME_PERIODS = [
 
 export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps) {
   const { data: session } = useSession();
+  
+  // Use local state for all goals (including completed ones) instead of context
   const [goals, setGoals] = useState<CustomGoal[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   const [creating, setCreating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   
@@ -73,38 +78,38 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
     goalName: null
   });
 
-  // Fetch existing goals
+  // Fetch all goals (including completed ones) when dialog opens
   useEffect(() => {
     if (open) {
-      fetchGoals();
+      fetchAllGoals();
     }
   }, [open]);
 
-  const fetchGoals = async () => {
+  const fetchAllGoals = async () => {
     if (!session?.supabaseAccessToken) {
-      toast.error('Authentication required');
       return;
     }
 
     try {
       setLoading(true);
+      setError(null);
+
       const response = await fetch('/api/achievements/custom-goals', {
         headers: {
           'Authorization': `Bearer ${session.supabaseAccessToken}`,
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to fetch goals');
+        throw new Error(`Failed to fetch goals: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
-      setGoals(data);
-      console.log("goals data: ", data);
-    } catch (err) {
-      console.error('Error fetching goals:', err);
-      toast.error('Failed to load goals');
+      setGoals(data); // Don't filter out completed goals here
+    } catch (error) {
+      console.error('Error fetching custom goals:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load goals');
     } finally {
       setLoading(false);
     }
@@ -152,7 +157,7 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
       }
 
       const newGoal = await response.json();
-      setGoals(prev => [...prev, newGoal]);
+      fetchAllGoals(); // Refresh goals after successful creation
       
       // Reset form
       setTargetBooks('');
@@ -205,7 +210,7 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
         throw new Error('Failed to delete goal');
       }
 
-      setGoals(prev => prev.filter(goal => goal.id !== deleteConfirmation.goalId));
+      fetchAllGoals(); // Refresh goals after successful deletion
       
       // Clean up congratulations tracking for deleted goal
       if (deleteConfirmation.goalId) {
@@ -307,9 +312,7 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
       }
 
       const updatedGoal = await response.json();
-      setGoals(prev => prev.map(goal => 
-        goal.id === editingGoal.id ? { ...updatedGoal, is_completed: goal.is_completed } : goal
-      ));
+      fetchAllGoals(); // Refresh goals after successful update
       
       cancelEditingGoal();
       toast.success('Goal updated successfully! The deadline has been extended.');
@@ -367,68 +370,17 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
                     const isPastDue = timeInfo?.isPastDue && !goal.is_completed;
                     
                     return (
-                    <div key={goal.id} className={`relative ${isPastDue ? 'bg-orange-100/20 border border-orange-400/30 rounded-lg' : ''}`}>
-                      {/* Header section with Past Due badge and dropdown menu */}
-                      <div className="flex items-center justify-between mb-2 px-2 pt-2">
-                        {isPastDue && (
-                          <div className="flex items-center gap-1 bg-orange-400/20 px-2 py-0.5 rounded-full">
-                            <AlertTriangle className="h-3 w-3 text-orange-300" />
-                            <span className="text-xs text-orange-300 font-medium">Past Due</span>
-                          </div>
-                        )}
-                        
-                        {/* Spacer or time remaining for non-past due goals */}
-                        {!isPastDue && timeInfo && !goal.is_completed && (
-                          <div className="text-xs font-medium text-bookWhite/60">
-                            {timeInfo.text}
-                          </div>
-                        )}
-                        
-                          {/* Always show dropdown in top right */}
-                          <DropdownMenu.Root>
-                            <DropdownMenu.Trigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs flex items-center px-1 py-1 rounded-full h-6 w-6 bg-transparent border border-none hover:bg-bookWhite/20"
-                                disabled={isDeleting[goal.id]}
-                              >
-                                {isDeleting[goal.id] ? (
-                                  <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                                ) : (
-                                  <EllipsisVertical className="h-3 w-3 text-secondary/60" />
-                                )}
-                              </Button>
-                            </DropdownMenu.Trigger>
-
-                            <DropdownMenu.Content
-                              className="w-auto min-w-[120px] rounded-xl bg-bookWhite shadow-xl p-1 border border-gray-200 z-[100]"
-                              sideOffset={5}
-                              align="end"
-                            >
-                              {isPastDue && !goal.is_completed && (
-                                <DropdownMenu.Item
-                                  onSelect={() => startEditingGoal(goal)}
-                                  className="px-3 py-2 text-xs text-center bg-orange-600/90 text-bookWhite rounded-md cursor-pointer hover:bg-orange-500 focus:bg-orange-500 focus:outline-none transition-colors mb-1"
-                                  disabled={isDeleting[goal.id]}
-                                >
-                                  <Edit2 className="h-3 w-3 mr-1 inline" />
-                                  Edit Goal
-                                </DropdownMenu.Item>
-                              )}
-                              <DropdownMenu.Item
-                                onSelect={() => showDeleteConfirmation(goal.id, goal.name)}
-                                className="px-3 py-2 text-xs text-center bg-red-700/90 text-bookWhite rounded-md cursor-pointer hover:bg-red-600 focus:bg-red-600 focus:outline-none transition-colors"
-                                disabled={isDeleting[goal.id]}
-                              >
-                                Delete Goal
-                              </DropdownMenu.Item>
-                            </DropdownMenu.Content>
-                          </DropdownMenu.Root>
+                    <div key={goal.id} className={`relative ${isPastDue ? 'bg-orange-100/20 border border-orange-400/30 rounded-lg p-2' : ''}`}>
+                      {/* Past Due badge */}
+                      {isPastDue && (
+                        <div className="flex items-center gap-1 bg-orange-400/20 px-2 py-0.5 rounded-full mb-2">
+                          <AlertTriangle className="h-3 w-3 text-orange-300" />
+                          <span className="text-xs text-orange-300 font-medium">Past Due</span>
                         </div>
+                      )}
                       
-                      {/* Achievement Card Section */}
-                      <div className="[&_.achievement-icon]:text-3xl px-2 pb-2">
+                      {/* Achievement Card Section - now contains the menu and time info */}
+                      <div className="[&_.achievement-icon]:text-3xl">
                         <AchievementCard
                           achievement={{
                             id: goal.id,
@@ -452,17 +404,6 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
                           showProgress={true}
                         />
                       </div>
-                      
-                      {/* Time remaining indicator for past due goals */}
-                      {isPastDue && timeInfo && !goal.is_completed && (
-                        <div className="px-2 pb-2">
-                          <div className="text-xs font-medium text-orange-300 bg-orange-400/10 px-2 py-1 rounded">
-                            {timeInfo.text}
-                          </div>
-                        </div>
-                      )}
-                      
-
                     </div>
                     );
                   })}
