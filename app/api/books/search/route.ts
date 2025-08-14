@@ -2,8 +2,22 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("Supabase URL or Anon Key is missing for books API.");
+}
+
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 export async function GET(request: Request) {
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+  }
   try {
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')
@@ -17,7 +31,7 @@ export async function GET(request: Request) {
     // Calculate pagination
     const skip = (page - 1) * limit
 
-    const supabase = createRouteHandlerClient({ cookies })
+    // const supabase = createRouteHandlerClient({ cookies })
 
     // Require Bearer token authentication (consistent with other APIs)
     const authHeader = request.headers.get('Authorization');
@@ -34,7 +48,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
     }
 
-    console.log('[Search API] User authenticated:', user.id);
+    // console.log('[Search API] User authenticated:', user.id);
 
     // Test early return to isolate authentication issues
     if (query === 'test_auth') {
