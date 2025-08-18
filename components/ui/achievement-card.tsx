@@ -139,7 +139,7 @@ export function AchievementCard({
       {/* Achievement Icon */}
       <div className="flex items-start gap-3"> {/* Added pr-8 to give space for the 3-dot button */}
         <div className="flex-1 min-w-0">
-          <div className='flex flex-row gap-1'>
+          <div className='flex flex-row gap-1'> 
             <div className='achievement-icon'>
               {achievement.icon}
             </div>
