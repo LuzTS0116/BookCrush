@@ -34,7 +34,7 @@ const globalPublicRoutes = [
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  // console.log('[Main Middleware] Start for path:', pathname);
+  console.log('[Main Middleware] Start for path:', pathname);
 
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
   
@@ -43,23 +43,23 @@ export async function middleware(request: NextRequest) {
   );
 
   if (isGloballyPublic) {
-    // console.log('[Main Middleware] Path is globally public, allowing.');
+    console.log('[Main Middleware] Path is globally public, allowing.');
     return NextResponse.next();
   }
 
   if (!token) {
-    // console.log('[Main Middleware] No user token found, redirecting to login.');
+    console.log('[Main Middleware] No user token found, redirecting to login.');
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirectedFrom', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // console.log('[Main Middleware] Token found:', {
-  //   id: token.id,
-  //   email: token.email,
-  //   hasSupaToken: !!token.supa?.access_token,
-  //   profileComplete: token.profileComplete
-  // });
+  console.log('[Main Middleware] Token found:', {
+    id: token.id,
+    email: token.email,
+    hasSupaToken: !!token.supa?.access_token,
+    profileComplete: token.profileComplete
+  });
 
   if (pathname.startsWith('/profile-setup')) {
     console.log('[Main Middleware] Already on /profile-setup, allowing.');
@@ -68,14 +68,14 @@ export async function middleware(request: NextRequest) {
 
   // Check if we have the required token data
   if (!token.id) {
-    // console.warn('[Main Middleware] Token found but missing user ID');
+    console.warn('[Main Middleware] Token found but missing user ID');
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('error', 'missing_user_id');
     return NextResponse.redirect(loginUrl);
   }
 
   if (!token.supa?.access_token) {
-    // console.warn('[Main Middleware] Token found but missing Supabase access token');
+    console.warn('[Main Middleware] Token found but missing Supabase access token');
     // Add a special flag to indicate this is an invalid session
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('error', 'invalid_session');
@@ -132,7 +132,7 @@ export async function middleware(request: NextRequest) {
     }
   }
   
-  // console.log('[Main Middleware] Profile complete, allowing access to:', pathname);
+  console.log('[Main Middleware] Profile complete, allowing access to:', pathname);
   return NextResponse.next();
 }
 

@@ -206,24 +206,25 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user, account, trigger }) {
-      // console.log('[Auth JWT Callback] Starting with:', {
-      //   hasUser: !!user,
-      //   hasAccount: !!account,
-      //   accountProvider: account?.provider,
-      //   tokenId: token.id,
-      //   hasSupaInToken: !!token.supa
-      // });
+      console.log('[Auth JWT Callback] Starting with:', {
+        hasUser: !!user,
+        hasAccount: !!account,
+        accountProvider: account?.provider,
+        tokenId: token.id,
+        hasSupaInToken: !!token.supa,
+        environment: process.env.NODE_ENV
+      });
 
       // Handle credential authentication (including client-side tokens)
       if (user?.supa) {
-        // console.log('[Auth JWT Callback] Setting supa tokens from user');
+        console.log('[Auth JWT Callback] Setting supa tokens from user');
         token.id = user.id;
         token.supa = user.supa;
       }
       
       // Handle Google authentication
       if (account?.provider === 'google' && account.id_token) {
-        // console.log('[Auth JWT Callback] Processing Google authentication');
+        console.log('[Auth JWT Callback] Processing Google authentication');
         
         const { data, error } = await supabaseAdmin.auth
           .signInWithIdToken({
@@ -231,9 +232,9 @@ export const authOptions: NextAuthOptions = {
             token: account.id_token,
           });
           
-        if (!error && data.session && data.user) {
-          // console.log('[Auth JWT Callback] Google auth successful, setting tokens');
-          token.id = data.user.id;
+        if (!error && data.session) {
+          console.log('[Auth JWT Callback] Google auth successful, setting tokens');
+          token.id = data.user!.id;
           token.supa = {
             access_token: data.session.access_token,
             refresh_token: data.session.refresh_token,
@@ -245,10 +246,10 @@ export const authOptions: NextAuthOptions = {
             const userMetadata = googleUser.user_metadata || {};
             
             // Check if profile exists
-                          const existingProfile = await prisma.profile.findUnique({
-                where: { id: googleUser.id },
-                select: { id: true, display_name: true, email: true, avatar_url: true }
-              });
+            const existingProfile = await prisma.profile.findUnique({
+              where: { id: googleUser.id },
+              select: { id: true, display_name: true, email: true, avatar_url: true }
+            });
 
             if (!existingProfile) {
               // Create minimal profile with Google data - user still needs to complete setup
@@ -304,7 +305,7 @@ export const authOptions: NextAuthOptions = {
             token.profileComplete = false;
           }
         } else {
-          // console.error('[Auth JWT Callback] Supabase signInWithIdToken failed for Google:', error?.message || 'No session returned');
+          console.error('[Auth JWT Callback] Google auth failed:', error);
         }
       }
 
@@ -320,7 +321,7 @@ export const authOptions: NextAuthOptions = {
               where: { id: token.id as string },
               select: { id: true, display_name: true }
             });
-            
+
             const newProfileComplete = !!profile && !!profile.display_name;
             
             // Only log if status actually changed
@@ -347,7 +348,7 @@ export const authOptions: NextAuthOptions = {
           
           // If token is expired or about to expire (within 30 minutes)
           if (expTimeInSeconds - currentTimeInSeconds < 1800) {
-            // console.log('[Auth JWT Callback] Token expiring soon, refreshing...');
+            console.log('[Auth JWT Callback] Token expiring soon, refreshing...');
             
             const { data, error } = await supabaseAdmin.auth.refreshSession({
               refresh_token: token.supa.refresh_token,
@@ -356,7 +357,7 @@ export const authOptions: NextAuthOptions = {
             if (error) throw error;
             
             if (data.session) {
-              // console.log('[Auth JWT Callback] Token refreshed successfully');
+              console.log('[Auth JWT Callback] Token refreshed successfully');
               token.supa = {
                 access_token: data.session.access_token,
                 refresh_token: data.session.refresh_token,
@@ -364,26 +365,62 @@ export const authOptions: NextAuthOptions = {
             }
           }
         } catch (error) {
-          // console.error('[Auth JWT Callback] Failed to refresh token:', error);
+          console.error('[Auth JWT Callback] Failed to refresh token:', error);
           // Token refresh failed, clear the token
           delete token.supa;
         }
       }
 
-      // console.log('[Auth JWT Callback] Final token state:', {
-      //   id: token.id,
-      //   hasSupaToken: !!token.supa?.access_token,
-      //   supaTokenLength: token.supa?.access_token?.length || 0
-      // });
+      // After all processing, do a final check if needed
+      if (token.id && token.supa?.access_token && token.profileComplete === undefined) {
+        console.log('[Auth JWT Callback] Final profile status check for user:', token.id);
+        
+        try {
+          // Check if user has completed profile setup
+          const profile = await prisma.profile.findUnique({
+            where: { id: token.id as string },
+            select: { 
+              display_name: true,
+              about: true,
+              avatar_url: true
+            }
+          });
+
+          if (profile) {
+            const hasBasicInfo = !!(profile.display_name && profile.about);
+            token.profileComplete = hasBasicInfo;
+            console.log('[Auth JWT Callback] Final profile status:', { hasBasicInfo, displayName: !!profile.display_name, about: !!profile.about });
+          } else {
+            console.log('[Auth JWT Callback] No profile found for user:', token.id);
+            token.profileComplete = false;
+          }
+        } catch (profileError) {
+          console.error('[Auth JWT Callback] Error in final profile check:', profileError);
+          token.profileComplete = false; // Default to false on error
+        }
+      } else if (!token.id || !token.supa?.access_token) {
+        console.log('[Auth JWT Callback] Missing required data for final check:', {
+          hasId: !!token.id,
+          hasSupaToken: !!token.supa?.access_token
+        });
+      }
+
+      console.log('[Auth JWT Callback] Final token state:', {
+        id: token.id,
+        hasSupaToken: !!token.supa?.access_token,
+        profileComplete: token.profileComplete
+      });
 
       return token;
     },
     
     async session({ session, token }) {
-      // console.log('[Auth Session Callback] Creating session with token:', {
-      //   tokenId: token.id,
-      //   hasSupaToken: !!token.supa?.access_token
-      // });
+      console.log('[Auth Session Callback] Creating session with token:', {
+        tokenId: token.id,
+        hasSupaToken: !!token.supa?.access_token,
+        profileComplete: token.profileComplete,
+        userEmail: session.user?.email
+      });
 
       if (session.user) {
         session.user.id = token.id as string;
@@ -396,16 +433,26 @@ export const authOptions: NextAuthOptions = {
               session.user.name = userData.user.user_metadata.display_name;
             } 
           } catch (error) {
-            // console.warn('[Auth Session Callback] Could not fetch user metadata:', error);
+            console.warn('[Auth Session Callback] Could not fetch user metadata:', error);
           }
         }
       }
       
-      session.supabaseAccessToken = token.supa?.access_token;
-      session.supabaseRefreshToken = token.supa?.refresh_token;
-      session.profileComplete = token.profileComplete as boolean;
+      if (token.supa?.access_token) {
+        session.supabaseAccessToken = token.supa.access_token;
+        session.supabaseRefreshToken = token.supa.refresh_token;
+      }
+
+      // Include profile completion status
+      session.profileComplete = token.profileComplete as boolean | undefined;
       session.googleData = token.googleData as any; // Pass Google data to client
-      
+
+      console.log('[Auth Session Callback] Final session state:', {
+        userId: session.user?.id,
+        hasSupabaseToken: !!session.supabaseAccessToken,
+        profileComplete: session.profileComplete
+      });
+
       return session;
     }
   },
