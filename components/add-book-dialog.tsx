@@ -710,31 +710,31 @@ const handleSelect = async (suggestion: BookSuggestion) => {
               </div>
             </div>
 
-            <div className="bg-bookWhite/10 bg-cover rounded-xl p-4">
-            <p className="text-bookWhite font-bold text-lg text-center pb-4">Upload the E-book<span className="text-sm font-light italic"> (.epub)</span></p>
-            <div className="grid gap-2">
-              <Label htmlFor="english" className="font-light">english version</Label>
-              <Input
-                id="english"
-                type="file"
-                lang="en"
-                accept=".epub"
-                onChange={e => setEnglishFile(e.target.files?.[0] || null)}
-                disabled={isLoading}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="spanish" className="font-light mt-3">spanish version</Label>
-              <Input
-                id="spanish"
-                type="file"
-                lang="en"
-                accept=".epub"
-                onChange={e => setSpanishFile(e.target.files?.[0] || null)}
-                disabled={isLoading}
-              />
-            </div>
-            </div>
+            {/* <div className="bg-bookWhite/10 bg-cover rounded-xl p-4">
+              <p className="text-bookWhite font-bold text-lg text-center pb-4">Upload the E-book<span className="text-sm font-light italic"> (.epub)</span></p>
+              <div className="grid gap-2">
+                <Label htmlFor="english" className="font-light">english version</Label>
+                <Input
+                  id="english"
+                  type="file"
+                  lang="en"
+                  accept=".epub"
+                  onChange={e => setEnglishFile(e.target.files?.[0] || null)}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="spanish" className="font-light mt-3">spanish version</Label>
+                <Input
+                  id="spanish"
+                  type="file"
+                  lang="en"
+                  accept=".epub"
+                  onChange={e => setSpanishFile(e.target.files?.[0] || null)}
+                  disabled={isLoading}
+                />
+              </div>
+            </div> */}
            {validationError && (
             <p className="text-red-500 text-sm mt-2">{validationError}</p>
           )}

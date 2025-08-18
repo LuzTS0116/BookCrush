@@ -711,35 +711,32 @@ const handleClickShare = async () => {
             className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
           />
           <DialogHeader className="px-6 pt-4">
-            <DialogTitle className="mt-7 text-center text-xl">🎉 Goal Completed! 🎉</DialogTitle>
-            <DialogDescription className="text-center text-lg">
-              Congratulations on reaching your reading goal!
+            <DialogTitle className="mt-7 text-center text-xl">🎉 Goal Completed 🎉</DialogTitle>
+            <DialogDescription className="text-center text-base text-bookWhite/75">
+              You’ve successfully completed your reading challenge!
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4 px-6">
+          <div className="grid gap-4 py-2 px-6">
             {congratsDialog.goal && (
-              <div className="text-center space-y-3">
-                <div className="bg-white/90 rounded-lg p-4 mx-4">
-                  <h3 className="font-bold text-lg text-bookBlack mb-2">
+              <div className="text-center space-y-6">
+                <div className="bg-bookWhite/90 rounded-lg p-2 mx-4">
+                  <h3 className="font-bold text-lg text-secondary mb-2">
                     {congratsDialog.goal.name}
                   </h3>
-                  <p className="text-bookBlack/80 mb-3">
-                    {congratsDialog.goal.description}
-                  </p>
                   <div className="bg-green-100 rounded-full h-3 mb-2">
                     <div 
-                      className="bg-gradient-to-r from-green-400 to-green-600 h-3 rounded-full"
+                      className="bg-gradient-to-r from-primary-dark to-accent h-3 rounded-full"
                       style={{ width: '100%' }}
                     />
                   </div>
-                  <p className="text-sm font-semibold text-green-700">
-                    {congratsDialog.goal.progress.current_value}/{congratsDialog.goal.progress.target_value} books completed!
+                  <p className="text-sm font-semibold text-secondary-light">
+                    {congratsDialog.goal.progress.current_value}/{congratsDialog.goal.progress.target_value} book{congratsDialog.goal.progress.target_value === 1 ? '' : 's'} completed!
                   </p>
                 </div>
                 
-                <p className="text-bookWhite/90 text-center px-4">
-                  You've successfully completed your reading challenge. Keep up the great work and set your next goal!
+                <p className="text-bookWhite/75 text-center px-4">
+                  Celebrate your progress and pick your next challenge to stay inspired.
                 </p>
               </div>
             )}
@@ -750,14 +747,14 @@ const handleClickShare = async () => {
               <Button 
                 variant="outline" 
                 onClick={() => setCongratsDialog({ isOpen: false, goal: null })}
-                className="bg-white/90 text-bookBlack hover:bg-white"
+                className="bg-white/90 text-bookBlack rounded-full hover:bg-white"
               >
                 Close
               </Button>
               <Link href="/profile">
                 <Button 
                   onClick={() => setCongratsDialog({ isOpen: false, goal: null })}
-                  className="bg-primary text-secondary hover:bg-primary-dark"
+                  className="bg-primary text-secondary rounded-full hover:bg-primary-dark"
                 >
                   Set New Goal
                 </Button>

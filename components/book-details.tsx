@@ -843,7 +843,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                     <ArrowLeft className="h-5 w-5 text-secondary" />
                 </button>
             </div>
-            <div className="flex flex-row justify-normal gap-2 p-3 pb-2 w-full">
+            <div className="flex flex-row justify-normal gap-2 p-3 pb-0 w-full">
               <div className="flex flex-col">
                 <div className="w-36 h-auto bg-muted/30 rounded-md flex items-center justify-center overflow-hidden">
                   <img src={book.cover || "/placeholder.svg"} alt={book.title} className="max-h-full" />
@@ -1041,7 +1041,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                 
               </div>
             </div>
-            <div className="flex flex-col px-3 py-1">
+            {/* <div className="flex flex-col px-3 py-1">
               <div className="rounded-xl bg-primary/25 px-3 py-3 w-full mb-2">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col">
@@ -1102,7 +1102,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                   Supporting authors means more stories, more voices, and more magic for everyone.
                 </p>
               </div>
-            </div>
+            </div> */}
             
           </CardHeader>
           <CardContent className="px-3 pb-5">
