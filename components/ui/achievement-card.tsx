@@ -146,7 +146,7 @@ export function AchievementCard({
             <div className="flex-1">
               {/* Achievement Name & Points */}
               <div className="flex items-center justify-between">
-                <h3 className={`font-semibold text-sm/4 ${isEarned ? 'text-gray-900' : 'text-gray-600'}`}>
+                <h3 className={`font-semibold text-sm/5 ${isEarned ? 'text-gray-900' : 'text-gray-600'}`}>
                   Reading Goal
                 </h3>
               </div>
