@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -39,6 +39,8 @@ import {
 import { toast } from "sonner"
 import { useSession } from 'next-auth/react'
 import { useGoals } from '@/lib/goals-context'
+import { launchConfettiRealistic } from '@/lib/confetti-utils'
+import { hasShownCongratulations, markCongratulationsShown } from '@/lib/goal-congratulations'
 import {
   DndContext,
   closestCenter,
@@ -310,7 +312,7 @@ export default function EditableProfileMain() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { optimisticallyUpdateGoalProgress, rollbackOptimisticUpdate, refreshGoals } = useGoals()
+  const { optimisticallyUpdateGoalProgress, rollbackOptimisticUpdate, refreshGoals, setGoalCompletedCallback, goals: customGoals, isLoading: goalsLoading, error: goalsError } = useGoals()
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -413,6 +415,16 @@ export default function EditableProfileMain() {
   });
   const [isSubmittingFinishedReview, setIsSubmittingFinishedReview] = useState(false);
 
+  // Add state for tracking if goal progress needs to be updated
+  const [needsGoalProgressUpdate, setNeedsGoalProgressUpdate] = useState(false);
+
+  // Goal completion congratulations state
+  const [congratsDialog, setCongratsDialog] = useState<{
+    isOpen: boolean;
+    goal: any | null;
+  }>({ isOpen: false, goal: null });
+  const [hasFiredConfetti, setHasFiredConfetti] = useState(false);
+
   const genres = [
     "Biography",
     "Children's",
@@ -434,6 +446,73 @@ export default function EditableProfileMain() {
     "Thriller",
     "Young Adult"
   ]
+
+  const shareDialogCallback = () => {
+    // Close the finished book dialog first
+    setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
+    
+    // Only update goal progress if the book was successfully finished
+    if (needsGoalProgressUpdate) {
+      // Now update goal progress and trigger goal completion check
+      // This will happen after the share dialog closes
+      optimisticallyUpdateGoalProgress(1);
+      
+      // Refresh goals to get the actual updated state from server
+      // This will trigger the goal completion callback if a goal was completed
+      setTimeout(() => {
+        refreshGoals();
+      }, 500); // Small delay to ensure goal progress update is processed
+      
+      // Reset the flag
+      setNeedsGoalProgressUpdate(false);
+    }
+  };
+
+  // Handle goal completion callback - Define early
+  const handleGoalCompleted = useCallback((goal: any) => {
+    // Add null check to prevent errors
+    if (!goal || !goal.id) {
+      console.error('[Profile] Invalid goal data received in completion callback:', goal);
+      return;
+    }
+    
+    const hasShown = hasShownCongratulations(goal.id);
+    
+    // Check if we already showed congratulations for this goal
+    if (!hasShown && !congratsDialog.isOpen) {
+      // Reduce the delay since the share dialog should already be closed by now
+      setTimeout(() => {
+        // Double-check that the dialog is still not open after the delay
+        setCongratsDialog(prev => {
+          if (!prev.isOpen) {
+            markCongratulationsShown(goal.id);
+            return { isOpen: true, goal };
+          }
+          return prev;
+        });
+      }, 200); // Reduced delay since we already waited for share dialog to close
+    }
+  }, [congratsDialog.isOpen]);
+
+  // Set the goal completion callback IMMEDIATELY - before any other effects
+  useEffect(() => {
+    if (setGoalCompletedCallback) {
+      setGoalCompletedCallback(handleGoalCompleted);
+    }
+  }, [setGoalCompletedCallback, handleGoalCompleted]);
+
+  // Confetti effect for congratulations dialog
+  useEffect(() => {
+    if (congratsDialog.isOpen && !hasFiredConfetti) {
+      launchConfettiRealistic();
+      setHasFiredConfetti(true);
+    }
+  }, [congratsDialog.isOpen, hasFiredConfetti]);
+
+  // Reset confetti flag when dialog closes
+  useEffect(() => {
+    if (!congratsDialog.isOpen) setHasFiredConfetti(false);
+  }, [congratsDialog.isOpen]);
 
   // Fetch profile data
   useEffect(() => {
@@ -826,18 +905,13 @@ export default function EditableProfileMain() {
     }
   };
 
-  const shareDialogCallback = () => {
-    setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
-  };
-
   // Function to handle finished book review submission
   const handleFinishedBookReview = async (reviewText: string | null, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null, skipReview: boolean = false) => {
     if (!finishedBookDialog.bookId || !finishedBookDialog.currentShelf) return;
 
     setIsSubmittingFinishedReview(true);
     
-    // Optimistically update goal progress immediately
-    optimisticallyUpdateGoalProgress(1);
+    // Don't optimistically update goal progress here - wait until after share dialog
     
     try {
       // Submit review if text is provided and not skipping review
@@ -902,6 +976,9 @@ export default function EditableProfileMain() {
         ]);
       }
 
+      // Mark that goal progress needs to be updated
+      setNeedsGoalProgressUpdate(true);
+
       // Close dialog and show success message
       //setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
       if (skipReview) {
@@ -913,20 +990,24 @@ export default function EditableProfileMain() {
     } catch (err: any) {
       console.error("Error submitting finished book review:", err);
       toast.error(`Failed to submit: ${err.message}`);
-      // Rollback optimistic goal update on error
-      rollbackOptimisticUpdate();
+      // Don't update goal progress if book wasn't successfully marked as finished
+      setNeedsGoalProgressUpdate(false);
     } finally {
       setIsSubmittingFinishedReview(false);
-      // Refresh goals to get the actual updated state from server
-      // This will correct any discrepancies between optimistic and actual updates
-      setTimeout(() => {
-        refreshGoals();
-      }, 1000); // Small delay to ensure server has processed the update
+      // Don't refresh goals here - wait until after share dialog
     }
   };
 
   // Function to close the finished book dialog
   const closeFinishedBookDialog = () => {
+    // If user closes dialog without going through share flow, still update goal progress if needed
+    if (needsGoalProgressUpdate) {
+      optimisticallyUpdateGoalProgress(1);
+      setTimeout(() => {
+        refreshGoals();
+      }, 500);
+      setNeedsGoalProgressUpdate(false);
+    }
     setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
   };
 
@@ -2298,6 +2379,74 @@ export default function EditableProfileMain() {
           </div>
         </div>
       )}
+
+      {/* Goal Completion Congratulations Dialog */}
+      <Dialog open={congratsDialog.isOpen} onOpenChange={(open) => setCongratsDialog({ isOpen: open, goal: null })}>
+        <DialogContent className="w-[85vw] rounded-2xl px-0 py-1">
+          <Image 
+            src="/images/background.png"
+            alt="Congratulations on completing your reading goal!"
+            width={1622}
+            height={2871}
+            className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+          />
+          <DialogHeader className="px-6 pt-4">
+            <DialogTitle className="mt-7 text-center text-xl">🎉 Goal Completed! 🎉</DialogTitle>
+            <DialogDescription className="text-center text-lg">
+              Congratulations on reaching your reading goal!
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4 px-6">
+            {congratsDialog.goal && (
+              <div className="text-center space-y-3">
+                <div className="bg-white/90 rounded-lg p-4 mx-4">
+                  <h3 className="font-bold text-lg text-bookBlack mb-2">
+                    {congratsDialog.goal.name}
+                  </h3>
+                  <p className="text-bookBlack/80 mb-3">
+                    {congratsDialog.goal.description}
+                  </p>
+                  <div className="bg-green-100 rounded-full h-3 mb-2">
+                    <div 
+                      className="bg-gradient-to-r from-green-400 to-green-600 h-3 rounded-full"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <p className="text-sm font-semibold text-green-700">
+                    {congratsDialog.goal.progress.current_value}/{congratsDialog.goal.progress.target_value} books completed!
+                  </p>
+                </div>
+                
+                <p className="text-bookWhite/90 text-center px-4">
+                  You've successfully completed your reading challenge. Keep up the great work and set your next goal!
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="justify-center px-6 pb-4">
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setCongratsDialog({ isOpen: false, goal: null })}
+                className="bg-white/90 text-bookBlack hover:bg-white"
+              >
+                Close
+              </Button>
+              <Button 
+                onClick={() => {
+                  setCongratsDialog({ isOpen: false, goal: null });
+                  setIsCustomGoalsDialogOpen(true);
+                }}
+                className="bg-primary text-secondary hover:bg-primary-dark"
+              >
+                Set New Goal
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 

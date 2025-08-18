@@ -229,8 +229,18 @@ export default function DashboardPage({
     // Check if we already showed congratulations for this goal
     if (!hasShown && !congratsDialog.isOpen) {
       console.log('[Dashboard] ✅ Showing congratulations for goal:', goal.name);
-      setCongratsDialog({ isOpen: true, goal });
-      markCongratulationsShown(goal.id);
+      
+      // Add a small delay to ensure any other dialogs (like share dialog) have time to close
+      setTimeout(() => {
+        // Double-check that the dialog is still not open after the delay
+        setCongratsDialog(prev => {
+          if (!prev.isOpen) {
+            markCongratulationsShown(goal.id);
+            return { isOpen: true, goal };
+          }
+          return prev;
+        });
+      }, 800); // 800ms delay to ensure share dialog closes completely
     } else {
       console.log('[Dashboard] ❌ NOT showing congratulations. Reason:', hasShown ? 'Already shown' : 'Dialog already open');
     }

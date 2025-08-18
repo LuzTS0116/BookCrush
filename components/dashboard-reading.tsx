@@ -423,6 +423,9 @@ export default function DashboardReading() {
   });
   const [isSubmittingFinishedReview, setIsSubmittingFinishedReview] = useState(false);
 
+  // Add state for tracking if goal progress needs to be updated
+  const [needsGoalProgressUpdate, setNeedsGoalProgressUpdate] = useState(false);
+
   const router = useRouter();
 
 
@@ -594,7 +597,24 @@ export default function DashboardReading() {
   };
 
   const shareDialogCallback = () => {
+    // Close the finished book dialog first
     setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null }); 
+    
+    // Only update goal progress if the book was successfully finished
+    if (needsGoalProgressUpdate) {
+      // Now update goal progress and trigger goal completion check
+      // This will happen after the share dialog closes
+      optimisticallyUpdateGoalProgress(1);
+      
+      // Refresh goals to get the actual updated state from server
+      // This will trigger the goal completion callback if a goal was completed
+      setTimeout(() => {
+        refreshGoals();
+      }, 500); // Small delay to ensure goal progress update is processed
+      
+      // Reset the flag
+      setNeedsGoalProgressUpdate(false);
+    }
   }
 
   // Function to handle finished book review submission
@@ -603,8 +623,7 @@ export default function DashboardReading() {
 
     setIsSubmittingFinishedReview(true);
     
-    // Optimistically update goal progress immediately
-    optimisticallyUpdateGoalProgress(1);
+    // Don't optimistically update goal progress here - wait until after share dialog
     
     try {
       // Submit review if text is provided
@@ -662,6 +681,9 @@ export default function DashboardReading() {
         prevBooks.filter(userBook => userBook.book_id !== finishedBookDialog.bookId)
       );
 
+      // Mark that goal progress needs to be updated
+      setNeedsGoalProgressUpdate(true);
+
       // Close dialog and show success message
       //setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
       
@@ -671,20 +693,24 @@ export default function DashboardReading() {
     } catch (err: any) {
       console.error("Error submitting finished book review:", err);
       toast.error(`Failed to submit: ${err.message}`);
-      // Rollback optimistic goal update on error
-      rollbackOptimisticUpdate();
+      // Don't update goal progress if book wasn't successfully marked as finished
+      setNeedsGoalProgressUpdate(false);
     } finally {
       setIsSubmittingFinishedReview(false);
-      // Refresh goals to get the actual updated state from server
-      // This will correct any discrepancies between optimistic and actual updates
-      setTimeout(() => {
-        refreshGoals();
-      }, 1000); // Small delay to ensure server has processed the update
+      // Don't refresh goals here - wait until after share dialog
     }
   };
 
   // Function to close the finished book dialog
   const closeFinishedBookDialog = () => {
+    // If user closes dialog without going through share flow, still update goal progress if needed
+    if (needsGoalProgressUpdate) {
+      optimisticallyUpdateGoalProgress(1);
+      setTimeout(() => {
+        refreshGoals();
+      }, 500);
+      setNeedsGoalProgressUpdate(false);
+    }
     setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
   };
 
