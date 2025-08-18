@@ -38,8 +38,13 @@ export async function middleware(request: NextRequest) {
   console.log('[Main Middleware] Request URL:', request.url);
   console.log('[Main Middleware] NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
   console.log('[Main Middleware] NEXTAUTH_SECRET exists:', !!process.env.NEXTAUTH_SECRET);
+  console.log('[Main Middleware] Cookies:', request.cookies.getAll().map(c => ({ name: c.name, hasValue: !!c.value })));
 
-  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  const token = await getToken({ 
+    req: request, 
+    secret: process.env.NEXTAUTH_SECRET,
+    secureCookie: process.env.NODE_ENV === 'production'
+  });
   console.log('[Main Middleware] getToken result:', {
     hasToken: !!token,
     tokenKeys: token ? Object.keys(token) : []
