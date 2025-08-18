@@ -68,7 +68,7 @@ const calculateDaysUntilMeeting = (meetingDate: string | Date): string => {
 
 // Reusable component for displaying club members
 function ClubMembersSection({ members, memberCount }: { 
-  members?: Array<{ id: string; display_name: string; nickname?: string; avatar_url?: string; role: string; joined_at: string; }>;
+  members?: Array<{ id: string; display_name: string;  avatar_url?: string; role: string; joined_at: string; }>;
   memberCount: number;
 }) {
   // No need for API call anymore since we have the data
@@ -717,7 +717,12 @@ console.log(pendingInvitations);
                             <Card className="bg-secondary/5 p-2 rounded-lg">
                               <CardHeader className="pb-0 px-0 pt-0">
                                 <CardTitle className="text-secondary-light text-sm font-medium flex items-center gap-2">
-                                  <Users className="h-4 w-4" />
+                                  <Avatar className="h-6 w-6">
+                                    <AvatarImage src={invitation.inviter_avatar || "/placeholder.svg"} alt={invitation.inviter_name} />
+                                    <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                                      {invitation.inviter_name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
                                   {invitation.inviter_name} invited you to join this club!
                                 </CardTitle>
                                 <span className="text-xs text-secondary/60 font-serif pl-6">
@@ -792,20 +797,15 @@ console.log(pendingInvitations);
                                 {/* Right side: Badges + Button */}
                                 <div className="flex flex-row items-start flex-none gap-2">
                                     {club.admin && (
-                                    <Badge variant="outline" className="h-6 bg-primary/25 border-none text-secondary font-serif">
+                                    <Badge variant="outline" className="h-6 bg-primary/40 border-none text-secondary font-serif">
                                         Admin
                                     </Badge>
                                     )}
-                                    {club.membershipStatus === 'ACTIVE' && (
+                                    {club.membershipStatus === 'ACTIVE' && !club.admin && (
                                     <Badge className="bg-accent-variant/30 text-secondary font-serif">
                                         Member
                                     </Badge>
                                     )}
-                                    {/* {club.admin && (
-                                    <Button variant="ghost" size="icon" className="shrink-0 self-start h-6 hover:bg-secondary/10">
-                                        <Settings className="h-4 w-4 text-secondary-light" />
-                                    </Button>
-                                    )} */}
                                 </div>
                             </div>
 

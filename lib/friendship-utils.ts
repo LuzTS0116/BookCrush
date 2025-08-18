@@ -112,7 +112,7 @@ export async function getPublicProfileData(
       select: {
         id: true,
         display_name: true,
-        nickname: true,
+        
         about: true,
         avatar_url: true,
         favorite_genres: true,

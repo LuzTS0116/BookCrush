@@ -49,7 +49,11 @@ function ExploreUserCard({ user, onFriendRequestSent }: ExploreUserCardProps) {
         </CardTitle>
     </CardHeader>
     <CardContent className="flex flex-col p-0 items-center">
-        {user.favorite_genres && <p className="text-xs font-serif italic font-normal text-accent truncate max-w-full">{user.favorite_genres}</p>}
+        {user.favorite_genres && (
+          <div className='flex gap-2 max-w-full justify-items-center'>
+            {user.favorite_genres.slice(0, 2).map((genre)=>(<p className="text-xs font-serif font-normal text-accent bg-secondary-light/80 px-2 rounded-full truncate max-w-full">{genre}</p>))}
+          </div>
+        )}
     </CardContent>
     <div className={user.favorite_genres?.length ?  "mt-2 flex justify-center" : "mt-6 flex justify-center"}>
         <AddFriendButton targetUser={targetUserForAddFriendButton} onFriendRequestSent={onFriendRequestSent} />
@@ -152,21 +156,21 @@ export default function FriendsActivityExplore() {
             </TabsList>
         </div>
 
-        <TabsContent value="activity" className="space-y-4">
+        <TabsContent value="activity" className="space-y-4 md:container">
           <ActivityFeed compact={false} showLoadMore={true} />
         </TabsContent>
 
-        <TabsContent value="explore" className="space-y-4">
+        <TabsContent value="explore" className="space-y-4 md:container">
             <div className='flex justify-center'>
-                <div className="relative w-[80vw] md:w-[60vw] lg:w-[40vw]">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-secondary" />
-                    <Input
-                        placeholder="Search people..."
-                        className="pl-10 rounded-full bg-bookWhite/90 text-secondary placeholder:text-secondary/50"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
+              <div className="relative w-[80vw] md:w-[60vw] lg:w-[40vw]">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-secondary" />
+                <Input
+                    placeholder="Search people..."
+                    className="pl-10 rounded-full bg-bookWhite/90 text-secondary placeholder:text-secondary/50"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
             </div>
             {isLoading && exploreUsers.length === 0 ? (
               <div className="text-center py-10">
@@ -176,7 +180,7 @@ export default function FriendsActivityExplore() {
             ) : exploreUsers.filter(user => user.display_name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
               <p className="text-bookWhite/70 text-center py-10">{searchQuery ? "No users match your search." : "No new users to explore right now."}</p>
             ) : (
-              <div className="grid grid-cols-3 gap-2 bg-transparent mx-2 overflow-y-auto no-scrollbar rounded-lg p-1 pb-14">
+              <div className="grid grid-cols-3 gap-2 bg-transparent mx-2 overflow-y-auto no-scrollbar rounded-lg p-1 pb-14 md:grid-cols-4">
                 {exploreUsers
                   .filter(user => user.display_name.toLowerCase().includes(searchQuery.toLowerCase()))
                   .map((user) => (

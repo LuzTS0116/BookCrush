@@ -102,13 +102,24 @@ export async function PATCH(
         });
 
         if (!existingUserBook) {
+          // Check if this book is favorited in any existing shelf
+          const existingUserBooks = await prisma.userBook.findMany({
+            where: {
+              user_id: user.id,
+              book_id: recommendation.book_id,
+            }
+          });
+          
+          const isFavorited = existingUserBooks.some(book => book.is_favorite);
+          
           // Add book to shelf
           await prisma.userBook.create({
             data: {
               user_id: user.id,
               book_id: recommendation.book_id,
               shelf: shelfType as any,
-              status: shelfType === 'currently_reading' ? 'in_progress' : 'in_progress'
+              status: shelfType === 'currently_reading' ? 'in_progress' : 'in_progress',
+              is_favorite: isFavorited // Preserve favorite status
             }
           });
         }

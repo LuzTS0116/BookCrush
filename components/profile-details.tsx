@@ -62,7 +62,7 @@ const getCommentDisplay = (comment: UserBook['comment']) => {
 interface ProfileData {
   id: string;
   display_name: string | null;
-  nickname: string | null;
+  full_name: string | null;
   avatar_url: string | null;
   about: string | null;
   favorite_genres: string[] | null;
@@ -194,7 +194,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
 
     // Show confirmation dialog
     const confirmed = window.confirm(
-      `Are you sure you want to unfriend ${profile.display_name || profile.nickname || 'this user'}? This action cannot be undone.`
+      `Are you sure you want to unfriend ${profile.display_name  || 'this user'}? This action cannot be undone.`
     );
     
     if (!confirmed) {
@@ -217,7 +217,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
         throw new Error(errorData.error || 'Failed to unfriend user');
       }
 
-      toast.success(`You are no longer friends with ${profile.display_name || profile.nickname || 'this user'}`);
+      toast.success(`You are no longer friends with ${profile.display_name ||  'this user'}`);
       
       // Refetch profile data to update UI
       await fetchProfile();
@@ -261,7 +261,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
   }
 
   // Get display name with fallback
-  const displayName = profile.display_name || profile.nickname || 'Anonymous User';
+  const displayName = profile.full_name || profile.display_name || 'Anonymous User';
   const avatarFallback = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   const currentFriends = profile._count.friendshipsAsUser1 + profile._count.friendshipsAsUser2;
 
@@ -275,8 +275,8 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
 
   return (
     <div className="container mx-auto px-2 py-2">
-      <div className="flex flex-col bg-transparent md:flex-row gap-2">
-        <div className="md:w-1/3 bg-transparent">
+      <div className="flex flex-col bg-transparent gap-2 md:items-center">
+        <div className="md:w-1/2 bg-transparent">
           <Card className="px-0 bg-bookWhite/90 rounded-b-3xl rounded-t-none overflow-hidden">
             <CardHeader className="relative p-0">
                 {/* Banner */}
@@ -342,7 +342,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                         <div className="flex flex-col justify-end pb-2">
                             <h2 className="text-lg/4 font-semibold text-secondary-light">{displayName}</h2>
                             <p className="text-sm text-secondary-light/70 font-normal">
-                                {profile.nickname}
+                                {profile.display_name}
                             </p>
                             <p className="text-xs text-secondary/50 font-normal">
                                 <span>{currentFriends} friend{currentFriends !== 1 ? 's' : ''}</span>
@@ -385,7 +385,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
           </Card>
         </div>
 
-        <div className="md:w-2/3">
+        <div className="md:w-1/2">
           {profile.isFriend ? (
             <Tabs defaultValue="currently-reading" className="w-full">
               <TabsList className="grid w-full grid-cols-5 rounded-full h-auto p-1 bg-bookWhite/10 text-primary">

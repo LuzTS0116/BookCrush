@@ -59,7 +59,6 @@ interface BookReactions {
 interface FriendShelf {
   id: string;
   name: string;
-  nickname?: string;
   avatar: string | null;
   initials: string;
   shelf: 'currently_reading' | 'queue' | 'history' | 'favorite';
@@ -220,6 +219,24 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
     book: null
   });
 
+  // State for active tab
+  const [activeTab, setActiveTab] = useState("reviews");
+
+  // Function to scroll to reviews section
+  const scrollToReviews = () => {
+    setActiveTab("reviews");
+    // Small delay to ensure tab content is rendered before scrolling
+    setTimeout(() => {
+      const reviewsSection = document.getElementById('reviews-section');
+      if (reviewsSection) {
+        reviewsSection.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
+    }, 100);
+  };
+
   // Add a function to fetch book files
   const fetchBookFiles = async () => {
     try {
@@ -257,6 +274,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
     if (id) {
       fetchBookFiles();
       fetchFriendsShelves();
+      
     }
   }, [id]);
 
@@ -281,6 +299,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
       if (response.ok) {
         const friendsData = await response.json();
         setFriendsShelves(friendsData);
+        console.log(friendsData)
       } else {
         const errorData = await response.json();
         setFriendsError(errorData.error || 'Failed to fetch friends shelves');
@@ -779,7 +798,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
       case 'history':
         return { label: 'Finished', color: 'bg-green-600/20 text-green-600' };
       case 'favorite':
-        return { label: 'Favorite', color: 'bg-red-500/20 text-red-500' };
+        return { label: 'Favorite', color: 'bg-red-100 text-red-600' };
       default:
         return { label: 'Unknown', color: 'bg-gray-500/20 text-gray-500' };
     }
@@ -807,7 +826,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
   return (
     <div className="space-y-3 px-2 mb-16">
       {/* Header Section */}
-        <Card className="bg-bookWhite/90 rounded-xl overflow-hidden mt-0">
+        <Card className="bg-bookWhite/90 rounded-xl overflow-hidden mt-0 md:w-3/4 md:mx-auto">
           <CardHeader className="relative p-0">
             {/* Banner */}
             <div className="relative h-32 w-full bg-gradient-to-r from-primary rounded-b-2xl to-accent">
@@ -824,7 +843,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                     <ArrowLeft className="h-5 w-5 text-secondary" />
                 </button>
             </div>
-            <div className="flex flex-row justify-normal gap-2 p-3 pb-2 w-full">
+            <div className="flex flex-row justify-normal gap-2 p-3 pb-0 w-full">
               <div className="flex flex-col">
                 <div className="w-36 h-auto bg-muted/30 rounded-md flex items-center justify-center overflow-hidden">
                   <img src={book.cover || "/placeholder.svg"} alt={book.title} className="max-h-full" />
@@ -914,7 +933,12 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                           <span className="font-serif font-medium text-xs text-secondary">{reactions.THUMBS_DOWN}</span>
                       </div>
                   </div>
-                  <p className="underline text-center font-serif text-xs text-secondary-light">view reviews</p>
+                  <button 
+                    onClick={scrollToReviews}
+                    className="underline text-center font-serif text-xs text-secondary-light hover:text-secondary transition-colors cursor-pointer"
+                  >
+                    view reviews
+                  </button>
                 </div>
 
                 <div className="flex flex-wrap gap-1 mt-2 mb-2">
@@ -1017,7 +1041,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                 
               </div>
             </div>
-            <div className="flex flex-col px-3 py-1">
+            {/* <div className="flex flex-col px-3 py-1">
               <div className="rounded-xl bg-primary/25 px-3 py-3 w-full mb-2">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col">
@@ -1078,7 +1102,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                   Supporting authors means more stories, more voices, and more magic for everyone.
                 </p>
               </div>
-            </div>
+            </div> */}
             
           </CardHeader>
           <CardContent className="px-3 pb-5">
@@ -1277,8 +1301,8 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
             )}
           </div> */}
 
-          <div className="">
-            <Tabs defaultValue="reviews" className="w-full">
+          <div className="md:w-3/4 md:mx-auto">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full" id="book-tabs">
               <TabsList className="grid w-full grid-cols-3 bg-secondary-light text-primary rounded-full">
                 <TabsTrigger 
                     value="reviews"
@@ -1294,7 +1318,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                 >Friends</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="reviews" className="mt-3">
+              <TabsContent value="reviews" className="mt-3" id="reviews-section">
                 <Card className="p-3">
                   <CardHeader className="p-0">
                     <CardTitle className="">Reviews</CardTitle>
@@ -1652,9 +1676,6 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                                     </Avatar>
                                     <div>
                                       <p className="font-medium text-base">{friend.name}</p>
-                                      {friend.nickname && (
-                                        <p className="text-sm text-secondary/70">@{friend.nickname}</p>
-                                      )}
                                     </div>
                                   </div>
                                   <Button 

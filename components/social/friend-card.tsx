@@ -1,31 +1,78 @@
 // components/social/friend-card.tsx
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { User, MoreVertical } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { MoreVertical } from 'lucide-react';
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"; // For future "Remove Friend" option
 import { UserProfileMinimal } from '@/types/social';
+import { getMutualFriendsCount } from '@/lib/api-helpers';
+import { formatDate } from '@/lib/utils';
+import { useSession } from 'next-auth/react';
 
 interface FriendCardProps {
   friend: UserProfileMinimal; // The friend's minimal profile
+  establishedAt?: string; // When the friendship was established
   // onRemoveFriend?: (friendId: string) => void; // For future feature
 }
 
-export const FriendCard: React.FC<FriendCardProps> = ({ friend }) => {
+export const FriendCard: React.FC<FriendCardProps> = ({ friend, establishedAt }) => {
+  const { data: session } = useSession();
+  const [mutualFriendsCount, setMutualFriendsCount] = useState<number>(0);
+  const [isLoadingMutual, setIsLoadingMutual] = useState<boolean>(true);
+  
   const friendDisplayName = friend.display_name || friend.email || 'Unknown Friend';
+
+  // Load mutual friends count
+  useEffect(() => {
+    const loadMutualFriends = async () => {
+      if (!session?.supabaseAccessToken || !friend.id) {
+        setIsLoadingMutual(false);
+        return;
+      }
+
+      try {
+        const mutualData = await getMutualFriendsCount(friend.id, session.supabaseAccessToken);
+        setMutualFriendsCount(mutualData.count);
+      } catch (error) {
+        console.error('Error loading mutual friends:', error);
+        // Keep default count of 0
+      } finally {
+        setIsLoadingMutual(false);
+      }
+    };
+
+    loadMutualFriends();
+  }, [friend.id, session?.supabaseAccessToken]);
+
+  // Format the friendship date
+  const friendsSince = establishedAt 
+    ? formatDate(establishedAt, { format: 'long' })
+    : 'Unknown date';
 
   return (
     <Card className="flex items-center p-1 w-full">
-      <div className="flex items-center justify-center w-12 h-12 rounded-full bg-bookWhite mr-4">
-        <User className="h-6 w-6 text-gray-500" />
-      </div>
+      <Avatar className="h-12 w-12 mr-4">
+        <AvatarImage 
+          src={friend.avatar_url || undefined} 
+          alt={friendDisplayName} 
+        />
+        <AvatarFallback className="bg-bookWhite text-secondary">
+          {friendDisplayName.charAt(0).toUpperCase()}
+        </AvatarFallback>
+      </Avatar>
       <div className="flex flex-col w-full">
         <div className="flex flex-wrap justify-between flex-1">
           <div className='flex flex-col'>
             <CardTitle className="text-sm leading-4">{friendDisplayName}</CardTitle>
-            <p className="text-xs/3 text-secondary font-serif ">24 mutual friends</p>
+            <p className="text-xs/3 text-secondary font-serif">
+              {isLoadingMutual 
+                ? "Loading..." 
+                : `${mutualFriendsCount} mutual friend${mutualFriendsCount !== 1 ? 's' : ''}`
+              }
+            </p>
           </div>
           <div>
             <DropdownMenu.Root>
@@ -54,7 +101,7 @@ export const FriendCard: React.FC<FriendCardProps> = ({ friend }) => {
           </div>
         </div>
         {/* <p className="text-xs/3 text-secondary font-serif bg-secondary/10 px-2 rounded-full inline-block w-max">**Genres:**</p> */}
-        <p className="text-xs/3 text-secondary/50 font-serif italic">friends since may, 2025</p>
+        <p className="text-xs/3 text-secondary/50 font-serif italic">friends since {friendsSince}</p>
       </div>
     </Card>
   );

@@ -36,7 +36,6 @@ interface AdminUser {
   id: string;
   email?: string;
   display_name: string;
-  nickname?: string;
   about?: string;
   avatar_url?: string;
   created_at: string;
@@ -59,7 +58,6 @@ export default function AdminUsersPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     display_name: '',
-    nickname: '',
     email: '',
     about: ''
   });
@@ -92,7 +90,6 @@ export default function AdminUsersPage() {
     setSelectedUser(user);
     setEditForm({
       display_name: user.display_name || '',
-      nickname: user.nickname || '',
       email: user.email || '',
       about: user.about || ''
     });
@@ -150,8 +147,8 @@ export default function AdminUsersPage() {
 
   const filteredUsers = users.filter(user =>
     user.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.nickname?.toLowerCase().includes(searchTerm.toLowerCase())
+    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) 
+    
   );
 
   if (isLoading) {
@@ -284,9 +281,9 @@ export default function AdminUsersPage() {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <div className="font-medium">{user.display_name}</div>
-                          {user.nickname && (
-                            <div className="text-sm text-muted-foreground">@{user.nickname}</div>
+                          {/* <div className="font-medium">{user.display_name}</div> */}
+                          {user.display_name && (
+                            <div className="text-sm text-muted-foreground">@{user.display_name}</div>
                           )}
                         </div>
                       </div>
@@ -386,17 +383,7 @@ export default function AdminUsersPage() {
                 className="col-span-3"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="nickname" className="text-right">
-                Username
-              </Label>
-              <Input
-                id="nickname"
-                value={editForm.nickname}
-                onChange={(e) => setEditForm({ ...editForm, nickname: e.target.value })}
-                className="col-span-3"
-              />
-            </div>
+           
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="email" className="text-right">
                 Email

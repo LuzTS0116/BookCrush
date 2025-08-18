@@ -93,7 +93,8 @@ export async function POST(req: NextRequest) {
       originalName, 
       size,
       publishDate,
-      rating
+      rating,
+      alternate_titles
     } = body;
     
     // Validate and sanitize title
@@ -135,6 +136,14 @@ export async function POST(req: NextRequest) {
       ? subjects.slice(0, 5).map((s: string) => s.trim()).filter(s => s.length > 0)
       : [];
     
+    // Process alternate titles
+    const processedAlternateTitles = alternate_titles && Array.isArray(alternate_titles)
+      ? alternate_titles
+          .filter((title: string) => title && typeof title === 'string' && title.trim().length > 0)
+          .slice(0, 10) // Limit to 10 alternate titles
+          .map((title: string) => title.trim())
+      : [];
+    
     const newBook = await prisma.book.create({
       data: {
         title: titleValidation.sanitized,
@@ -146,6 +155,7 @@ export async function POST(req: NextRequest) {
         cover_url: coverUrl || null,
         published_date: publishDate || null,
         rating: rating || null,
+        alternate_titles: processedAlternateTitles,
         added_by: user.id,
         file: storageKey ? { 
           create: { 
@@ -225,17 +235,39 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
     }
 
+    // Optimized avatar URL processing function - SYNCHRONOUS, NO ASYNC CALLS
+    function processAvatarUrl(avatarPath: string | null | undefined): string | null {
+      if (!avatarPath) return null;
+
+      // If already a full URL (Google avatars, etc.), return as-is
+      if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
+        return avatarPath;
+      }
+
+      // Convert relative path to public URL synchronously
+      if (supabase) {
+        const { data } = supabase.storage.from('profiles').getPublicUrl(avatarPath);
+        return data.publicUrl;
+      }
+
+      return null;
+    }
+
     //console.log('[API books GET] User authenticated:', user.id);
 
     // Get query parameters
     const url = new URL(req.url);
-    const limit = url.searchParams.get('limit');
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '50');
     const latest = url.searchParams.get('latest') === 'true'; // New parameter for dashboard
     const filter = url.searchParams.get('filter') || 'all'; // New parameter for filtering: 'all', 'my-books', 'friends'
     const friendFilter = url.searchParams.get('friendFilter'); // Filter by specific friend
     const shelfFilter = url.searchParams.get('shelfFilter'); // Filter by shelf status
 
-    //console.log('[API books GET] Filter parameters:', { filter, friendFilter, shelfFilter });
+    // Calculate pagination
+    const skip = (page - 1) * limit;
+
+    console.log('[API books GET] Pagination parameters:', { page, limit, skip, filter, friendFilter, shelfFilter });
 
     // Get user's friends first
     const friendships = await prisma.friendship.findMany({
@@ -314,7 +346,6 @@ export async function GET(req: NextRequest) {
           select: {
             id: true,
             display_name: true,
-            nickname: true,
             avatar_url: true
           }
         },
@@ -328,7 +359,7 @@ export async function GET(req: NextRequest) {
             user: {
               select: {
                 display_name: true,
-                nickname: true
+                avatar_url: true
               }
             }
           }
@@ -344,7 +375,8 @@ export async function GET(req: NextRequest) {
       orderBy: {
         created_at: 'desc',
       },
-      take: limit ? parseInt(limit) : latest ? 1 : undefined, // Limit for dashboard
+      skip: latest ? 0 : skip, // Skip records for pagination, but not for latest
+      take: latest ? 1 : limit, // Take specified limit, or 1 for latest
     });
 
     //console.log('[API books GET] Found books:', books.length, 'with filter:', filter);
@@ -364,18 +396,23 @@ export async function GET(req: NextRequest) {
       // Find user's shelf status
       const userBook = book.UserBook.find(ub => ub.user_id === user.id);
 
-      // For friends' books, find the friend's shelf status
-      let friendShelfStatus = null;
+      // For friends' books, find ALL friends' shelf statuses
+      let friendShelfStatuses: Array<{
+        shelf: string;
+        status: string | null;
+        user_name: string;
+        user_id: string;
+      }> = [];
       if (filter === 'friends') {
-        // Find any friend who has this book on their shelf
-        const friendBook = book.UserBook.find(ub => friendIds.includes(ub.user_id));
-        if (friendBook) {
-          friendShelfStatus = {
-            shelf: friendBook.shelf,
-            status: friendBook.status,
-            user_name: friendBook.user.nickname || friendBook.user.display_name
-          };
-        }
+        // Find all friends who have this book on their shelf
+        const friendBooks = book.UserBook.filter(ub => friendIds.includes(ub.user_id));
+        friendShelfStatuses = friendBooks.map(friendBook => ({
+          shelf: friendBook.shelf,
+          status: friendBook.status,
+          user_name: friendBook.user.display_name,
+          avatar_url: processAvatarUrl(friendBook.user.avatar_url),
+          user_id: friendBook.user_id
+        }));
       }
 
       // Convert reaction counts to the format needed for the UI
@@ -401,7 +438,7 @@ export async function GET(req: NextRequest) {
           shelf: userBook.shelf,
           status: userBook.status
         } : null,
-        friend_shelf_status: friendShelfStatus
+        friends_shelf_statuses: friendShelfStatuses
       };
     });
 

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Button } from './button';
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { EllipsisVertical, Loader2 } from 'lucide-react';
+import { EllipsisVertical, Loader2, Edit2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -34,6 +34,12 @@ interface AchievementCardProps {
   onDelete?: (achievementId: string) => void;
   showDeleteButton?: boolean;
   isDeleting?: boolean;
+  pastDueTime?: boolean;
+  timeInfo?: any;
+  dropDelete?: boolean;
+  goalStatus?: boolean;
+  dropSelect1?: () => void;
+  dropSelect2?: () => void;
 }
 
 const difficultyColors = {
@@ -60,7 +66,14 @@ export function AchievementCard({
   showProgress = false, 
   onDelete, 
   showDeleteButton = false,
-  isDeleting = false 
+  isDeleting = false, 
+  pastDueTime, 
+  timeInfo,
+  dropDelete,
+  goalStatus,
+  dropSelect1,
+  dropSelect2,
+
 }: AchievementCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
@@ -78,25 +91,79 @@ export function AchievementCard({
     <div className={`relative p-2.5 rounded-lg border-2 transition-all duration-200 hover:shadow-md ${
       isEarned ? 'bg-bookWhite border-green-300 shadow-sm' : `${categoryColorClass} opacity-90`
     }`}>
+      
+      {/* 3-dot menu button - positioned absolutely in top right */}
+      <div className="absolute top-2 right-2 z-10">
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs flex items-center px-1 py-1 rounded-full h-6 w-6 bg-transparent border border-none hover:bg-bookWhite/20"
+              disabled={dropDelete}
+            >
+              {dropDelete ? (
+                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+              ) : (
+                <EllipsisVertical className="h-3 w-3 text-secondary/60" />
+              )}
+            </Button>
+          </DropdownMenu.Trigger>
+
+          <DropdownMenu.Content
+            className="w-auto min-w-[120px] rounded-xl bg-bookWhite shadow-xl p-1 border border-gray-200 z-[100]"
+            sideOffset={5}
+            align="end"
+          >
+            {pastDueTime && !goalStatus && (
+              <DropdownMenu.Item
+                onSelect={dropSelect1}
+                className="px-3 py-2 text-xs text-center bg-orange-600/90 text-bookWhite rounded-md cursor-pointer hover:bg-orange-500 focus:bg-orange-500 focus:outline-none transition-colors mb-1"
+                disabled={dropDelete}
+              >
+                <Edit2 className="h-3 w-3 mr-1 inline" />
+                Edit Goal
+              </DropdownMenu.Item>
+            )}
+            <DropdownMenu.Item
+              onSelect={dropSelect2}
+              className="px-3 py-2 text-xs text-center bg-red-700/90 text-bookWhite rounded-md cursor-pointer hover:bg-red-600 focus:bg-red-600 focus:outline-none transition-colors"
+              disabled={dropDelete}
+            >
+              Delete Goal
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Root>
+      </div>
+
       {/* Achievement Icon */}
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-3"> {/* Added pr-8 to give space for the 3-dot button */}
         <div className="flex-1 min-w-0">
           <div className='flex flex-row gap-1'>
             <div className='achievement-icon'>
               {achievement.icon}
             </div>
-            <div>
+            <div className="flex-1">
               {/* Achievement Name & Points */}
               <div className="flex items-center justify-between">
-                <h3 className={`font-semibold text-sm ${isEarned ? 'text-gray-900' : 'text-gray-600'}`}>
+                <h3 className={`font-semibold text-sm/4 ${isEarned ? 'text-gray-900' : 'text-gray-600'}`}>
                   Reading Goal
                 </h3>
               </div>
 
               {/* Achievement Description */}
-              <p className={`text-xs mb-1 ${isEarned ? 'text-gray-700' : 'text-gray-500'}`}>
+              <p className={`text-xs/3 ${isEarned ? 'text-gray-700' : 'text-gray-500'}`}>
                 {achievement.description}
               </p>
+
+              {/* Time remaining information - now inside the card bg-accent-variant/20 text-gray-500 */}
+              {timeInfo && !goalStatus && (
+                <div className={`text-xs font-medium mb-1 inline-block rounded-full px-2 ${
+                  pastDueTime ? 'bg-accent/20 text-red-400' : 'bg-accent-variant/20 text-gray-500'
+                }`}>
+                  {timeInfo.text}
+                </div>
+              )}
             </div>
           </div>
 
@@ -142,8 +209,8 @@ export function AchievementCard({
 
       {/* Earned Overlay */}
       {isEarned && (
-        <div className="absolute top-2 right-2">
-          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+        <div className="absolute top-[10px] right-8">
+          <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
             <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>

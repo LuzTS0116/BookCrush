@@ -64,7 +64,7 @@ export async function PUT(
     await requireAdmin();
 
     const body = await req.json();
-    const { display_name, nickname, email, about } = body;
+    const { display_name, full_name, email, about } = body;
 
     // Validate required fields
     if (!display_name?.trim()) {
@@ -75,7 +75,7 @@ export async function PUT(
       where: { id: id },
       data: {
         display_name: display_name.trim(),
-        nickname: nickname?.trim() || null,
+        full_name: full_name?.trim() || null,
         email: email?.trim() || null,
         about: about?.trim() || null,
       },

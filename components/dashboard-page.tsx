@@ -1,9 +1,9 @@
 "use client"
 
-import React, { useRef, useState, useEffect } from "react"
+import React, { useRef, useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Share2, Calendar, MapPin, Book, Heart, Star, Target } from "lucide-react"
+import { Loader2, Share2, Calendar, MapPin, Book, Heart, Star, Target, AlertTriangle } from "lucide-react"
 import Image from "next/image"
 import html2canvas from 'html2canvas';
 import {Dialog,
@@ -17,6 +17,9 @@ import {Dialog,
 import { useSession } from "next-auth/react";
 import Link from "next/link"
 import { useRouter } from "next/navigation";
+import { launchConfettiRealistic } from '@/lib/confetti-utils';
+import { hasShownCongratulations, markCongratulationsShown } from '@/lib/goal-congratulations';
+import { useGoals } from '@/lib/goals-context';
 
 function useSupabaseTokenExpiry() {
   const { data: session } = useSession();
@@ -147,6 +150,32 @@ const formatTimeAgo = (dateString: string): string => {
   }
 };
 
+// Helper function to format time remaining for goals
+const formatTimeRemaining = (endDate: string): { text: string; isPastDue: boolean } => {
+  const now = new Date();
+  const end = new Date(endDate);
+  const diffMs = end.getTime() - now.getTime();
+  
+  if (diffMs <= 0) {
+    return { text: 'Past due', isPastDue: true };
+  }
+  
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  
+  if (diffDays > 30) {
+    const months = Math.floor(diffDays / 30);
+    return { text: `${months} month${months > 1 ? 's' : ''} left`, isPastDue: false };
+  } else if (diffDays > 0) {
+    return { text: `${diffDays} day${diffDays > 1 ? 's' : ''} left`, isPastDue: false };
+  } else if (diffHours > 0) {
+    return { text: `${diffHours} hour${diffHours > 1 ? 's' : ''} left`, isPastDue: false };
+  } else {
+    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    return { text: `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} left`, isPastDue: false };
+  }
+};
+
 export default function DashboardPage({
   quote:  initialQuote,
   author: initialAuthor,
@@ -172,12 +201,60 @@ export default function DashboardPage({
   const [bookLoading, setBookLoading] = useState(true);
   const [bookError, setBookError] = useState<string | null>(null);
 
-  // Custom goals state
-  const [customGoals, setCustomGoals] = useState<any[]>([]);
-  const [goalsLoading, setGoalsLoading] = useState(true);
-  const [goalsError, setGoalsError] = useState<string | null>(null);
+  // Use goals context instead of local state
+  const { goals: customGoals, isLoading: goalsLoading, error: goalsError, setGoalCompletedCallback } = useGoals();
+
+  // Goal completion congratulations state
+  const [congratsDialog, setCongratsDialog] = useState<{
+    isOpen: boolean;
+    goal: any | null;
+  }>({ isOpen: false, goal: null });
+  const [hasFiredConfetti, setHasFiredConfetti] = useState(false);
+
+  // Handle goal completion callback
+  const handleGoalCompleted = useCallback((goal: any) => {
+    console.log('[Dashboard] Goal completed callback received:', goal);
+    console.log('[Dashboard] Goal data:', JSON.stringify(goal, null, 2));
+    
+    // Add null check to prevent errors
+    if (!goal || !goal.id) {
+      console.error('[Dashboard] Invalid goal data received in completion callback:', goal);
+      return;
+    }
+    
+    const hasShown = hasShownCongratulations(goal.id);
+    console.log('[Dashboard] Has shown congratulations for goal', goal.id, ':', hasShown);
+    console.log('[Dashboard] Current congrats dialog state:', congratsDialog.isOpen);
+    
+    // Check if we already showed congratulations for this goal
+    if (!hasShown && !congratsDialog.isOpen) {
+      console.log('[Dashboard] ✅ Showing congratulations for goal:', goal.name);
+      
+      // Add a small delay to ensure any other dialogs (like share dialog) have time to close
+      setTimeout(() => {
+        // Double-check that the dialog is still not open after the delay
+        setCongratsDialog(prev => {
+          if (!prev.isOpen) {
+            markCongratulationsShown(goal.id);
+            return { isOpen: true, goal };
+          }
+          return prev;
+        });
+      }, 800); // 800ms delay to ensure share dialog closes completely
+    } else {
+      console.log('[Dashboard] ❌ NOT showing congratulations. Reason:', hasShown ? 'Already shown' : 'Dialog already open');
+    }
+  }, [congratsDialog.isOpen]);
 
   const router = useRouter();
+
+  // Set the goal completion callback
+  useEffect(() => {
+    console.log('[Dashboard] Setting goal completion callback');
+    console.log('[Dashboard] setGoalCompletedCallback function exists:', !!setGoalCompletedCallback);
+    console.log('[Dashboard] handleGoalCompleted function:', handleGoalCompleted);
+    setGoalCompletedCallback(handleGoalCompleted);
+  }, [setGoalCompletedCallback, handleGoalCompleted]);
 
 const { expired, expiryTime, timeUntilExpiry, isExpiringSoon } = useSupabaseTokenExpiry();
 
@@ -293,44 +370,28 @@ useEffect(() => {
   fetchLatestBook();
 }, [status, session?.supabaseAccessToken]);
 
-// Fetch custom goals
+// Goals are now managed by the GoalsContext, but we still need to check for congratulations
 useEffect(() => {
-  const fetchCustomGoals = async () => {
-    if (status !== 'authenticated' || !session?.supabaseAccessToken) {
-      setGoalsLoading(false);
-      return;
-    }
+  if (!goalsLoading && customGoals.length > 0) {
+    // This effect would run when goals are loaded via context
+    // Check for newly completed goals and show congratulations (only if not shown before)
+    // Note: This logic might need to be moved to the context or handled differently
+    // since we're now filtering out completed goals in the context
+  }
+}, [customGoals, goalsLoading]);
 
-    try {
-      setGoalsLoading(true);
-      setGoalsError(null);
+// Confetti effect for congratulations dialog
+useEffect(() => {
+  if (congratsDialog.isOpen && !hasFiredConfetti) {
+    launchConfettiRealistic();
+    setHasFiredConfetti(true);
+  }
+}, [congratsDialog.isOpen, hasFiredConfetti]);
 
-      const response = await fetch('/api/achievements/custom-goals', {
-        headers: {
-          'Authorization': `Bearer ${session.supabaseAccessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch goals: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      // Filter to only show active goals (not completed)
-      const activeGoals = data.filter((goal: any) => !goal.is_completed);
-      setCustomGoals(activeGoals);
-    } catch (error) {
-      console.error('Error fetching custom goals:', error);
-      setGoalsError(error instanceof Error ? error.message : 'Failed to load goals');
-    } finally {
-      setGoalsLoading(false);
-    }
-  };
-
-  fetchCustomGoals();
-}, [status, session?.supabaseAccessToken]);
+// Reset confetti flag when dialog closes
+useEffect(() => {
+  if (!congratsDialog.isOpen) setHasFiredConfetti(false);
+}, [congratsDialog.isOpen]);
 
 const handleClickShare = async () => {
   if (!quoteImageRef.current) return;
@@ -355,7 +416,7 @@ const handleClickShare = async () => {
 };
 
   return (
-    <div className="container mx-auto pt-8 pb-4 px-4 mt-[-10px] mb-4 bg-secondary-light rounded-b-3xl">
+    <div className="container mx-auto pt-8 pb-4 px-4 mt-[-10px] mb-4 bg-secondary-light rounded-b-3xl md:rounded-t-3xl md:mt-0">
       <div className="space-y-4">
         <div className="flex flex-col md:flex-row justify-between gap-2">
           <div>
@@ -402,13 +463,13 @@ const handleClickShare = async () => {
                   ) : (
                     <div>
                       <div className="text-xl font-bold">No books yet</div>
-                      <p className="text-xs text-bookBlack">Add your first book to get started</p>
+                      <p className="text-xs text-bookBlack">Check the book tab to get started</p>
                     </div>
                   )}
                 </CardContent>
               </Card>
               
-              <Card className={`flex-1 bg-[url('/images/meeting-bg.svg')] bg-cover ${customGoals.length === 0 ? ('rounded-bl-3xl') : ''}`}>
+              <Card className={`flex-1 bg-[url('/images/meeting-bg.svg')] bg-cover`}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pt-3 pb-2">
                   <CardTitle className="text-sm font-medium">Next Meeting</CardTitle>
                 </CardHeader>
@@ -447,7 +508,7 @@ const handleClickShare = async () => {
               onClick={() => setShowOverlay((prev) => !prev)}
               className="relative group h-full col-span-2"
             >
-              <div ref={quoteImageRef} className={`h-full flex flex-col justify-between bg-[url('/images/quote-img1.png')] bg-cover rounded-lg ${customGoals.length === 0 ? ('rounded-br-3xl') : ''}`}>
+              <div ref={quoteImageRef} className={`h-full flex flex-col justify-between bg-[url('/images/quote-img1.png')] bg-cover rounded-lg`}>
                 <div className="flex-1 flex flex-col justify-center py-3 px-3">
                   <blockquote className="text-[13px]/4 text-center font-semibold text-bookBlack">
                     {quote}
@@ -533,45 +594,175 @@ const handleClickShare = async () => {
           </div>
 
           {/* Custom Goals Section */}
-          {customGoals.length > 0 && (
-            <Card className="bg-accent-variant text-bookWhite rounded-b-2xl">
-              <CardContent className="px-3 py-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {customGoals.slice(0, 3).map((goal) => (
-                    <div key={goal.id}>
-                      <div className="flex items-center justify-between mb-0.5">
-                        <div className="text-sm font-medium text-bookWhite">
-                          Reading Goal
+          {customGoals.length > 0 ? (
+            <Card className="bg-[url('/images/goals-active-bg.svg')] bg-cover text-bookBlack rounded-b-2xl">
+              <CardContent className="px-2 py-2">
+                {customGoals.length <= 3 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1.5">
+                    {customGoals.slice(0, 3).map((goal) => {
+                      const timeInfo = goal.end_date ? formatTimeRemaining(goal.end_date) : null;
+                      return (
+                      <div key={goal.id} className={`${timeInfo?.isPastDue ? 'bg-red-100/20 border border-red-400/30 rounded-lg p-2' : 'bg-bookWhite/15 border-2 border-bookWhite/10 backdrop-blur-md rounded-lg p-2'}`}>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <div className="flex items-center gap-1">
+                            <div className="text-sm font-medium">
+                              Reading Goal
+                            </div>
+                            {timeInfo?.isPastDue && (
+                              <AlertTriangle className="h-3 w-3 text-red-600" />
+                            )}
+                          </div>
+                          <div className="text-xs text-bookBlack/70">
+                            {goal.progress.current_value}/{goal.progress.target_value}
+                          </div>
                         </div>
-                        <div className="text-xs text-bookWhite/70">
-                          {goal.progress.current_value}/{goal.progress.target_value}
-                          {/* {goal.progress.progress_percentage}% */}
+                        <div className="w-full bg-bookWhite/50 border-2 border-bookWhite/40 rounded-full h-3 mb-0.5">
+                          <div 
+                            className={`h-2 rounded-full transition-all duration-300 ${
+                              timeInfo?.isPastDue 
+                                ? 'bg-gradient-to-r from-orange-400 to-red-400' 
+                                : 'bg-gradient-to-r from-primary-dark to-accent'
+                            }`}
+                            style={{ width: `${goal.progress.progress_percentage}%` }}
+                          />
                         </div>
+                        <div className="flex justify-between items-center">
+                          <div className="text-xs font-serif font-semibold">
+                            {goal.description}
+                          </div>
+                          {timeInfo && (
+                            <div className={`text-xs ${
+                              timeInfo.isPastDue ? 'text-red-800' : ''
+                            }`}>
+                              {timeInfo.text}
+                            </div>
+                          )}
+                        </div>
+                        {timeInfo?.isPastDue && (
+                          <div className="mt-1">
+                            <Link href="/profile" className="text-xs text-orange-300 hover:text-orange-200 underline">
+                              Edit goal →
+                            </Link>
+                          </div>
+                        )}
                       </div>
-                      <div className="w-full bg-bookWhite/20 rounded-full h-2 mb-0.5">
-                        <div 
-                          className="bg-gradient-to-r from-primary-dark to-accent h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${goal.progress.progress_percentage}%` }}
-                        />
+                      );
+                    })}
+                  </div>
+                ):(
+                  <Card className="bg-bookWhite/25 text-bookBlack rounded-b-3xl">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pt-3 pb-0">
+                      <CardTitle className="text-sm font-medium">Reading Goals</CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-3">
+                      <div className="flex flex-row justify-between items-center">
+                        <div className="flex flex-col">
+                          <div className="text-xl font-bold leading-6">You have {customGoals.length} goals</div>
+                        </div>
+                        <Link href={`/profile?openGoals=true`}> 
+                          <p className="text-xs font-medium text-bookBlack px-2.5 py-1 border-[6px] border-bookWhite/70 inline-block rounded-full bg-gradient-to-r from-primary-dark to-accent cursor-pointer hover:bg-bookWhite hover:text-bookBlack">view your goals</p>
+                        </Link>
                       </div>
-                      <div className="text-xs font-serif text-bookWhite/80">
-                        {goal.description}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {customGoals.length > 3 && (
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {/* {customGoals.length > 3 && (
                   <div className="text-center mt-3">
                     <Link href="/profile" className="text-xs text-bookWhite/70 hover:text-bookWhite">
                       View all {customGoals.length} goals →
                     </Link>
                   </div>
-                )}
+                )} */}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="bg-[url('/images/goals-bg.svg')] bg-cover text-bookBlack rounded-b-3xl">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pt-3 pb-2">
+                <CardTitle className="text-sm font-medium">Reading Goal</CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 pb-3">
+                <div className="flex flex-row justify-between items-end">
+                  <div className="flex flex-col">
+                    <div className="text-xl font-bold leading-6">No goals yet</div>
+                    <div className="text-xs font-light leading-4"> Make every page count. Ready to begin?</div>
+                  </div>
+                  <div className="">
+                    {/* Navigate to profile with goal dialog */}
+                    <Link href={`/profile?openGoals=true`}> 
+                      <p className="text-xs font-medium text-bookBlack px-2.5 py-1 border-[6px] border-bookWhite/70 inline-block rounded-full bg-gradient-to-r from-primary-dark to-accent cursor-pointer hover:bg-bookWhite hover:text-bookBlack">set a goal</p>
+                    </Link>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}
         </div>
       </div>
+
+      {/* Goal Completion Congratulations Dialog */}
+      <Dialog open={congratsDialog.isOpen} onOpenChange={(open) => setCongratsDialog({ isOpen: open, goal: null })}>
+        <DialogContent className="w-[85vw] rounded-2xl px-0 py-1">
+          <Image 
+            src="/images/background.png"
+            alt="Congratulations on completing your reading goal!"
+            width={1622}
+            height={2871}
+            className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+          />
+          <DialogHeader className="px-6 pt-4">
+            <DialogTitle className="mt-7 text-center text-xl">🎉 Goal Completed 🎉</DialogTitle>
+            <DialogDescription className="text-center text-base text-bookWhite/75">
+              You’ve successfully completed your reading challenge!
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2 px-6">
+            {congratsDialog.goal && (
+              <div className="text-center space-y-6">
+                <div className="bg-bookWhite/90 rounded-lg p-2 mx-4">
+                  <h3 className="font-bold text-lg text-secondary mb-2">
+                    {congratsDialog.goal.name}
+                  </h3>
+                  <div className="bg-green-100 rounded-full h-3 mb-2">
+                    <div 
+                      className="bg-gradient-to-r from-primary-dark to-accent h-3 rounded-full"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <p className="text-sm font-semibold text-secondary-light">
+                    {congratsDialog.goal.progress.current_value}/{congratsDialog.goal.progress.target_value} book{congratsDialog.goal.progress.target_value === 1 ? '' : 's'} completed!
+                  </p>
+                </div>
+                
+                <p className="text-bookWhite/75 text-center px-4">
+                  Celebrate your progress and pick your next challenge to stay inspired.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="justify-center px-6 pb-4">
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setCongratsDialog({ isOpen: false, goal: null })}
+                className="bg-white/90 text-bookBlack rounded-full hover:bg-white"
+              >
+                Close
+              </Button>
+              <Link href="/profile">
+                <Button 
+                  onClick={() => setCongratsDialog({ isOpen: false, goal: null })}
+                  className="bg-primary text-secondary rounded-full hover:bg-primary-dark"
+                >
+                  Set New Goal
+                </Button>
+              </Link>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

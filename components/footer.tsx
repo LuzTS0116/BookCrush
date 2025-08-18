@@ -19,39 +19,39 @@ export default function Footer() {
                 />
             </div>
             <p className="text-bookWhite/70 max-w-md">
-            Connect with fellow readers, share your literary journey, and discover your next favorite book.
+            Connect with friends, share your bookshelves, and discover your next favorite book.
             </p>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+        <div className="md:flex md:flex-col">
+        <div className="grid grid-cols-2 gap-8">
             <div>
-            <h3 className="font-bold mb-4 text-primary">Product</h3>
-            <ul className="space-y-2 text-bookWhite/70">
-                <li>Features</li>
-                <li>Pricing</li>
-                <li>FAQ</li>
-            </ul>
-            </div>
-            <div>
-            <h3 className="font-bold mb-4 text-primary">Company</h3>
-            <ul className="space-y-2 text-bookWhite/70">
+            <h3 className="font-bold mb-2 text-primary">Company</h3>
+            <ul className="space-y-1 text-bookWhite/40">
                 <li>About</li>
-                <li>Blog</li>
-                <li>Careers</li>
+                <li>Contact</li>
+                <li>Feedback</li>
             </ul>
             </div>
             <div>
-            <h3 className="font-bold mb-4 text-primary">Legal</h3>
-            <ul className="space-y-2 text-bookWhite/70">
+            <h3 className="font-bold mb-2 text-primary">Legal</h3>
+            <ul className="space-y-1 text-bookWhite/40">
                 <li>Privacy</li>
                 <li>Terms</li>
                 <li>Cookie Policy</li>
             </ul>
             </div>
         </div>
+        <p className="text-bookWhite/70 mt-8 text-sm italic max-w-md">
+            *footer links not available in this early stage.
+        </p>
         </div>
-        <div className="border-t border-bookWhite/10 mt-12 pt-8 text-center text-bookWhite/50">
+        </div>
+        <div className="border-t border-bookWhite/10 mt-9 pt-8 text-center text-bookWhite/50">
+        <p className="text-base mb-4 text-center">
+            Made possible with data from <a href="https://openlibrary.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-accent">Open Library</a> and inspiring quotes from <a href="https://zenquotes.io" target="_blank" rel="noopener noreferrer" className="underline hover:text-accent">ZenQuotes API</a>.
+        </p>
         <p>© 2025 BookCrush. All rights reserved.</p>
-        <p>Developed by MangoDigital.</p>
+        <p>Developed by Luz&Michael.</p>
         </div>
     </div>
     </footer>

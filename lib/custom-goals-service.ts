@@ -1,223 +1,276 @@
 import { prisma } from '@/lib/prisma';
 
+export interface CustomGoalData {
+  id: string;
+  name: string;
+  description?: string;
+  target_books: number;
+  time_period: string;
+  status: string;
+  current_progress: number;
+  start_date: string;
+  end_date: string;
+  completed_at?: string;
+  created_at: string;
+  progress: {
+    current_value: number;
+    target_value: number;
+    progress_percentage: number;
+  };
+  is_completed: boolean;
+}
+
 export class CustomGoalsService {
+  // Map time periods to readable labels
+  private static timeLabels = {
+    'ONE_MONTH': '1 month',
+    'THREE_MONTHS': '3 months', 
+    'SIX_MONTHS': '6 months',
+    'ONE_YEAR': '1 year'
+  };
+
+  // Map time periods to days
+  private static periodDays = {
+    'ONE_MONTH': 30,
+    'THREE_MONTHS': 90,
+    'SIX_MONTHS': 180,
+    'ONE_YEAR': 365
+  };
+
   /**
-   * Update custom goal progress when a user finishes a book
+   * Get all custom goals for a user
    */
-  static async updateCustomGoalProgress(userId: string) {
-    try {
-      console.log('[CustomGoalsService] Starting progress update for user:', userId);
-      
-      // Get all active custom goals for the user (those with progress tracking but not yet earned)
-      const activeGoals = await prisma.achievement.findMany({
-        where: {
-          name: { startsWith: 'Custom Goal:' },
-          progress_tracking: {
-            some: {
-              user_id: userId
-            }
-          },
-          user_achievements: {
-            none: {
-              user_id: userId
-            }
-          }
-        },
-        include: {
-          user_achievements: {
-            where: { user_id: userId }
-          },
-          progress_tracking: {
-            where: { user_id: userId }
-          }
+  static async getUserCustomGoals(userId: string): Promise<CustomGoalData[]> {
+    const goals = await prisma.customGoal.findMany({
+      where: {
+        user_id: userId,
+        status: {
+          in: ['ACTIVE', 'COMPLETED']
         }
-      });
-
-      console.log('[CustomGoalsService] Found active goals:', activeGoals.length);
-
-      if (activeGoals.length === 0) {
-        return; // No active goals to update
+      },
+      orderBy: {
+        created_at: 'desc'
       }
+    });
 
-      // Count books finished within each goal's time period
-      for (const goal of activeGoals) {
-        const progress = goal.progress_tracking[0];
-        if (!progress) {
-          console.log('[CustomGoalsService] No progress record found for goal:', goal.id);
-          continue;
-        }
-
-        // Get the original target from the achievement criteria
-        const criteria = goal.criteria as any;
-        const originalTarget = criteria?.target_books;
-        
-        console.log('[CustomGoalsService] Processing goal:', goal.name);
-        console.log('[CustomGoalsService] Original target from criteria:', originalTarget);
-        console.log('[CustomGoalsService] Current target from progress:', progress.target_value);
-
-        // Fix corrupted target_value if needed
-        let correctTargetValue = progress.target_value;
-        if (originalTarget && progress.target_value !== originalTarget) {
-          console.log('[CustomGoalsService] 🔧 FIXING corrupted target_value:', progress.target_value, '→', originalTarget);
-          correctTargetValue = originalTarget;
-          
-          // Update the progress record with correct target
-          await prisma.achievementProgress.update({
-            where: {
-              user_id_achievement_id: {
-                user_id: userId,
-                achievement_id: goal.id
-              }
-            },
-            data: {
-              target_value: originalTarget
-            }
-          });
-        }
-
-        const progressData = progress.progress_data as any;
-        console.log('[CustomGoalsService] Progress data:', progressData);
-
-        // Validate and parse dates
-        let startDate: Date;
-        let endDate: Date;
-        
-        try {
-          startDate = new Date(progressData?.start_date);
-          endDate = new Date(progressData?.end_date);
-          
-          // Check if dates are valid
-          if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-            console.error('[CustomGoalsService] Invalid dates in progress data:', {
-              start_date: progressData?.start_date,
-              end_date: progressData?.end_date
-            });
-            continue;
-          }
-        } catch (error) {
-          console.error('[CustomGoalsService] Error parsing dates:', error);
-          continue;
-        }
-
-        const now = new Date();
-        console.log('[CustomGoalsService] Date range:', {
-          start: startDate.toISOString(),
-          end: endDate.toISOString(),
-          now: now.toISOString()
-        });
-
-        // Check if goal is still active (not expired)
-        if (now > endDate) {
-          console.log('[CustomGoalsService] Goal expired, skipping:', goal.id);
-          continue;
-        }
-
-        // Count books finished within the goal period
-        const booksFinished = await prisma.userBook.count({
-          where: {
-            user_id: userId,
-            status: 'finished',
-            added_at: {
-              gte: startDate,
-              lte: now
-            }
-          }
-        });
-
-        console.log('[CustomGoalsService] Books finished in period:', booksFinished);
-
-        // Calculate progress percentage using the correct target
-        const newProgressPercentage = correctTargetValue > 0 
-          ? Math.round((booksFinished / correctTargetValue) * 100)
-          : 0;
-
-        console.log('[CustomGoalsService] Updating progress:', {
-          current: booksFinished,
-          target: correctTargetValue,
-          percentage: newProgressPercentage
-        });
-
-        // Update progress - ensure we preserve the correct target_value
-        await prisma.achievementProgress.update({
-          where: {
-            user_id_achievement_id: {
-              user_id: userId,
-              achievement_id: goal.id
-            }
-          },
-          data: {
-            current_value: booksFinished,
-            target_value: correctTargetValue, // Explicitly set to ensure it's correct
-            last_updated: now,
-            progress_data: {
-              ...progressData,
-              progress_percentage: newProgressPercentage,
-              last_book_count: booksFinished
-            }
-          }
-        });
-
-        console.log('[CustomGoalsService] Progress updated successfully');
-
-        // Check if goal is completed
-        if (booksFinished >= correctTargetValue) {
-          console.log('[CustomGoalsService] Goal completed! Creating achievement record');
-          
-          // Create UserAchievement record when goal is completed
-          await prisma.userAchievement.create({
-            data: {
-              user_id: userId,
-              achievement_id: goal.id,
-              earned_at: now
-            }
-          });
-
-          console.log('[CustomGoalsService] Achievement record created');
-        }
-      }
-    } catch (error) {
-      console.error('[CustomGoalsService] Error updating custom goal progress:', error);
-      // Don't throw error to avoid breaking the main flow
-    }
+    return goals.map(goal => this.transformGoalToData(goal));
   }
 
   /**
-   * Clean up expired custom goals
+   * Create a new custom goal
    */
-  static async cleanupExpiredGoals() {
-    try {
-      const now = new Date();
-      
-      // Find expired goals (those with progress tracking but not yet earned)
-      const expiredGoals = await prisma.achievement.findMany({
-        where: {
-          name: { startsWith: 'Custom Goal:' },
-          progress_tracking: {
-            some: {}
-          },
-          user_achievements: {
-            none: {}
-          }
-        },
-        include: {
-          progress_tracking: true
-        }
-      });
+  static async createCustomGoal(
+    userId: string, 
+    targetBooks: number, 
+    timePeriod: string
+  ): Promise<CustomGoalData> {
+    // Validate input
+    if (targetBooks < 1 || targetBooks > 1000) {
+      throw new Error('Target books must be between 1 and 1000');
+    }
 
-      for (const goal of expiredGoals) {
-        for (const progress of goal.progress_tracking) {
-          const progressData = progress.progress_data as any;
-          const endDate = new Date(progressData?.end_date);
-          
-          if (now > endDate) {
-            // Mark as expired (we could add an 'expired' status or just leave as is)
-            // For now, we'll just log it
-            console.log(`Custom goal ${goal.id} expired for user ${progress.user_id}`);
-          }
+    const validPeriods = ['ONE_MONTH', 'THREE_MONTHS', 'SIX_MONTHS', 'ONE_YEAR'];
+    if (!validPeriods.includes(timePeriod)) {
+      throw new Error('Invalid time period');
+    }
+
+    // Check if user already has too many active goals (limit to 5)
+    const activeGoalsCount = await prisma.customGoal.count({
+      where: {
+        user_id: userId,
+        status: 'ACTIVE'
+      }
+    });
+
+    if (activeGoalsCount >= 5) {
+      throw new Error('Maximum of 5 active goals allowed');
+    }
+
+    // Calculate dates
+    const startDate = new Date();
+    const endDate = new Date();
+    const days = this.periodDays[timePeriod as keyof typeof this.periodDays];
+    endDate.setDate(startDate.getDate() + days);
+
+    // Generate goal name and description
+    const timeLabel = this.timeLabels[timePeriod as keyof typeof this.timeLabels];
+    const bookWord = targetBooks === 1 ? "book" : "books";
+    const goalName = `Read ${targetBooks} ${bookWord} in ${timeLabel}`;
+    const goalDescription = `Read ${targetBooks} ${bookWord} within ${timeLabel}`;
+
+    const goal = await prisma.customGoal.create({
+      data: {
+        user_id: userId,
+        name: goalName,
+        description: goalDescription,
+        target_books: targetBooks,
+        time_period: timePeriod as any,
+        start_date: startDate,
+        end_date: endDate,
+        current_progress: 0,
+        status: 'ACTIVE'
+      }
+    });
+
+    return this.transformGoalToData(goal);
+  }
+
+  /**
+   * Update a custom goal
+   */
+  static async updateCustomGoal(
+    goalId: string,
+    userId: string,
+    targetBooks: number,
+    timePeriod: string
+  ): Promise<CustomGoalData> {
+    // First verify the goal belongs to the user
+    const existingGoal = await prisma.customGoal.findFirst({
+      where: {
+        id: goalId,
+        user_id: userId
+      }
+    });
+
+    if (!existingGoal) {
+      throw new Error('Goal not found or access denied');
+    }
+
+    if (existingGoal.status === 'COMPLETED') {
+      throw new Error('Cannot update completed goals');
+    }
+
+    // Validate input
+    if (targetBooks < 1 || targetBooks > 1000) {
+      throw new Error('Target books must be between 1 and 1000');
+    }
+
+    const validPeriods = ['ONE_MONTH', 'THREE_MONTHS', 'SIX_MONTHS', 'ONE_YEAR'];
+    if (!validPeriods.includes(timePeriod)) {
+      throw new Error('Invalid time period');
+    }
+
+    // Recalculate end date based on original start date
+    const endDate = new Date(existingGoal.start_date);
+    const days = this.periodDays[timePeriod as keyof typeof this.periodDays];
+    endDate.setDate(endDate.getDate() + days);
+
+    // Update goal name and description
+    const timeLabel = this.timeLabels[timePeriod as keyof typeof this.timeLabels];
+    const bookWord = targetBooks === 1 ? "book" : "books";
+    const goalName = `Read ${targetBooks} ${bookWord} in ${timeLabel}`;
+    const goalDescription = `Read ${targetBooks} ${bookWord} within ${timeLabel}`;
+
+    const updatedGoal = await prisma.customGoal.update({
+      where: { id: goalId },
+      data: {
+        name: goalName,
+        description: goalDescription,
+        target_books: targetBooks,
+        time_period: timePeriod as any,
+        end_date: endDate
+      }
+    });
+
+    return this.transformGoalToData(updatedGoal);
+  }
+
+  /**
+   * Delete a custom goal
+   */
+  static async deleteCustomGoal(goalId: string, userId: string): Promise<void> {
+    const goal = await prisma.customGoal.findFirst({
+      where: {
+        id: goalId,
+        user_id: userId
+      }
+    });
+
+    if (!goal) {
+      throw new Error('Goal not found or access denied');
+    }
+
+    await prisma.customGoal.delete({
+      where: { id: goalId }
+    });
+  }
+
+  /**
+   * Update progress for all active custom goals when a user finishes a book
+   */
+  static async updateCustomGoalProgress(userId: string, incrementBy: number = 1): Promise<void> {
+    const activeGoals = await prisma.customGoal.findMany({
+      where: {
+        user_id: userId,
+        status: 'ACTIVE',
+        end_date: {
+          gte: new Date() // Goals that haven't expired
         }
       }
-    } catch (error) {
-      console.error('Error cleaning up expired goals:', error);
+    });
+
+    for (const goal of activeGoals) {
+      const newProgress = goal.current_progress + incrementBy;
+      const isCompleted = newProgress >= goal.target_books;
+
+      await prisma.customGoal.update({
+        where: { id: goal.id },
+        data: {
+          current_progress: Math.min(newProgress, goal.target_books),
+          status: isCompleted ? 'COMPLETED' : 'ACTIVE',
+          completed_at: isCompleted ? new Date() : null
+        }
+      });
     }
+
+    // Mark expired goals
+    await this.markExpiredGoals(userId);
+  }
+
+  /**
+   * Mark expired goals as EXPIRED
+   */
+  static async markExpiredGoals(userId: string): Promise<void> {
+    await prisma.customGoal.updateMany({
+      where: {
+        user_id: userId,
+        status: 'ACTIVE',
+        end_date: {
+          lt: new Date()
+        }
+      },
+      data: {
+        status: 'EXPIRED'
+      }
+    });
+  }
+
+  /**
+   * Transform database goal to API format
+   */
+  private static transformGoalToData(goal: any): CustomGoalData {
+    const progressPercentage = goal.target_books > 0 
+      ? Math.round((goal.current_progress / goal.target_books) * 100) 
+      : 0;
+
+    return {
+      id: goal.id,
+      name: goal.name,
+      description: goal.description,
+      target_books: goal.target_books,
+      time_period: goal.time_period,
+      status: goal.status,
+      current_progress: goal.current_progress,
+      start_date: goal.start_date.toISOString(),
+      end_date: goal.end_date.toISOString(),
+      completed_at: goal.completed_at?.toISOString(),
+      created_at: goal.created_at.toISOString(),
+      progress: {
+        current_value: goal.current_progress,
+        target_value: goal.target_books,
+        progress_percentage: progressPercentage
+      },
+      is_completed: goal.status === 'COMPLETED'
+    };
   }
 } 

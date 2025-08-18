@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
   DialogContent,
@@ -22,7 +23,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { BookOpen, CalendarDays, Plus, Search, Settings, Send, MessageSquare, Clock, Loader2, Check, ArrowLeft, MapPin, Reply, Edit, Trash2, MoreVertical, ChevronDown, ChevronUp, BookMarked, Play, Pause, Save, X, Pencil } from "lucide-react" // Added Play, Pause, Save, X icons
+import { BookOpen, CalendarDays, Calendar, Plus, Search, Link2, Settings, Send, MessageSquare, Clock, Loader2, Check, ArrowLeft, MapPin, Reply, Edit, Trash2, MoreVertical, ChevronDown, ChevronUp, BookMarked, Play, Pause, Save, X, Pencil, Monitor, Users, AlertCircle } from "lucide-react" // Added Play, Pause, Save, X, Monitor, Users, AlertCircle icons
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
@@ -354,6 +355,48 @@ interface ClubMembership {
   };
 }
 
+interface MeetingAttendee {
+  id: string;
+  meeting_id: string;
+  user_id: string;
+  status: 'NOT_RESPONDED' | 'ATTENDING' | 'NOT_ATTENDING' | 'MAYBE';
+  responded_at: string | null;
+  actually_attended: boolean | null; // null = not marked, true = attended, false = didn't attend
+  marked_at: string | null; // when attendance was marked by admin
+  user: {
+    id: string;
+    display_name: string;
+    avatar_url?: string | null;
+  };
+}
+
+interface ClubMeeting {
+  id: string;
+  meeting_date: string;
+  location: string;
+  title?: string;
+  description?: string;
+  meeting_mode?: 'IN_PERSON' | 'VIRTUAL';
+  meeting_type: 'DISCUSSION' | 'BOOK_SELECTION' | 'AUTHOR_QA' | 'SOCIAL' | 'OTHER';
+  status: 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  meeting_notes?: string | null;
+  completed_at?: string | null;
+  book?: {
+    id: string;
+    title: string;
+    author: string;
+    cover_url: string;
+  };
+  creator: {
+    id: string;
+    display_name: string;
+  };
+  attendees: MeetingAttendee[];
+  _count: {
+    attendees: number;
+  };
+}
+
 interface Discussion {
   id: string;
   user: {
@@ -464,12 +507,7 @@ interface ClubData {
   book_history: BookHistoryEntry[];
   discussions: Discussion[];
   pendingMemberships?: ClubMembershipRequest[]; // Populated only if currentUserIsAdmin is true
-  meetings: Array<{
-    id: string;
-    meeting_date: string;
-    location: string;
-    title?: string;
-  }>; // Add meetings property
+  meetings: ClubMeeting[];
   
   // Voting cycle management
   voting_cycle_active: boolean;
@@ -564,6 +602,74 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   // Winning suggestions state
   const [winningBookSuggestions, setWinningBookSuggestions] = useState<any[]>([])
   const [loadingWinners, setLoadingWinners] = useState(false)
+
+  // Meeting attendance state
+  const [loadingAttendance, setLoadingAttendance] = useState<Record<string, boolean>>({})
+  const [userAttendanceStatus, setUserAttendanceStatus] = useState<Record<string, 'NOT_RESPONDED' | 'ATTENDING' | 'NOT_ATTENDING' | 'MAYBE'>>({})
+
+  // Complete meeting state
+  const [completeMeetingDialogOpen, setCompleteMeetingDialogOpen] = useState(false)
+  const [completingMeeting, setCompletingMeeting] = useState(false)
+  const [meetingCompletionData, setMeetingCompletionData] = useState<{
+    meeting: {
+      id: string;
+      title?: string;
+      meeting_date: string;
+      location?: string;
+      meeting_type: 'DISCUSSION' | 'BOOK_SELECTION' | 'AUTHOR_QA' | 'SOCIAL' | 'OTHER';
+      status: string;
+      book?: any;
+      current_book?: any;
+    };
+    attendees: Array<{
+      id: string;
+      userId: string;
+      user: {
+        id: string;
+        display_name: string;
+        avatar_url?: string | null;
+      };
+      rsvpStatus: 'NOT_RESPONDED' | 'ATTENDING' | 'NOT_ATTENDING' | 'MAYBE';
+      actuallyAttended: boolean | null;
+    }>;
+  } | null>(null)
+  const [attendanceMarks, setAttendanceMarks] = useState<Record<string, boolean>>({})
+  
+  // Book completion state (for DISCUSSION meetings) - using different names to avoid conflicts
+  const [meetingBookRating, setMeetingBookRating] = useState<string>("")
+  const [meetingBookNotes, setMeetingBookNotes] = useState("")
+  const [meetingBookStatus, setMeetingBookStatus] = useState<'COMPLETED' | 'ABANDONED' | ''>("")
+  
+  // Meeting notes state (for all meeting types)
+  const [meetingNotes, setMeetingNotes] = useState("")
+
+  // Meeting edit/delete states
+  const [editingMeeting, setEditingMeeting] = useState<ClubMeeting | null>(null)
+  const [isEditMeetingDialogOpen, setIsEditMeetingDialogOpen] = useState(false)
+  const [deletingMeetingId, setDeletingMeetingId] = useState<string | null>(null)
+  const [updatingMeeting, setUpdatingMeeting] = useState(false)
+  
+  // RSVP details dialog states
+  const [rsvpDetailsDialog, setRsvpDetailsDialog] = useState<{
+    isOpen: boolean;
+    meeting: ClubMeeting | null;
+    selectedStatus: 'ATTENDING' | 'MAYBE' | 'NOT_ATTENDING' | 'NOT_RESPONDED' | null;
+  }>({
+    isOpen: false,
+    meeting: null,
+    selectedStatus: null
+  })
+  const [meetingFormData, setMeetingFormData] = useState({
+    title: '',
+    description: '',
+    meeting_date: '',
+    meeting_time: '',
+    duration_minutes: 90,
+    location: '',
+    meeting_mode: 'IN_PERSON' as 'IN_PERSON' | 'VIRTUAL',
+    meeting_type: 'DISCUSSION' as 'DISCUSSION' | 'BOOK_SELECTION' | 'AUTHOR_QA' | 'SOCIAL' | 'OTHER',
+    book_id: ''
+  })
 
   //wrap params with React.use() 
   const router = useRouter();
@@ -1663,6 +1769,350 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     }
   }
 
+  // Handle meeting attendance update
+  const handleAttendanceUpdate = async (meetingId: string, status: 'ATTENDING' | 'NOT_ATTENDING' | 'MAYBE') => {
+    if (!session?.supabaseAccessToken) return
+
+    setLoadingAttendance(prev => ({ ...prev, [meetingId]: true }))
+    try {
+      const response = await fetch(`/api/clubs/${id}/meetings/${meetingId}/attendance`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
+        body: JSON.stringify({ status }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to update attendance.")
+      }
+
+      const result = await response.json()
+      
+      // Update local state
+      setUserAttendanceStatus(prev => ({ ...prev, [meetingId]: status }))
+      
+      toast.success(`Attendance updated: ${status.toLowerCase().replace('_', ' ')}`)
+      
+      // Refresh club data to get updated attendance counts
+      await fetchClubDetails()
+    } catch (err: any) {
+      toast.error(`Error updating attendance: ${err.message}`)
+      console.error("Error updating attendance:", err)
+    } finally {
+      setLoadingAttendance(prev => ({ ...prev, [meetingId]: false }))
+    }
+  }
+
+  // Get current user's attendance status for a meeting
+  const getUserAttendanceStatus = (meeting: ClubMeeting): 'NOT_RESPONDED' | 'ATTENDING' | 'NOT_ATTENDING' | 'MAYBE' => {
+    if (!session?.user?.id) return 'NOT_RESPONDED'
+    
+    // Check local state first
+    if (userAttendanceStatus[meeting.id]) {
+      return userAttendanceStatus[meeting.id]
+    }
+    
+    // Check meeting attendees data
+    const userAttendance = meeting.attendees.find(attendee => attendee.user_id === session.user.id)
+    return userAttendance?.status || 'NOT_RESPONDED'
+  }
+
+  // Get attendance summary for a meeting
+  const getAttendanceSummary = (meeting: ClubMeeting) => {
+    const attending = meeting.attendees.filter(a => a.status === 'ATTENDING').length
+    const notAttending = meeting.attendees.filter(a => a.status === 'NOT_ATTENDING').length
+    const maybe = meeting.attendees.filter(a => a.status === 'MAYBE').length
+    const notResponded = meeting.attendees.filter(a => a.status === 'NOT_RESPONDED').length
+    
+    return { attending, notAttending, maybe, notResponded, total: meeting._count.attendees }
+  }
+
+  // Get members by RSVP status
+  const getMembersByRsvpStatus = (meeting: ClubMeeting, status: 'ATTENDING' | 'MAYBE' | 'NOT_ATTENDING' | 'NOT_RESPONDED') => {
+    return meeting.attendees.filter(a => a.status === status)
+  }
+
+  // Open RSVP details dialog
+  const handleOpenRsvpDetails = (meeting: ClubMeeting, status: 'ATTENDING' | 'MAYBE' | 'NOT_ATTENDING' | 'NOT_RESPONDED') => {
+    setRsvpDetailsDialog({
+      isOpen: true,
+      meeting,
+      selectedStatus: status
+    })
+  }
+
+  // Close RSVP details dialog
+  const handleCloseRsvpDetails = () => {
+    setRsvpDetailsDialog({
+      isOpen: false,
+      meeting: null,
+      selectedStatus: null
+    })
+  }
+
+  // Complete meeting functions
+  const handleOpenCompleteMeeting = async (meetingId: string) => {
+    if (!session?.supabaseAccessToken) return
+
+    try {
+      const response = await fetch(`/api/clubs/${id}/meetings/${meetingId}/complete`, {
+        headers: {
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to fetch meeting data")
+      }
+
+      const data = await response.json()
+      setMeetingCompletionData(data)
+      
+      // Initialize attendance marks based on RSVP status
+      const initialMarks: Record<string, boolean> = {}
+      data.attendees.forEach((attendee: any) => {
+        // Set defaults based on RSVP status:
+        // NOT_RESPONDED → false (absent)
+        // ATTENDING → true (attended)  
+        // MAYBE → true (attended)
+        // NOT_ATTENDING → false (absent)
+        let defaultAttended = false
+        if (attendee.rsvpStatus === 'ATTENDING' || attendee.rsvpStatus === 'MAYBE') {
+          defaultAttended = true
+        } else if (attendee.rsvpStatus === 'NOT_ATTENDING' || attendee.rsvpStatus === 'NOT_RESPONDED') {
+          defaultAttended = false
+        }
+        
+        initialMarks[attendee.userId] = attendee.actuallyAttended ?? defaultAttended
+      })
+      setAttendanceMarks(initialMarks)
+      
+      // Reset other form fields
+      setMeetingNotes("")
+      setMeetingBookRating("")
+      setMeetingBookNotes("")
+      setMeetingBookStatus("")
+      
+      setCompleteMeetingDialogOpen(true)
+
+    } catch (err: any) {
+      toast.error(`Error loading meeting data: ${err.message}`)
+      console.error("Error loading meeting data:", err)
+    }
+  }
+
+  const handleCompleteMeeting = async () => {
+    if (!meetingCompletionData || !session?.supabaseAccessToken) return
+
+    // Validate required fields
+    if (!meetingNotes.trim()) {
+      toast.error("Meeting notes are required")
+      return
+    }
+
+    // Validate book completion fields for DISCUSSION meetings
+    if (meetingCompletionData.meeting.meeting_type === 'DISCUSSION' && 
+        meetingCompletionData.meeting.current_book && 
+        meetingCompletionData.meeting.book?.id === meetingCompletionData.meeting.current_book.id) {
+      if (!meetingBookStatus) {
+        toast.error("Please select whether the book was completed or not")
+        return
+      }
+      if (meetingBookStatus === 'COMPLETED' && (!meetingBookRating || !meetingBookNotes.trim())) {
+        toast.error("Please provide both a rating and discussion notes for completed books")
+        return
+      }
+      if (meetingBookStatus === 'ABANDONED' && !meetingBookNotes.trim()) {
+        toast.error("Please provide notes explaining why the book was not completed")
+        return
+      }
+    }
+
+    setCompletingMeeting(true)
+    try {
+      const attendanceData = meetingCompletionData.attendees.map(attendee => ({
+        userId: attendee.userId,
+        actuallyAttended: attendanceMarks[attendee.userId] ?? false
+      }))
+
+      const requestBody: any = {
+        attendanceData,
+        meetingNotes: meetingNotes.trim()
+      }
+
+      // Add book completion data for DISCUSSION meetings
+      if (meetingCompletionData.meeting.meeting_type === 'DISCUSSION' && 
+          meetingCompletionData.meeting.current_book && 
+          meetingCompletionData.meeting.book?.id === meetingCompletionData.meeting.current_book.id &&
+          meetingBookStatus) {
+        requestBody.bookStatus = meetingBookStatus
+        requestBody.bookNotes = meetingBookNotes.trim()
+        if (meetingBookStatus === 'COMPLETED' && meetingBookRating) {
+          requestBody.bookRating = meetingBookRating
+        }
+      }
+
+      const response = await fetch(`/api/clubs/${id}/meetings/${meetingCompletionData.meeting.id}/complete`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Failed to complete meeting")
+      }
+
+      const result = await response.json()
+      toast.success(result.message)
+      
+      // Close dialog and refresh club data
+      setCompleteMeetingDialogOpen(false)
+      setMeetingCompletionData(null)
+      setAttendanceMarks({})
+      setMeetingNotes("")
+      setMeetingBookRating("")
+      setMeetingBookNotes("")
+      setMeetingBookStatus("")
+      await fetchClubDetails()
+
+    } catch (err: any) {
+      toast.error(`Error completing meeting: ${err.message}`)
+      console.error("Error completing meeting:", err)
+    } finally {
+      setCompletingMeeting(false)
+    }
+  }
+
+  const toggleAttendanceMark = (userId: string) => {
+    setAttendanceMarks(prev => ({
+      ...prev,
+      [userId]: !prev[userId]
+    }))
+  }
+
+  // Handle editing meeting
+  const handleEditMeeting = (meeting: ClubMeeting) => {
+    setEditingMeeting(meeting);
+    
+    // Pre-populate form with existing meeting data
+    const meetingDate = new Date(meeting.meeting_date);
+    const dateString = meetingDate.toISOString().split('T')[0];
+    const timeString = meetingDate.toTimeString().slice(0, 5);
+    
+    setMeetingFormData({
+      title: meeting.title || '',
+      description: meeting.description || '',
+      meeting_date: dateString,
+      meeting_time: timeString,
+      duration_minutes: 90, // Default as this field might not be in ClubMeeting
+      location: meeting.location || '',
+      meeting_mode: meeting.meeting_mode || 'IN_PERSON',
+      meeting_type: meeting.meeting_type,
+      book_id: meeting.book?.id || ''
+    });
+    
+    setIsEditMeetingDialogOpen(true);
+  };
+
+  // Handle updating meeting
+  const handleUpdateMeeting = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMeeting || !meetingFormData.title || !meetingFormData.meeting_date || !meetingFormData.meeting_time) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setUpdatingMeeting(true);
+    try {
+      const meetingDateTime = new Date(`${meetingFormData.meeting_date}T${meetingFormData.meeting_time}`);
+      
+      const response = await fetch(`/api/clubs/${club?.id}/meetings/${editingMeeting.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.supabaseAccessToken}`,
+        },
+        body: JSON.stringify({
+          title: meetingFormData.title,
+          description: meetingFormData.description,
+          meeting_date: meetingDateTime.toISOString(),
+          location: meetingFormData.location,
+          meeting_mode: meetingFormData.meeting_mode,
+          meeting_type: meetingFormData.meeting_type,
+          book_id: meetingFormData.book_id === 'none' ? null : meetingFormData.book_id || null
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update meeting');
+      }
+
+      toast.success('Meeting updated successfully!');
+      setIsEditMeetingDialogOpen(false);
+      setEditingMeeting(null);
+      setMeetingFormData({
+        title: '',
+        description: '',
+        meeting_date: '',
+        meeting_time: '',
+        duration_minutes: 90,
+        location: '',
+        meeting_mode: 'IN_PERSON',
+        meeting_type: 'DISCUSSION',
+        book_id: ''
+      });
+      
+      // Refresh club data to show updated meeting
+      fetchClubDetails();
+    } catch (error: any) {
+      console.error('Error updating meeting:', error);
+      toast.error(error.message || 'Failed to update meeting');
+    } finally {
+      setUpdatingMeeting(false);
+    }
+  };
+
+  // Handle deleting meeting
+  const handleDeleteMeeting = async (meeting: ClubMeeting) => {
+    // Show confirmation dialog
+    const confirmed = confirm(`Are you sure you want to cancel the meeting "${meeting.title}"? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    setDeletingMeetingId(meeting.id);
+    try {
+      const response = await fetch(`/api/clubs/${club?.id}/meetings/${meeting.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session?.supabaseAccessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to cancel meeting');
+      }
+
+      toast.success('Meeting cancelled successfully!');
+      
+      // Refresh club data to remove cancelled meeting
+      fetchClubDetails();
+    } catch (error: any) {
+      console.error('Error cancelling meeting:', error);
+      toast.error(error.message || 'Failed to cancel meeting');
+    } finally {
+      setDeletingMeetingId(null);
+    }
+  };
+
   // Check if current user can manage voting
   const canManageVoting = club?.currentUserIsAdmin || false
 
@@ -1678,6 +2128,15 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
   // Check if club has no current book (required for starting voting)
   const hasNoCurrentBook = !club?.current_book
+
+  // Safe URL
+  const getSafeUrl = (url: string) =>
+  url.startsWith("http://") || url.startsWith("https://") ? url : `https://${url}`;
+
+  // Helper function to check if a meeting is past due
+  const isMeetingPastDue = (meeting: ClubMeeting): boolean => {
+    return new Date(meeting.meeting_date) < new Date();
+  };
 
   const formatVotingEndDate = (club: ClubData) => {
     if (!club.voting_cycle_active || !club.voting_ends_at) {
@@ -1716,6 +2175,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
         return "No rating";
     }
   };
+
 
   // Voting Management Dialog Component
   const VotingManagementDialog = () => (
@@ -1813,9 +2273,10 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     );
   }
 
+  console.log(club);
   // --- Main Render Section ---
   return (
-    <div className='space-y-3 px-2 mb-16'>
+    <div className='space-y-3 px-2 mb-16 md:container'>
       
       {/* Header Section */}
       <Card className="bg-bookWhite/90 rounded-xl overflow-hidden mt-0">
@@ -1855,7 +2316,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                     </Badge>
                   )}
                   {/* Conditional Badges for Membership Status */}
-                  {club.currentUserMembershipStatus === 'ACTIVE' && (
+                  {club.currentUserMembershipStatus === 'ACTIVE' && !club.currentUserIsAdmin && (
                     <Badge className="bg-accent-variant/80 hover:bg-accent-variant text-bookWhite ml-2">
                       Member
                     </Badge>
@@ -1937,8 +2398,8 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
       </Card>
       
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
-        <div className="md:col-span-2">
+      <div className="grid grid-cols-1 gap-0">
+        <div className="">
           <Card className="bg-bookWhite/90 py-3">
             <CardHeader className="px-3 pt-0 pb-0">
               <CardTitle className="px-0 pb-2 text-secondary">Current Book</CardTitle>
@@ -2193,9 +2654,37 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                 </Button>
               </div>
             )}
-            {club.currentUserIsAdmin && (
+            {!club.current_book && club.currentUserIsAdmin && (
+              <div className="flex justify-end">
+                <Button
+                  onClick={() => setBookDialogOpen(true)}
+                  disabled={loadingBookAction}
+                  className="bg-primary hover:bg-primary-light text-secondary rounded-full"
+                >
+                  {loadingBookAction ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                      "Set a New Book"
+                  )}
+                </Button>
+              </div>
+            )}
+            <BookSelectionDialog
+              open={bookDialogOpen}
+              onOpenChange={setBookDialogOpen}
+              onBookSelect={handleSetCurrentBook}
+              addBookDialogOpen={addBookDialogOpen}
+              setAddBookDialogOpen={setAddBookDialogOpen}
+              allBooks={allBooks}
+              setAllBooks={setAllBooks}
+              onBookAdded={handleBookAdded}
+            />
+                    
+            {/* {club.currentUserIsAdmin && club.current_book && (
               <div className="flex justify-end flex-wrap">
-                {club.current_book ? (
                   <div>
                     <Dialog onOpenChange={(open) => {
                       if (!open) {
@@ -2381,34 +2870,8 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                       </DialogContent>
                     </Dialog>
                   </div>         
-                ) : (
-                  <Button
-                    onClick={() => setBookDialogOpen(true)}
-                    disabled={loadingBookAction}
-                    className="bg-primary hover:bg-primary-light text-secondary rounded-full"
-                  >
-                    {loadingBookAction ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                        "Set a New Book"
-                    )}
-                  </Button>
-                )}
-                <BookSelectionDialog
-                  open={bookDialogOpen}
-                  onOpenChange={setBookDialogOpen}
-                  onBookSelect={handleSetCurrentBook}
-                  addBookDialogOpen={addBookDialogOpen}
-                  setAddBookDialogOpen={setAddBookDialogOpen}
-                  allBooks={allBooks}
-                  setAllBooks={setAllBooks}
-                  onBookAdded={handleBookAdded}
-                />
               </div>
-            )}
+            )} */}
             </CardFooter>
           </Card>
 
@@ -3028,62 +3491,487 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
           {/* --- END PENDING INVITATIONS SECTION --- */}
 
           <Card className="mt-3">
-            <CardHeader className="px-3 pt-3 pb-1 flex-1">
-              <CardTitle className="break-words">Upcoming Meeting{club.current_book && (<span>: {club.current_book?.title}</span>)}</CardTitle>
+            <CardHeader className="px-3 pt-3 pb-1 flex flex-row justify-between">
+              <CardTitle className="break-words">Club Meetings</CardTitle>
+              {club.currentUserIsAdmin && (
+                <Link href="/calendar">
+                  <div className="flex flex-row items-center bg-secondary-light/10 rounded-full cursor-pointer text-secondary-light/60 hover:bg-secondary-light/20 hover:text-secondary-light py-1 px-2">
+                    <Calendar className="h-4 w-4"/>
+                  </div>
+                </Link>
+              )}
             </CardHeader>
-            <CardContent className="px-3 pt-3 pb-5">
-              {club.meetings[0] ? (
-              <div className="space-y-3">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-secondary-light">
-                    <CalendarDays className="text-accent-variant h-5 w-5" />
-                    <span>
-                      {new Date(club.meetings[0].meeting_date).toLocaleDateString('en-US', {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </span>
+            <CardContent className="px-3 pt-3 pb-5 space-y-3">
+              {club.meetings.length === 0 ? (
+                <div>
+                  <div className="flex flex-col items-center justify-center">
+                    <CalendarDays className="text-secondary-light/20 h-16 w-16 mb-1" />
+                    <p className="text-secondary-light/30 text-center">No active meetings</p>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-secondary-light">
-                    <Clock className="text-accent-variant h-5 w-5" />
-                    <span>
-                      {new Date(club.meetings[0].meeting_date).toLocaleTimeString('en-US', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        hour12: true,
-                      }).replace('AM', 'a.m.').replace('PM', 'p.m.')}
-                    </span>
+                  {club.currentUserIsAdmin && (
+                    <div className="flex flex-col items-center gap-2">
+                      <p className="text-secondary-light/30 text-center w-[80vw] leading-4">Go to calendar to set a new meeting date, time and place.</p>
+                      <Button variant="outline" size="sm" className="mt-1 rounded-full text-secondary-light h-8 border-none bg-accent">
+                        Go to Calendar
+                      </Button>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-secondary-light">
-                    <MapPin className="text-accent-variant h-5 w-5" />
-                    <span>{club.meetings[0].location}</span>
-                  </div>
+                  )}
                 </div>
-                {/* <div className="flex justify-end">
-                  <Button variant="outline" size="sm" className="mt-3 rounded-full text-secondary-light h-8 border-none bg-primary">
-                    View Details
-                  </Button>
-                </div> */}
-              </div>
               ) : (
-              <div>
-                <div className="flex flex-col items-center justify-center">
-                  <CalendarDays className="text-secondary-light/20 h-16 w-16 mb-1" />
-                  <p className="text-secondary-light/30 text-center">No upcoming meeting</p>
-                </div>
-                {club.currentUserIsAdmin && (
-                  <div className="flex flex-col items-center gap-2">
-                    <p className="text-secondary-light/30 text-center w-[80vw] leading-4">Go to calendar to set a new meeting date, time and place.</p>
-                    <Button variant="outline" size="sm" className="mt-1 rounded-full text-secondary-light h-8 border-none bg-accent">
-                      Go to Calendar
-                    </Button>
-                </div>
-                )}
-              </div>
+                club.meetings.map((meeting) => {
+                  const isPastDue = isMeetingPastDue(meeting);
+                  return (
+                  <div key={meeting.id} className={`space-y-2 py-3 rounded-lg ${isPastDue ? 'bg-secondary/5 border-l-4 border-red-700/80' : 'bg-secondary/10'}`}>
+                    <div className="space-y-1">
+                      <div className="flex flex-row justify-between pr-3 mb-2">
+                        <div className="flex items-center gap-2">
+                          <p className="bg-accent-variant/25 rounded-r-full px-2">
+                            {meeting.meeting_type === 'AUTHOR_QA' 
+                              ? 'AUTHOR Q&A' : meeting.meeting_type === 'DISCUSSION'
+                              ? 'BOOK DISCUSSION'
+                              : meeting.meeting_type.replace(/_/g, ' ')}
+                          </p>
+                          {isPastDue && (
+                            <Badge variant="destructive" className="text-xs bg-red-700/80">
+                              Past Due
+                            </Badge>
+                          )}
+                        </div>
+                        <Badge variant="secondary" className="w-fit ml-1 bg-primary/50 text-secondary-light/50">
+                          {meeting.meeting_mode?.replace('_', ' ')}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-row gap-2 items-center px-3">
+                        {meeting.meeting_type === 'DISCUSSION' && (
+                          <Link href={`/books/${meeting.book?.id}`}>
+                            <div className="w-auto h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden shrink-0">
+                              <img
+                                src={meeting.book?.cover_url || "/placeholder.svg"}
+                                alt={`${meeting.book?.title} cover`}
+                                className="object-cover h-full w-full" // Added w-full
+                              />
+                            </div>
+                          </Link>
+                        )}
+                        <div className="flex flex-col">
+                          {meeting.meeting_type === 'DISCUSSION' && (
+                            <Link href={`/books/${meeting.book?.id}`}>
+                              <p className="font-semibold text-sm text-secondary">{meeting.book?.title}</p>
+                            </Link>
+                          )}
+                          <div className="flex items-center gap-2 text-sm text-bookBlack">
+                            <CalendarDays className="text-accent-variant h-4 w-4" />
+                            <span>
+                              {new Date(meeting.meeting_date).toLocaleDateString('en-US', {
+                                month: 'long',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-bookBlack">
+                            <Clock className="text-accent-variant h-4 w-4" />
+                            <span>
+                              {new Date(meeting.meeting_date).toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true,
+                              }).replace('AM', 'a.m.').replace('PM', 'p.m.')}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-bookBlack">
+                            {meeting.meeting_mode === 'VIRTUAL' ? <Link2 className="w-4 h-4 text-accent-variant"/> : <MapPin className="w-4 h-4 text-accent-variant"/>}
+                            {meeting.meeting_mode === 'VIRTUAL' ? (
+                              <a href={getSafeUrl(meeting.location)} target="_blank" rel="noopener noreferrer" className="cursor-pointer underline">Meeting link here!</a>
+                              ) : (
+                                <span>{meeting.location}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col md:flex-row justify-between mt-1 px-3">
+                        <h3 className="font-semibold text-sm leading-none">{meeting.title}</h3>
+                      </div>
+
+                      {meeting.description && (
+                        <p className="text-xs text-secondary/50 font-serif font-semibold leading-3 mb-2S px-3">{meeting.description}</p>
+                      )}
+                    </div>
+
+                    {/* Attendance Section */}
+                    {club.currentUserMembershipStatus === 'ACTIVE' && (
+                      <div className="px-3">
+                        <div className={`relative space-y-1 bg-secondary-light/10 p-2 rounded-lg ${getUserAttendanceStatus(meeting) === 'NOT_RESPONDED' && 'drop-shadow border-2 border-secondary-light mt-4'}`}>
+                          {getUserAttendanceStatus(meeting) === 'NOT_RESPONDED' && (
+                            <p className="absolute -top-3 right-4 bg-secondary-light text-bookWhite text-xs px-2 py-0.5 rounded-sm">response pending</p>
+                          )}
+                          <div className="flex flex-row gap-2 items-center justify-center">
+                            <h4 className="text-sm font-medium leading-4 mb-1 uppercase">rsvp</h4>
+                          </div>
+                          
+                          <div className="grid grid-cols-3 gap-2">
+                            <Button
+                              variant='outline'
+                              size="sm"
+                              onClick={() => handleAttendanceUpdate(meeting.id, 'ATTENDING')}
+                              disabled={loadingAttendance[meeting.id]}
+                              className={`text-xs h-6 rounded-full ${getUserAttendanceStatus(meeting) === 'ATTENDING' ? 'text-secondary-light bg-bookWhite/70 border-2 border-secondary-light' : 'text-secondary-light bg-bookWhite border-none'}`}
+                            >
+                              {loadingAttendance[meeting.id] ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
+                              ) : (
+                                'Attending'
+                              )}
+                            </Button>
+                            <Button
+                              variant='default'
+                              size="sm"
+                              onClick={() => handleAttendanceUpdate(meeting.id, 'MAYBE')}
+                              disabled={loadingAttendance[meeting.id]}
+                              className={`text-xs h-6 rounded-full ${getUserAttendanceStatus(meeting) === 'MAYBE' ? 'text-secondary-light bg-bookWhite/70 border-2 border-secondary-light' : 'text-secondary-light bg-bookWhite border-none'}`}
+                            >
+                              {loadingAttendance[meeting.id] ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
+                              ) : (
+                                'Maybe'
+                              )}
+                            </Button>
+                            <Button
+                              variant='outline'
+                              size="sm"
+                              onClick={() => handleAttendanceUpdate(meeting.id, 'NOT_ATTENDING')}
+                              disabled={loadingAttendance[meeting.id]}
+                              className={`text-xs h-6 rounded-full ${getUserAttendanceStatus(meeting) === 'NOT_ATTENDING' ? 'text-secondary-light bg-bookWhite/70 border-2 border-secondary-light' : 'text-secondary-light bg-bookWhite border-none'}`}
+                            >
+                              {loadingAttendance[meeting.id] ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
+                              ) : (
+                                'Not Attending'
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="px-3">
+                      <div className="bg-bookWhite border-2 border-secondary-light/20 p-2 rounded-lg">
+                        <h4 className="text-sm font-medium leading-4 mb-2 uppercase text-center">Admin Section</h4>
+                      {/* Complete Meeting Button - Only for admins and if meeting is not completed */}
+                      {club.currentUserIsAdmin && meeting.status !== 'COMPLETED' && (
+                        <>
+                          <div>
+                            {/* Attendance Summary */}
+
+                              {(() => {
+                                const summary = getAttendanceSummary(meeting);
+                                const isAdmin = club?.currentUserIsAdmin;
+                                return (
+                                  <div className="flex flex-wrap items-center gap-1 text-xs text-bookBlack">
+                                    <span className="font-medium mr-1">RSVPs:</span>
+                                    <span 
+                                      className={`text-xs px-1.5 py-0.5 bg-secondary/15  text-secondary rounded-full ${isAdmin ? 'cursor-pointer hover:bg-secondary/20 transition-colors' : ''}`}
+                                      onClick={isAdmin ? () => handleOpenRsvpDetails(meeting, 'ATTENDING') : undefined}
+                                      title={isAdmin ? 'Click to see who is attending' : undefined}
+                                    >
+                                      {summary.attending} attending
+                                    </span>
+                                    <span 
+                                      className={`text-xs px-1.5 py-0.5 bg-secondary/15 text-secondary rounded-full ${isAdmin ? 'cursor-pointer hover:bg-secondary/20 transition-colors' : ''}`}
+                                      onClick={isAdmin ? () => handleOpenRsvpDetails(meeting, 'MAYBE') : undefined}
+                                      title={isAdmin ? 'Click to see who might attend' : undefined}
+                                    >
+                                      {summary.maybe} maybe
+                                    </span>
+                                    <span 
+                                      className={`text-xs px-1.5 py-0.5 bg-secondary/15 text-secondary rounded-full ${isAdmin ? 'cursor-pointer hover:bg-secondary/20 transition-colors' : ''}`}
+                                      onClick={isAdmin ? () => handleOpenRsvpDetails(meeting, 'NOT_ATTENDING') : undefined}
+                                      title={isAdmin ? 'Click to see who is not attending' : undefined}
+                                    >
+                                      {summary.notAttending} not attending
+                                    </span>
+                                    {summary.notResponded > 0 && (
+                                      <span 
+                                        className={`text-xs px-1.5 py-0.5 bg-secondary/15 text-secondary rounded-full ${isAdmin ? 'cursor-pointer hover:bg-secondary/20 transition-colors' : ''}`}
+                                        onClick={isAdmin ? () => handleOpenRsvpDetails(meeting, 'NOT_RESPONDED') : undefined}
+                                        title={isAdmin ? 'Click to see who has not responded' : undefined}
+                                      >
+                                        {summary.notResponded} no response
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                          </div>
+                          
+                          {/* Edit and Delete Meeting Buttons */}
+                          <div className="flex gap-2 pt-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditMeeting(meeting)}
+                              className="flex-1 h-7 px-3 text-sm border-none rounded-full text-secondary/75 bg-accent/80 hover:text-secondary hover:bg-accent"
+                            >
+                              Modify
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteMeeting(meeting)}
+                              disabled={deletingMeetingId === meeting.id}
+                              className="flex-1 h-7 px-3 text-sm rounded-full font-normal bg-red-800/70 hover:bg-red-800"
+                            >
+                              {deletingMeetingId === meeting.id ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  Cancelling...
+                                </>
+                              ) : (
+                                'Cancel'
+                              )}
+                            </Button>
+                          </div>
+
+                          <div className="pt-2 ">
+                            <Button
+                              onClick={() => handleOpenCompleteMeeting(meeting.id)}
+                              size="sm"
+                              className="w-full rounded-full h-8 text-sm bg-primary/75 text-secondary/75 hover:bg-primary hover:text-secondary"
+                            >
+                              Complete Meeting
+                            </Button>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Meeting Completed Badge */}
+                      {meeting.status === 'COMPLETED' && (
+                        <div className="pt-3 border-t border-border">
+                          <Badge variant="secondary" className="w-full justify-center bg-green-50 text-green-700 border-green-200">
+                            <Check className="h-3 w-3 mr-1" />
+                            Meeting Completed
+                          </Badge>
+                        </div>
+                      )}
+                      </div>
+                    </div>
+                  </div>
+                  );
+                })
               )}
             </CardContent>
           </Card>
+
+
+          {/* --- NEW: Admin section for Unfinished Book or Finished book without meeting --- */}
+          {club.currentUserIsAdmin && club.current_book && (
+            <Card className="mt-3">
+              <CardHeader className="px-3 pt-3 pb-0">
+                <CardTitle className="flex items-center justify-center mb-2">
+                  Manage Exceptions
+                </CardTitle>
+                <CardDescription className="font-normal text-sm text-center leading-4">
+                  Use this section only when a book was not completed by the club, or when the book was completed but no 
+                  meeting was held. If the book was completed and a meeting took place, use the 'Complete Meeting' button in the Active Meetings section above (works for both upcoming and past due meetings).
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2 p-3">
+                {club.currentUserIsAdmin && (
+                  <div>
+                    {club.current_book && (
+                      <div className="flex flex-col gap-2 items-center">
+                        <Dialog onOpenChange={(open) => {
+                          if (!open) {
+                            // Reset form when dialog closes
+                            setNotCompletedReason("");
+                            setNotCompletedNotes("");
+                          }
+                        }}>
+                          <DialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                disabled={loadingBookAction}
+                                className="bg-accent/80 hover:bg-accent text-secondary/85 border-none hover:text-secondary rounded-full"
+                              >
+                                Book Not Completed
+                              </Button>
+                          </DialogTrigger>
+                          <DialogContent className="w-[85vw] rounded-2xl">
+                              <Image 
+                                src="/images/background.png"
+                                alt="Create and Manage your Book Clubs | BookCrush"
+                                width={1622}
+                                height={2871}
+                                className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+                              />
+                              <DialogHeader>
+                              <DialogTitle>Book Not Completed</DialogTitle>
+                              <DialogDescription>
+                                  Let us know why this one didn't work out.
+                              </DialogDescription>
+                              </DialogHeader>
+                              <div className="grid gap-4 py-4">
+                              <div className="flex gap-3 items-center p-3 bg-muted/30 rounded-lg">
+                                  <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
+                                  <img
+                                      src={club.current_book?.cover_url || "/placeholder.svg"} // Optional chaining
+                                      alt={`${club.current_book?.title || 'No book'} cover`}
+                                      className="max-h-full"
+                                  />
+                                  </div>
+                                  <div>
+                                  <p className="font-medium text-sm">{club.current_book?.title}</p>
+                                  <p className="text-xs text-muted-foreground">{club.current_book?.author}</p>
+                                  </div>
+                              </div>
+                              <div className="grid gap-2">
+                                  <Label htmlFor="not-completed-reason">Reason for not completing</Label>
+                                  <Select value={notCompletedReason} onValueChange={setNotCompletedReason}>
+                                  <SelectTrigger id="not-completed-reason" className="font-medium">
+                                      <SelectValue placeholder="Select reason" className="font-medium"/>
+                                  </SelectTrigger>
+                                  <SelectContent className="font-medium">
+                                    <SelectItem value="1">📖 Lost interest in the story</SelectItem>
+                                    <SelectItem value="2">🕒 Didn't have enough time</SelectItem>
+                                    <SelectItem value="3">🤯 Too confusing or hard to follow</SelectItem>
+                                    <SelectItem value="4">😔 Not in the right mood for this book</SelectItem>
+                                    <SelectItem value="5">🔁 Planning to finish later</SelectItem>
+                                    <SelectItem value="6">😐 Didn't connect with the characters or style</SelectItem>
+                                    <SelectItem value="7">❌ Offensive or uncomfortable content</SelectItem>
+                                    <SelectItem value="8">💤 Too slow-paced or boring</SelectItem>
+                                    <SelectItem value="9">📚 Overwhelmed by other reads</SelectItem>
+                                    <SelectItem value="10">✍️ Other (will explain below)</SelectItem>
+                                  </SelectContent>
+                                  </Select>
+                              </div>
+                              <div className="grid gap-2">
+                                  <Label htmlFor="not-completed-notes">Notes or Thoughts</Label>
+                                  <Textarea
+                                  id="not-completed-notes"
+                                  placeholder="Summarize the reasons for this book to be not completed"
+                                  value={notCompletedNotes}
+                                  onChange={(e) => setNotCompletedNotes(e.target.value)}
+                                  className="bg-bookWhite font-serif font-medium text-secondary placeholder:text-secondary/50 placeholder:font-serif placeholder:italic placeholder:text-sm"
+                                  rows={4}
+                                  />
+                              </div>
+                              </div>
+                              <DialogFooter>
+                                <Button
+                                  variant="outline"
+                                  type="submit"
+                                  onClick={handleNotCompleteBook}
+                                  disabled={loadingBookAction || !notCompletedReason || !notCompletedNotes.trim()}
+                                  className="bg-secondary-light hover:bg-secondary text-bookWhite rounded-full"
+                                >
+                                  {loadingBookAction ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Processing...
+                                    </>
+                                  ) : (
+                                    "Book Not Completed"
+                                  )}
+                                </Button>
+                              </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+
+                        <Dialog onOpenChange={(open) => {
+                          if (!open) {
+                            // Reset form when dialog closes
+                            setBookRating("");
+                            setDiscussionNotes("");
+                          }
+                        }}>
+                          <DialogTrigger asChild>
+                              <Button variant="outline" className="ml-2 text-secondary rounded-full bg-primary hover:bg-primary-dark hover:text-secondary border-none">
+                              Completed Book Without Meeting
+                              </Button>
+                          </DialogTrigger>
+                          <DialogContent className="w-[85vw] rounded-2xl">
+                              <Image 
+                                src="/images/background.png"
+                                alt="Create and Manage your Book Clubs | BookCrush"
+                                width={1622}
+                                height={2871}
+                                className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+                              />
+                              <DialogHeader>
+                              <DialogTitle>Complete Book Meeting</DialogTitle>
+                              <DialogDescription>
+                                  Mark the current book as completed and add it to history.
+                              </DialogDescription>
+                              </DialogHeader>
+                              <div className="grid gap-4 py-4">
+                              <div className="flex gap-3 items-center p-3 bg-muted/30 rounded-lg">
+                                  <div className="w-16 h-24 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
+                                  <img
+                                      src={club.current_book?.cover_url || "/placeholder.svg"} // Optional chaining
+                                      alt={`${club.current_book?.title || 'No book'} cover`}
+                                      className="max-h-full"
+                                  />
+                                  </div>
+                                  <div>
+                                  <p className="font-medium text-sm">{club.current_book?.title}</p>
+                                  <p className="text-xs text-muted-foreground">{club.current_book?.author}</p>
+                                  </div>
+                              </div>
+                              <div className="grid gap-2">
+                                  <Label htmlFor="rating">Book Rating</Label>
+                                  <Select value={bookRating} onValueChange={setBookRating}>
+                                  <SelectTrigger id="rating" className="font-medium">
+                                      <SelectValue placeholder="Select rating" className="font-medium text-secondary"/>
+                                  </SelectTrigger>
+                                  <SelectContent className="font-medium">
+                                    <SelectItem value="1">1 - DNF / Frustrating Read</SelectItem>
+                                    <SelectItem value="2">2 - Underwhelming</SelectItem>
+                                    <SelectItem value="3">3 - Decent, not memorable</SelectItem>
+                                    <SelectItem value="4">4 - Like it / Great discussion pick</SelectItem>
+                                    <SelectItem value="5">5 - Masterpiece / Instant favorite</SelectItem>
+                                  </SelectContent>
+                                  </Select>
+                              </div>
+                              <div className="grid gap-2">
+                                  <Label htmlFor="discussion-notes">Discussion Notes</Label>
+                                  <Textarea
+                                  id="discussion-notes"
+                                  placeholder="Summarize the key points from your discussion"
+                                  value={discussionNotes}
+                                  onChange={(e) => setDiscussionNotes(e.target.value)}
+                                  className="bg-bookWhite font-serif font-medium text-secondary text-sm leading-none placeholder:font-serif placeholder:italic placeholder:text-sm"
+                                  rows={4}
+                                  />
+                              </div>
+                              </div>
+                              <DialogFooter>
+                              <Button 
+                                type="submit" 
+                                onClick={handleCompleteBook}
+                                disabled={loadingBookAction || !bookRating || !discussionNotes.trim()}
+                                className="bg-primary hover:bg-primary-light text-primary-foreground rounded-full"
+                              >
+                                {loadingBookAction ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Completing...
+                                  </>
+                                ) : (
+                                  "Complete & Archive"
+                                )}
+                              </Button>
+                              </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>         
+                    )} 
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           
           {/* Leave Club Button - Only show to active members who are not owners */}
           {club.currentUserMembershipStatus === 'ACTIVE' && !club.currentUserIsAdmin && club.ownerId !== session?.user?.id && (
@@ -3091,7 +3979,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               <CardContent className="px-3 py-3">
                 <div className="flex flex-col items-center">
                   <p className="text-sm leading-4 font-semibold text-bookWhite mb-1">Need to step away?</p>
-                  <p className="text-xs leading-3 font-thin text-center text-bookWhite/80 mb-2">If you leave this club, you’ll no longer have access, receive updates or participate in future discussions.</p>
+                  <p className="text-xs leading-3 font-thin text-center text-bookWhite/80 mb-2">If you leave this club, you'll no longer have access, receive updates or participate in future discussions.</p>
                   <Button
                     size="sm"
                     variant="outline"
@@ -3128,6 +4016,515 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
 
       {/* Voting Management Dialog */}
       <VotingManagementDialog />
+
+      {/* Complete Meeting Dialog */}
+      <Dialog open={completeMeetingDialogOpen} onOpenChange={setCompleteMeetingDialogOpen}>
+        <DialogContent className="w-[85vw] rounded-2xl max-h-[90vh] flex flex-col p-3">
+          <Image 
+            src="/images/background.png"
+            alt="Complete Meeting"
+            width={1622}
+            height={2871}
+            className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+          />
+          <DialogHeader className="pt-4 flex-shrink-0">
+            <DialogTitle>Complete Meeting</DialogTitle>
+            <DialogDescription className="font-serif leading-4">
+              Done discussing? Let’s wrap things up, write what was discussed and confirm who joined.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {meetingCompletionData && (
+            <div className="flex-1 overflow-y-auto px-2">
+              <div className="pb-2">
+              {/* Meeting Info */}
+              <div className="bg-bookWhite/15 p-2 rounded-lg">
+                <div className="flex items-center gap-1">
+                  {meetingCompletionData.meeting.book && (
+                    <div className="w-12 h-16 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
+                      <img 
+                        src={meetingCompletionData.meeting.book.cover_url || "/placeholder.svg"} 
+                        alt={meetingCompletionData.meeting.book.title} 
+                        className="max-h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-medium text-sm">
+                      {meetingCompletionData.meeting.title || "Club Meeting"}
+                    </p>
+                    {meetingCompletionData.meeting.book && (
+                      <p className="text-xs text-muted-foreground">
+                        Discussing: {meetingCompletionData.meeting.book.title}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(meetingCompletionData.meeting.meeting_date).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Meeting Notes - Required for all meeting types */}
+              <div className="space-y-1 mt-3">
+                <Label htmlFor="meeting-notes" className="text-sm">Meeting Notes *</Label>
+                <Textarea
+                  id="meeting-notes"
+                  placeholder="Summarize what happened in this meeting..."
+                  value={meetingNotes}
+                  onChange={(e) => setMeetingNotes(e.target.value)}
+                  className="bg-bookWhite/80 font-serif text-sm font-medium text-secondary leading-4 placeholder:leading-3 placeholder:text-secondary/60 placeholder:font-serif placeholder:italic placeholder:text-sm min-h-[80px]"
+                  rows={3}
+                />
+              </div>
+
+              {/* Book Completion Section - Only for DISCUSSION meetings about current book */}
+              {meetingCompletionData.meeting.meeting_type === 'DISCUSSION' && 
+               meetingCompletionData.meeting.current_book && 
+               meetingCompletionData.meeting.book?.id === meetingCompletionData.meeting.current_book.id && (
+                <div className="space-y-1 p-3 bg-primary/15 rounded-lg mt-6">
+                  <h4 className="font-medium text-sm text-bookWhite leading-4">Book Discussion Status & Rating</h4>
+                  <p className="text-xs text-bookWhite font-serif leading-4">
+                    Since this is a discussion meeting about your current book "{meetingCompletionData.meeting.current_book.title}", 
+                    please mark whether the book was completed by the club and add discussion notes.
+                  </p>
+                  
+                  <div className="space-y-2 pt-2">
+                    {/* Book Status Selection */}
+                    <div className="space-y-1">
+                      <Label className="text-sm">Book Status *</Label>
+                      <Select value={meetingBookStatus} onValueChange={(value) => setMeetingBookStatus(value as 'COMPLETED' | 'ABANDONED')}>
+                        <SelectTrigger className="bg-bookWhite/80">
+                          <SelectValue placeholder="Did the club complete this book?" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="COMPLETED" className="text-sm">Book Completed</SelectItem>
+                          <SelectItem value="ABANDONED" className="text-sm">Book Not Completed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Book Rating - Only for completed books */}
+                    {meetingBookStatus === 'COMPLETED' && (
+                      <div className="space-y-1">
+                        <Label className="text-sm">Club Rating *</Label>
+                        <Select value={meetingBookRating} onValueChange={setMeetingBookRating}>
+                          <SelectTrigger className="bg-bookWhite/80">
+                            <SelectValue placeholder="How did the club rate this book?" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">1 - DNF / Frustrating Read</SelectItem>
+                            <SelectItem value="2">2 - Underwhelming</SelectItem>
+                            <SelectItem value="3">3 - Decent, not memorable</SelectItem>
+                            <SelectItem value="4">4 - Like it / Great discussion pick</SelectItem>
+                            <SelectItem value="5">5 - Masterpiece / Instant favorite</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {/* Book Discussion Notes */}
+                    <div className="space-y-1">
+                      <Label htmlFor="book-notes" className="text-sm">
+                        {meetingBookStatus === 'COMPLETED' ? 'Discussion Notes *' : 'Reason & Notes *'}
+                      </Label>
+                      <Textarea
+                        id="book-notes"
+                        placeholder={
+                          meetingBookStatus === 'COMPLETED' 
+                            ? "Summarize the key points from your book discussion..." 
+                            : "Why wasn't the book completed? What happened?"
+                        }
+                        value={meetingBookNotes}
+                        onChange={(e) => setMeetingBookNotes(e.target.value)}
+                        className="bg-bookWhite/80 font-serif font-medium text-secondary leading-3 placeholder:text-secondary/60 placeholder:font-serif placeholder:italic placeholder:text-sm"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Attendance Marking */}
+              <div className="space-y-2 pt-6">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-sm text-bookWhite">Mark Attendance</h4>
+                  <Badge variant="outline" className="text-xs bg-bookWhite/20 text-primary font-thin border-none">
+                    {Object.values(attendanceMarks).filter(Boolean).length} / {meetingCompletionData.attendees.length} attended
+                  </Badge>
+                </div>
+                
+                <p className="text-xs text-bookWhite font-serif"> Use the sliders to mark who actually attended. Defaults set from RSVP status. </p>
+
+                <ScrollArea className="h-[200px] md:h-[300px] bg-bookWhite/15 rounded-lg p-3 mt-2">
+                  <div className="space-y-2">
+                    {meetingCompletionData.attendees.map((attendee) => {
+                      const isMarkedAsAttended = attendanceMarks[attendee.userId] ?? false;
+                      
+                      return (
+                        <div key={attendee.userId} className="flex items-center justify-between p-2 bg-bookWhite/80 rounded-lg">
+                          <div className="flex items-center gap-3 flex-1">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage 
+                                src={attendee.user.avatar_url || "/placeholder.svg"} 
+                                alt={attendee.user.display_name} 
+                              />
+                              <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                                {attendee.user.display_name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate text-secondary">{attendee.user.display_name}</p>
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs text-secondary">RSVP:</span>
+                                <Badge 
+                                  variant="outline" 
+                                  className='text-xs border-none bg-bookWhite text-secondary/60'
+                                >
+                                  {attendee.rsvpStatus.toLowerCase().replace('_', ' ')}
+                                </Badge>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-col items-end gap-1">
+                            <div className="flex items-center gap-2">
+                              {/* <span className={`text-xs font-medium min-w-[45px] text-right ${!isMarkedAsAttended ? 'text-red-600' : 'text-gray-400'}`}>
+                                Absent
+                              </span> */}
+                              <Switch
+                                checked={isMarkedAsAttended}
+                                onCheckedChange={() => toggleAttendanceMark(attendee.userId)}
+                                className="data-[state=checked]:bg-green-600"
+                              />
+                              {/* <span className={`text-xs font-medium min-w-[55px] ${isMarkedAsAttended ? 'text-green-600' : 'text-gray-400'}`}>
+                                Attended
+                              </span> */}
+                            </div>
+                            {/* Visual indicator of default vs manual change */}
+                            {/* {attendee.actuallyAttended === null && (
+                              <span className="text-xs text-blue-600 font-medium">
+                                {((attendee.rsvpStatus === 'ATTENDING' || attendee.rsvpStatus === 'MAYBE') && isMarkedAsAttended) ||
+                                 ((attendee.rsvpStatus === 'NOT_ATTENDING' || attendee.rsvpStatus === 'NOT_RESPONDED') && !isMarkedAsAttended)
+                                  ? 'Auto-set' : 'Modified'}
+                              </span>
+                            )} */}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              </div>
+              </div>
+            </div>
+          )}
+          
+          <DialogFooter className="pt-2 flex-shrink-0">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setCompleteMeetingDialogOpen(false);
+                setMeetingCompletionData(null);
+                setAttendanceMarks({});
+                setMeetingNotes("");
+                setMeetingBookRating("");
+                setMeetingBookNotes("");
+                setMeetingBookStatus("");
+              }}
+              disabled={completingMeeting}
+              className="rounded-full"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCompleteMeeting}
+              disabled={completingMeeting || !meetingCompletionData}
+              className="bg-primary hover:bg-primary-light text-secondary rounded-full"
+            >
+              {completingMeeting ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  Completing...
+                </>
+              ) : (
+                <>
+                  <Check className="mr-2 h-3 w-3" />
+                  Complete Meeting
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* RSVP Details Dialog */}
+      <Dialog open={rsvpDetailsDialog.isOpen} onOpenChange={handleCloseRsvpDetails}>
+        <DialogContent className="w-[85vw] rounded-2xl max-h-[90vh] flex flex-col p-3">
+          <Image 
+            src="/images/background.png"
+            alt="RSVP Details"
+            width={1622}
+            height={2871}
+            className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+          />
+          <DialogHeader className="pt-4 flex-shrink-0 pb-2">
+            <DialogTitle>
+              RSVP: {rsvpDetailsDialog.meeting && rsvpDetailsDialog.selectedStatus ? `${rsvpDetailsDialog.selectedStatus.toLowerCase().replace('_', ' ')}` : 'Details' }
+            </DialogTitle>
+          </DialogHeader>
+          
+          {rsvpDetailsDialog.meeting && rsvpDetailsDialog.selectedStatus && (
+            <div className="flex-1 overflow-y-auto px-2">
+              <div className="space-y-2 pb-4">
+                {(() => {
+                  const members = getMembersByRsvpStatus(rsvpDetailsDialog.meeting, rsvpDetailsDialog.selectedStatus);
+                  
+                  if (members.length === 0) {
+                    return (
+                      <div className="text-center py-8">
+                        <p className="text-sm text-muted-foreground">
+                          {rsvpDetailsDialog.selectedStatus === 'NOT_RESPONDED' ? 'All members responded' : `No members have responded "${rsvpDetailsDialog.selectedStatus.toLowerCase().replace('_', ' ')}" yet`}
+                        </p>
+                      </div>
+                    );
+                  }
+                  
+                  return members.map((attendee) => (
+                    <div key={attendee.user_id} className="flex items-center gap-3 p-2 bg-bookWhite/80 rounded-lg">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage 
+                          src={attendee.user.avatar_url || "/placeholder.svg"} 
+                          alt={attendee.user.display_name} 
+                        />
+                        <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                          {attendee.user.display_name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="font-medium text-sm text-secondary">{attendee.user.display_name}</p>
+                        <div className="flex items-center gap-1">
+                          {/* <Badge 
+                            variant="outline" 
+                            className={`text-xs border-none ${
+                              rsvpDetailsDialog.selectedStatus === 'ATTENDING' ? 'bg-green-100 text-green-700' :
+                              rsvpDetailsDialog.selectedStatus === 'MAYBE' ? 'bg-yellow-100 text-yellow-700' :
+                              rsvpDetailsDialog.selectedStatus === 'NOT_ATTENDING' ? 'bg-red-100 text-red-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}
+                          >
+                            {rsvpDetailsDialog.selectedStatus.toLowerCase().replace('_', ' ')}
+                          </Badge> */}
+                          {attendee.responded_at && (
+                            <span className="text-xs text-secondary font-serif">
+                              {new Date(attendee.responded_at).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit'
+                              })}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </div>
+          )}
+          
+          {/* <DialogFooter className="pt-2 flex-shrink-0">
+            <Button 
+              variant="outline" 
+              onClick={handleCloseRsvpDetails}
+              className="rounded-full"
+            >
+              Close
+            </Button>
+          </DialogFooter> */}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Meeting Dialog */}
+      <Dialog open={isEditMeetingDialogOpen} onOpenChange={setIsEditMeetingDialogOpen}>
+        <DialogContent className="w-[85vw] rounded-2xl max-h-[90vh] overflow-y-auto">
+          <Image 
+            src="/images/background.png"
+            alt="Edit Meeting"
+            width={1622}
+            height={2871}
+            className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+          />
+          <DialogHeader className="pt-8">
+            <DialogTitle>Edit Meeting</DialogTitle>
+            <DialogDescription>
+              Update the meeting details below.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={handleUpdateMeeting} className="space-y-4">
+            <div className="grid gap-4 py-4">
+              {/* Meeting Title */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-title">Meeting Title *</Label>
+                <Input
+                  id="edit-title"
+                  value={meetingFormData.title}
+                  onChange={(e) => setMeetingFormData(prev => ({ ...prev, title: e.target.value }))}
+                  className="bg-bookWhite/80 font-medium"
+                  placeholder="Enter meeting title"
+                />
+              </div>
+
+              {/* Meeting Description */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea
+                  id="edit-description"
+                  value={meetingFormData.description}
+                  onChange={(e) => setMeetingFormData(prev => ({ ...prev, description: e.target.value }))}
+                  className="bg-bookWhite/80 font-serif font-medium text-secondary placeholder:font-serif placeholder:italic placeholder:text-sm"
+                  placeholder="What will you discuss or do?"
+                  rows={3}
+                />
+              </div>
+
+              {/* Date and Time */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-date">Date *</Label>
+                  <Input
+                    id="edit-date"
+                    type="date"
+                    value={meetingFormData.meeting_date}
+                    onChange={(e) => setMeetingFormData(prev => ({ ...prev, meeting_date: e.target.value }))}
+                    className="bg-bookWhite/80 font-medium"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-time">Time *</Label>
+                  <Input
+                    id="edit-time"
+                    type="time"
+                    value={meetingFormData.meeting_time}
+                    onChange={(e) => setMeetingFormData(prev => ({ ...prev, meeting_time: e.target.value }))}
+                    className="bg-bookWhite/80 font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Meeting Type */}
+              <div className="space-y-2">
+                <Label>Meeting Type *</Label>
+                <Select 
+                  value={meetingFormData.meeting_type} 
+                  onValueChange={(value) => setMeetingFormData(prev => ({ ...prev, meeting_type: value as any }))}
+                >
+                  <SelectTrigger className="bg-bookWhite/80">
+                    <SelectValue placeholder="Select meeting type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DISCUSSION">Book Discussion</SelectItem>
+                    <SelectItem value="BOOK_SELECTION">Book Selection</SelectItem>
+                    <SelectItem value="AUTHOR_QA">Author Q&A</SelectItem>
+                    <SelectItem value="SOCIAL">Social Meetup</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Meeting Mode */}
+              <div className="space-y-2">
+                <Label>Meeting Format *</Label>
+                <Select 
+                  value={meetingFormData.meeting_mode} 
+                  onValueChange={(value) => setMeetingFormData(prev => ({ ...prev, meeting_mode: value as any }))}
+                >
+                  <SelectTrigger className="bg-bookWhite/80">
+                    <SelectValue placeholder="Select format" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="IN_PERSON">In Person</SelectItem>
+                    <SelectItem value="VIRTUAL">Virtual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Location */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-location">
+                  {meetingFormData.meeting_mode === 'VIRTUAL' ? 'Meeting Link *' : 'Location *'}
+                </Label>
+                <Input
+                  id="edit-location"
+                  value={meetingFormData.location}
+                  onChange={(e) => setMeetingFormData(prev => ({ ...prev, location: e.target.value }))}
+                  className="bg-bookWhite/80 font-medium"
+                  placeholder={meetingFormData.meeting_mode === 'VIRTUAL' ? 'https://zoom.us/j/...' : 'Address or location name'}
+                />
+              </div>
+
+              {/* Book Selection for Discussion meetings */}
+              {meetingFormData.meeting_type === 'DISCUSSION' && club?.current_book && (
+                <div className="space-y-2">
+                  <Label>Discussion Book</Label>
+                  <div className="flex items-center gap-3 p-3 bg-secondary/10 rounded-lg">
+                    <div className="w-12 h-16 bg-muted/30 rounded flex items-center justify-center overflow-hidden">
+                      <img
+                        src={club.current_book.cover_url || "/placeholder.svg"}
+                        alt={club.current_book.title}
+                        className="max-h-full object-cover"
+                      />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">{club.current_book.title}</p>
+                      <p className="text-xs text-muted-foreground">{club.current_book.author}</p>
+                      <p className="text-xs text-green-600 font-medium">Current club book</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button 
+                type="button"
+                variant="outline" 
+                onClick={() => setIsEditMeetingDialogOpen(false)}
+                disabled={updatingMeeting}
+                className="rounded-full"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={updatingMeeting || !meetingFormData.title || !meetingFormData.meeting_date || !meetingFormData.meeting_time}
+                className="bg-primary hover:bg-primary-light text-secondary rounded-full"
+              >
+                {updatingMeeting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Update Meeting
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

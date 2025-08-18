@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Loader2, Target, BookOpen, Calendar, Trophy, Plus, X, EllipsisVertical } from "lucide-react";
+import { Loader2, Target, BookOpen, Calendar, Trophy, Plus, X, EllipsisVertical, AlertTriangle, Edit2 } from "lucide-react";
 import { toast } from "sonner";
 import { AchievementCard } from './achievement-card';
 import Image from "next/image";
 import { useSession } from 'next-auth/react';
 import { Separator } from '@radix-ui/react-dropdown-menu';
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { removeCongratulationsForGoal } from '@/lib/goal-congratulations';
+import { useGoals } from '@/lib/goals-context';
 
 interface CustomGoal {
   id: string;
@@ -21,11 +23,14 @@ interface CustomGoal {
   target_books: number;
   time_period: string;
   created_at: string;
+  start_date?: string;
+  end_date?: string;
   progress: {
     current_value: number;
     target_value: number;
     progress_percentage: number;
   };
+  is_completed?: boolean;
 }
 
 interface CustomGoalsDialogProps {
@@ -42,8 +47,12 @@ const TIME_PERIODS = [
 
 export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps) {
   const { data: session } = useSession();
+  
+  // Use local state for all goals (including completed ones) instead of context
   const [goals, setGoals] = useState<CustomGoal[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   const [creating, setCreating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   
@@ -51,6 +60,12 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
   const [targetBooks, setTargetBooks] = useState<string>('');
   const [timePeriod, setTimePeriod] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState<Record<string, boolean>>({});
+  
+  // Edit state
+  const [editingGoal, setEditingGoal] = useState<CustomGoal | null>(null);
+  const [editTargetBooks, setEditTargetBooks] = useState<string>('');
+  const [editTimePeriod, setEditTimePeriod] = useState<string>('');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Confirmation dialog state
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
@@ -63,38 +78,38 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
     goalName: null
   });
 
-  // Fetch existing goals
+  // Fetch all goals (including completed ones) when dialog opens
   useEffect(() => {
     if (open) {
-      fetchGoals();
+      fetchAllGoals();
     }
   }, [open]);
 
-  const fetchGoals = async () => {
+  const fetchAllGoals = async () => {
     if (!session?.supabaseAccessToken) {
-      toast.error('Authentication required');
       return;
     }
 
     try {
       setLoading(true);
+      setError(null);
+
       const response = await fetch('/api/achievements/custom-goals', {
         headers: {
           'Authorization': `Bearer ${session.supabaseAccessToken}`,
           'Content-Type': 'application/json',
         },
       });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to fetch goals');
+        throw new Error(`Failed to fetch goals: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
-      setGoals(data);
-      console.log("goals data: ", data);
-    } catch (err) {
-      console.error('Error fetching goals:', err);
-      toast.error('Failed to load goals');
+      setGoals(data); // Don't filter out completed goals here
+    } catch (error) {
+      console.error('Error fetching custom goals:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load goals');
     } finally {
       setLoading(false);
     }
@@ -142,7 +157,7 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
       }
 
       const newGoal = await response.json();
-      setGoals(prev => [...prev, newGoal]);
+      fetchAllGoals(); // Refresh goals after successful creation
       
       // Reset form
       setTargetBooks('');
@@ -195,7 +210,13 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
         throw new Error('Failed to delete goal');
       }
 
-      setGoals(prev => prev.filter(goal => goal.id !== deleteConfirmation.goalId));
+      fetchAllGoals(); // Refresh goals after successful deletion
+      
+      // Clean up congratulations tracking for deleted goal
+      if (deleteConfirmation.goalId) {
+        removeCongratulationsForGoal(deleteConfirmation.goalId);
+      }
+      
       toast.success('Goal deleted successfully');
       cancelDeleteConfirmation();
     } catch (err: any) {
@@ -209,6 +230,98 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
   const getTimePeriodLabel = (period: string) => {
     const timePeriod = TIME_PERIODS.find(tp => tp.value === period);
     return timePeriod ? timePeriod.label : period;
+  };
+
+  // Helper function to format time remaining for goals
+  const formatTimeRemaining = (endDate: string): { text: string; isPastDue: boolean } => {
+    const now = new Date();
+    const end = new Date(endDate);
+    const diffMs = end.getTime() - now.getTime();
+    
+    if (diffMs <= 0) {
+      return { text: 'Past due', isPastDue: true };
+    }
+    
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    
+    if (diffDays > 30) {
+      const months = Math.floor(diffDays / 30);
+      return { text: `${months} month${months > 1 ? 's' : ''} left`, isPastDue: false };
+    } else if (diffDays > 0) {
+      return { text: `${diffDays} day${diffDays > 1 ? 's' : ''} left`, isPastDue: false };
+    } else if (diffHours > 0) {
+      return { text: `${diffHours} hour${diffHours > 1 ? 's' : ''} left`, isPastDue: false };
+    } else {
+      const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      return { text: `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} left`, isPastDue: false };
+    }
+  };
+
+  const startEditingGoal = (goal: CustomGoal) => {
+    setEditingGoal(goal);
+    setEditTargetBooks(goal.target_books.toString());
+    setEditTimePeriod(goal.time_period);
+  };
+
+  const cancelEditingGoal = () => {
+    setEditingGoal(null);
+    setEditTargetBooks('');
+    setEditTimePeriod('');
+  };
+
+  const handleUpdateGoal = async () => {
+    if (!session?.supabaseAccessToken || !editingGoal) {
+      toast.error('Authentication required');
+      return;
+    }
+
+    if (!editTargetBooks || !editTimePeriod) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    const booksNumber = parseInt(editTargetBooks);
+    if (isNaN(booksNumber) || booksNumber <= 0) {
+      toast.error('Please enter a valid number of books');
+      return;
+    }
+
+    if (booksNumber > 1000) {
+      toast.error('Goal cannot exceed 1000 books');
+      return;
+    }
+
+    try {
+      setIsUpdating(true);
+      const response = await fetch(`/api/achievements/custom-goals/${editingGoal.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          target_books: booksNumber,
+          time_period: editTimePeriod,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update goal');
+      }
+
+      const updatedGoal = await response.json();
+      fetchAllGoals(); // Refresh goals after successful update
+      
+      cancelEditingGoal();
+      toast.success('Goal updated successfully! The deadline has been extended.');
+    } catch (err: any) {
+      console.error('Error updating goal:', err);
+      toast.error(err.message || 'Failed to update goal');
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const handleClose = () => {
@@ -226,7 +339,7 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
             Reading Goals
           </DialogTitle>
           <DialogDescription className="text-bookWhite/80 font-serif">
-            Set and track your personal book reading goals
+            Plan, track, and conquer your reading goals
           </DialogDescription>
         </DialogHeader>
         
@@ -252,8 +365,21 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
               {/* Existing Goals */}
               {goals.length > 0 && (
                 <div className="space-y-3">
-                  {goals.map((goal) => (
-                    <div key={goal.id} className="relative">
+                  {goals.map((goal) => {
+                    const timeInfo = goal.end_date ? formatTimeRemaining(goal.end_date) : null;
+                    const isPastDue = timeInfo?.isPastDue && !goal.is_completed;
+                    
+                    return (
+                    <div key={goal.id} className={`relative ${isPastDue ? 'bg-orange-100/20 border border-orange-400/30 rounded-lg p-2' : ''}`}>
+                      {/* Past Due badge */}
+                      {isPastDue && (
+                        <div className="flex items-center gap-1 bg-orange-400/20 px-2 py-0.5 rounded-full mb-2">
+                          <AlertTriangle className="h-3 w-3 text-orange-300" />
+                          <span className="text-xs text-orange-300 font-medium">Past Due</span>
+                        </div>
+                      )}
+                      
+                      {/* Achievement Card Section - now contains the menu and time info */}
                       <div className="[&_.achievement-icon]:text-3xl">
                         <AchievementCard
                           achievement={{
@@ -268,44 +394,19 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
                             target_value: goal.progress.target_value,
                             progress_percentage: goal.progress.progress_percentage,
                           }}
-                          isEarned={false}
+                          pastDueTime={isPastDue}
+                          timeInfo={timeInfo}
+                          dropDelete={isDeleting[goal.id]}
+                          goalStatus={goal.is_completed}
+                          dropSelect1={() => startEditingGoal(goal)}
+                          dropSelect2={() => showDeleteConfirmation(goal.id, goal.name)}
+                          isEarned={goal.is_completed || false}
                           showProgress={true}
                         />
                       </div>
-                      
-                      {/* 3-dots dropdown menu - positioned in top-right */}
-                      <DropdownMenu.Root>
-                        <DropdownMenu.Trigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="absolute top-2 right-2 text-xs flex items-center px-1 py-1 rounded-full h-6 w-6 bg-transparent border border-none hover:bg-bookWhite z-10"
-                            disabled={isDeleting[goal.id]}
-                          >
-                            {isDeleting[goal.id] ? (
-                              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
-                            ) : (
-                              <EllipsisVertical className="h-3 w-3 text-secondary/60" />
-                            )}
-                          </Button>
-                        </DropdownMenu.Trigger>
-
-                        <DropdownMenu.Content
-                          className="w-auto min-w-[120px] rounded-xl bg-bookWhite shadow-xl p-1 border border-gray-200 z-[100]"
-                          sideOffset={5}
-                          align="end"
-                        >
-                          <DropdownMenu.Item
-                            onSelect={() => showDeleteConfirmation(goal.id, goal.name)}
-                            className="px-3 py-2 text-xs text-center bg-red-700/90 text-bookWhite rounded-md cursor-pointer hover:bg-red-600 focus:bg-red-600 focus:outline-none transition-colors"
-                            disabled={isDeleting[goal.id]}
-                          >
-                            Delete Goal
-                          </DropdownMenu.Item>
-                        </DropdownMenu.Content>
-                      </DropdownMenu.Root>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
@@ -437,6 +538,103 @@ export function CustomGoalsDialog({ open, onOpenChange }: CustomGoalsDialogProps
                 </>
               ) : (
                 'Delete Goal'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Goal Dialog */}
+      <Dialog open={!!editingGoal} onOpenChange={() => editingGoal && cancelEditingGoal()}>
+        <DialogContent className="w-[85vw] max-w-[400px] p-0">
+          <div className="absolute inset-0 z-[-1]">
+            <Image 
+              src="/images/background.png"
+              alt="Edit Reading Goal | BookCrush"
+              width={1622}
+              height={2871}
+              className="w-full h-full object-cover rounded-lg"
+            />
+          </div>
+          
+          <DialogHeader className="px-6 pt-6 relative z-20">
+            <DialogTitle className="text-bookWhite flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-orange-400" />
+              Edit Past Due Goal
+            </DialogTitle>
+            <DialogDescription className="text-bookWhite/80 font-serif">
+              Update your goal to extend the deadline and continue tracking your progress.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 py-4 space-y-4 relative z-10">
+            {editingGoal && (
+              <div className="bg-orange-100/20 border border-orange-400/30 rounded-lg p-3 mb-4">
+                <p className="text-bookWhite/90 text-sm font-medium">{editingGoal.name}</p>
+                <p className="text-bookWhite/70 text-xs">
+                  Current progress: {editingGoal.progress.current_value}/{editingGoal.progress.target_value} books
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <Label htmlFor="edit-target-books" className="text-bookWhite/90 text-sm">
+                  Number of Books
+                </Label>
+                <Input
+                  id="edit-target-books"
+                  type="number"
+                  min="1"
+                  max="1000"
+                  value={editTargetBooks}
+                  onChange={(e) => setEditTargetBooks(e.target.value)}
+                  placeholder="e.g., 12"
+                  className="bg-bookWhite/20 border-bookWhite/20 text-bookWhite placeholder:text-bookWhite/50"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="edit-time-period" className="text-bookWhite/90 text-sm">
+                  New Time Period (from today)
+                </Label>
+                <Select value={editTimePeriod} onValueChange={setEditTimePeriod}>
+                  <SelectTrigger className="bg-bookWhite/20 border-bookWhite/20 text-bookWhite">
+                    <SelectValue placeholder="Select time period" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIME_PERIODS.map((period) => (
+                      <SelectItem key={period.value} value={period.value}>
+                        {period.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="px-6 pb-6 flex justify-center gap-3 relative z-10">
+            <Button
+              variant="outline"
+              onClick={cancelEditingGoal}
+              disabled={isUpdating}
+              className="bg-bookWhite/10 border-bookWhite/20 text-bookWhite hover:bg-bookWhite/20"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateGoal}
+              disabled={isUpdating}
+              className="bg-orange-600 hover:bg-orange-500 text-white"
+            >
+              {isUpdating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                'Update Goal'
               )}
             </Button>
           </DialogFooter>

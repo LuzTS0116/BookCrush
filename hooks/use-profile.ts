@@ -5,7 +5,6 @@ import { getDisplayAvatarUrl } from '@/lib/supabase-utils'
 interface Profile {
   id: string
   display_name: string
-  nickname?: string
   avatar_url?: string
   email?: string
 }
@@ -162,7 +161,7 @@ export function useUserAvatar(userId: string | null | undefined) {
 
   const avatarUrl = userProfile?.avatar_url || "/placeholder.svg?height=32&width=32"
   
-  const displayName = userProfile?.display_name || userProfile?.nickname || "Reader"
+  const displayName = userProfile?.display_name || "Reader"
   
   const initials = displayName
     .split(' ')

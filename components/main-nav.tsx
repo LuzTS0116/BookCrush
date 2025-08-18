@@ -98,7 +98,7 @@ export function MainNav() {
   return (
     <div className={cn('bg-secondary-light rounded-bl-2xl rounded-br-2xl', { 'hidden': shouldHideNav })}>
       <div className="flex h-16 items-center px-4 container mx-auto">
-        <Link href="/dashboard" className="flex items-center gap-2 mr-0 w-[55vw] max-w-[400px] lg:w-[12vw]">
+        <Link href="/dashboard" className="flex items-center gap-2 mr-0 w-[55vw] max-w-[400px] md:w-[24vw] lg:w-[12vw]">
           <Image 
               src="/images/main-logo.svg"
               alt="Reading a Book in a Castle | BookCrush"

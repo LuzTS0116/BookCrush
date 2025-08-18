@@ -856,7 +856,7 @@ export default function CalendarMain() {
             </DialogContent>
           </Dialog>
 
-          <div className="grid gap-6 md:grid-cols-[300px_1fr]">
+          <div className="grid gap-6 md:grid-cols-[332px_1fr]">
             <Card className="bg-secondary-light/35 rounded-xl">
               <CardContent className="p-0 py-3">
                 <Calendar 
@@ -898,19 +898,19 @@ export default function CalendarMain() {
               </CardContent>
             </Card>
 
-            <div className="space-y-6">
+            <div className="space-y-4">
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle>Upcoming Meetings</CardTitle>
                   <CardDescription className="font-serif font-normal">Your upcoming book club meetings</CardDescription>
                 </CardHeader>
                 <CardContent className="px-2">
-                  <div className="space-y-6">
+                  <div className="space-y-3">
                     {upcomingMeetings.length === 0 ? (
                       <p className="text-center text-muted-foreground py-8">No upcoming meetings scheduled.</p>
                     ) : (
                       upcomingMeetings.map((meeting) => (
-                        <div key={meeting.id} className="flex flex-col md:flex-row gap-0 p-4 rounded-lg bg-secondary-light/5">
+                        <div key={meeting.id} className="flex flex-col gap-0 p-4 rounded-lg bg-secondary-light/5">
                           <div className="flex flex-row items-start justify-between">
                             <div className="flex flex-col">
                               {meeting.club.name && (
@@ -927,15 +927,18 @@ export default function CalendarMain() {
                             </Badge>
                           </div>
                           <div className="flex flex-row gap-2 items-center">
-                            <Link href={`/books/${meeting.book?.id}`}>
-                            <div className="w-24 h-36 bg-muted/30 rounded flex items-center justify-center overflow-hidden shrink-0">
-                              <img
-                                src={meeting.book?.cover_url || "/placeholder.svg"}
-                                alt={`${meeting.book?.title} cover`}
-                                className="object-cover h-full w-full" // Added w-full
-                              />
-                            </div>
-                            </Link>
+                            {meeting.book && (
+                              <Link href={`/books/${meeting.book?.id}`}>
+                                <div className="w-24 h-36 bg-muted/30 rounded flex items-center justify-center overflow-hidden shrink-0">
+                                  <img
+                                    src={meeting.book?.cover_url || "/placeholder.svg"}
+                                    alt={`${meeting.book?.title} cover`}
+                                    className="object-cover h-full w-full" // Added w-full
+                                  />
+                                </div>
+                              </Link>
+                            )}
+                            
                             <div className="flex flex-col">
                               {/* I WANT THE MEETING SPAN 5 OR LESS HERE */}
                               <p className="font-semibold text-secondary">{meeting.book?.title}</p>
@@ -958,7 +961,7 @@ export default function CalendarMain() {
                             </div>
                           </div>
 
-                          <div className="md:w-3/4 mt-2">
+                          <div className="mt-2">
 
                             <p className="py-1 pl-2 pr-2.5 rounded-r-full bg-secondary/10 text-secondary/50 font-semibold text-xs leading-3 mb-1 inline-block">{meeting.meeting_type.replace('_', ' ')}</p>
 
@@ -969,25 +972,6 @@ export default function CalendarMain() {
                             {meeting.description && (
                               <p className="text-xs text-secondary/50 font-serif font-medium leading-3 mb-3">{meeting.description}</p>
                             )}
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-1">
-                              {/* {meeting.book && (
-                                <div className="flex items-center gap-2">
-                                  <BookOpen className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-sm">{meeting.book.title}</span>
-                                </div>
-                              )} */}
-                              {/* <div className="flex items-center gap-2">
-                                <Users className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm">{meeting.attendees_count} attending</span>
-                              </div> */}
-                              {/* {meeting.location && (
-                                <div className="flex items-center gap-2 md:col-span-2">
-                                  <Clock className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-sm">{meeting.location}</span>
-                                </div>
-                              )} */}
-                            </div>
 
                             <div className="flex items-end justify-end">
                               <div className="flex items-center justify-between w-full">
@@ -1040,52 +1024,69 @@ export default function CalendarMain() {
 
               {pastMeetings.length > 0 && (
                 <Card>
-                  <CardHeader>
+                  <CardHeader className="pb-3">
                     <CardTitle>Past Meetings</CardTitle>
                     <CardDescription className="font-serif font-normal">Review your previous book club discussions</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
+                  <CardContent className="px-2">
+                    <div className="space-y-3">
                       {pastMeetings.slice(0, 3).map((meeting) => (
-                        <div key={meeting.id} className="flex flex-col md:flex-row gap-4 p-4 rounded-lg border opacity-70">
-                          <div className="md:w-1/4 flex flex-col justify-center items-center bg-muted rounded-lg p-4">
-                            <CalendarDays className="h-8 w-8 text-muted-foreground mb-2" />
-                            <p className="font-bold text-center">{new Date(meeting.date).toLocaleDateString()}</p>
-                            <p className="text-sm text-muted-foreground text-center">
-                              {formatMeetingDateTime(meeting.date, meeting.duration_minutes)}
-                            </p>
+                        <div key={meeting.id} className="flex flex-col gap-0 p-4 rounded-lg bg-secondary-light/5">
+                          <div className="flex flex-row items-start justify-between">
+                            <div className="flex flex-col">
+                              {meeting.club.name && (
+                              <>  
+                                <p className="font-serif font-medium leading-none text-sm">book club</p>
+                                <Link href={`/clubs/${meeting.club?.id}`}>
+                                  <p className="text-lg leading-none text-secondary font-bold mb-2">{meeting.club.name}</p>
+                                </Link>
+                              </>
+                              )}
+                              </div>
+                              <Badge variant="secondary" className="w-fit ml-1">
+                                {meeting.meeting_mode.replace('_', ' ')}
+                              </Badge>
+                          </div>
+                          <div className="flex flex-row gap-2 items-center">
+                            {meeting.book && (
+                              <Link href={`/books/${meeting.book?.id}`}>
+                                <div className="w-24 h-36 bg-muted/30 rounded flex items-center justify-center overflow-hidden shrink-0">
+                                  <img
+                                    src={meeting.book?.cover_url || "/placeholder.svg"}
+                                    alt={`${meeting.book?.title} cover`}
+                                    className="object-cover h-full w-full" // Added w-full
+                                  />
+                                </div>
+                              </Link>
+                            )}
+                            
+                            <div className="flex flex-col">
+                              {/* I WANT THE MEETING SPAN 5 OR LESS HERE */}
+                              <p className="font-semibold text-secondary">{meeting.book?.title}</p>
+                              <span className="flex items-center leading-4 text-sm font-serif font-normal"><CalendarDays className="w-3 h-3 mr-1 text-accent-variant"/>{new Date(meeting.date).toLocaleDateString('en-US', {
+                                month: 'long',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })}</span>
+                              <span className="flex items-center leading-4 text-sm font-serif font-normal"><Clock className="w-3 h-3 mr-1 text-accent-variant"/>{formatMeetingDateTime(meeting.date, meeting.duration_minutes)}</span>
+                              {meeting.location && (
+                                <span className="flex items-center leading-4 text-sm font-serif font-normal">
+                                  {meeting.meeting_mode === 'VIRTUAL' ? <Link2 className="w-3 h-3 mr-1 text-accent-variant"/> : <MapPin className="w-3 h-3 mr-1 text-accent-variant"/>}
+                                  {meeting.meeting_mode === 'VIRTUAL' ? (
+                                    <a href={getSafeUrl(meeting.location)} target="_blank" rel="noopener noreferrer" className="cursor-pointer underline">Meeting link here!</a>
+                                    ) : (
+                                      <span>{meeting.location}</span>
+                                    ) }
+                                </span>
+                              )}
+                            </div>
                           </div>
 
-                          <div className="md:w-3/4">
-                            <div className="flex flex-col md:flex-row justify-between mb-2">
-                              <h3 className="font-bold text-lg">{meeting.title}</h3>
-                              <Badge variant="outline" className="w-fit">
-                                {meeting.club.name}
-                              </Badge>
+                          <div className="mt-2">
+                            <p className="py-1 pl-2 pr-2.5 rounded-r-full bg-secondary/10 text-secondary/50 font-semibold text-xs leading-3 mb-1 inline-block">{meeting.meeting_type.replace('_', ' ')}</p>
+                            <div className="flex flex-col md:flex-row justify-between">
+                              <h3 className="font-semibold text-sm leading-none">{meeting.title}</h3>
                             </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4">
-                              {meeting.book && (
-                                <div className="flex items-center gap-2">
-                                  <BookOpen className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-sm">{meeting.book.title}</span>
-                                </div>
-                              )}
-                              <div className="flex items-center gap-2">
-                                <Users className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm">{meeting.attendees_count} attended</span>
-                              </div>
-                              {meeting.location && (
-                                <div className="flex items-center gap-2 md:col-span-2">
-                                  <Clock className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-sm">{meeting.location}</span>
-                                </div>
-                              )}
-                            </div>
-
-                            <Button variant="outline" size="sm">
-                              View Notes
-                            </Button>
                           </div>
                         </div>
                       ))}

@@ -88,7 +88,7 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({ open, onOpenChange
   }, [open, selectedBook, initialSearchQuery]);
 
   const fetchSuggestions = async (query: string) => {
-    const res = await fetch(`https://openlibrary.org/search.json?title=${encodeURIComponent(query)}&limit=50`);
+    const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&_spellcheck_count=0&limit=10&fields=key,cover_i,title,subtitle,author_name,name&mode=everything`);
     const data = await res.json();
     setSuggestions(data.docs);
   };
@@ -102,14 +102,26 @@ const handleSelect = async (suggestion: BookSuggestion) => {
   let published_date: string | undefined;
   let description: string | undefined;
   let rating: number | undefined;
+  let alternate_titles: string[] = [];
 
   try {
     const res = await fetch(`https://openlibrary.org${workKey}.json`);
     const data = await res.json();
 
     subjects = data.subjects || [];
-    // publishDate = data.created?.value?.slice(0, 10);
     
+    // 🌐 Extract alternate titles from different sources
+    alternate_titles = [
+      ...(data.other_titles || []),
+      ...(data.work_titles || []),
+      ...(data.subtitle ? [data.subtitle] : []),
+    ].filter((title, index, arr) => 
+      title && 
+      typeof title === 'string' && 
+      title.trim() !== '' &&
+      title.toLowerCase() !== suggestion.title.toLowerCase() &&
+      arr.indexOf(title) === index // Remove duplicates
+    );
 
     // 📆 Extract publish year only
     if (data.created?.value) {
@@ -138,6 +150,19 @@ const handleSelect = async (suggestion: BookSuggestion) => {
     const editionRes = await fetch(`https://openlibrary.org${workKey}/editions.json?limit=50`);
     const editionData = await editionRes.json();
     const editions = editionData.entries || [];
+
+    // 🌐 Extract alternate titles from editions (different language versions)
+    const editionTitles = editions
+      .map((edition: any) => edition.title)
+      .filter((title: string) => 
+        title && 
+        typeof title === 'string' && 
+        title.trim() !== '' &&
+        title.toLowerCase() !== suggestion.title.toLowerCase()
+      );
+    
+    // Add unique edition titles to alternate titles
+    alternate_titles = [...new Set([...alternate_titles, ...editionTitles])];
 
     function containsNonLatin(text: string) {
       return /[^\u0000-\u007F]/.test(text);
@@ -221,6 +246,7 @@ const handleSelect = async (suggestion: BookSuggestion) => {
     published_date,
     description,
     rating,
+    alternate_titles,
     // Add default values for required BookDetails properties
     reactions: { counts: { HEART: 0, THUMBS_UP: 0, THUMBS_DOWN: 0, LIKE: 0, total: 0 }, userReaction: null },
     is_favorite: false
@@ -276,7 +302,8 @@ const handleSelect = async (suggestion: BookSuggestion) => {
         subjects: selectedBook.genres,
         coverUrl: selectedBook.cover_url,
         publishDate: selectedBook.published_date,
-        rating: selectedBook.rating
+        rating: selectedBook.rating,
+        alternate_titles: selectedBook.alternate_titles
       };
       
       const createResponse = await fetch('/api/books', {
@@ -683,31 +710,31 @@ const handleSelect = async (suggestion: BookSuggestion) => {
               </div>
             </div>
 
-            <div className="bg-bookWhite/10 bg-cover rounded-xl p-4">
-            <p className="text-bookWhite font-bold text-lg text-center pb-4">Upload the E-book<span className="text-sm font-light italic"> (.epub)</span></p>
-            <div className="grid gap-2">
-              <Label htmlFor="english" className="font-light">english version</Label>
-              <Input
-                id="english"
-                type="file"
-                lang="en"
-                accept=".epub"
-                onChange={e => setEnglishFile(e.target.files?.[0] || null)}
-                disabled={isLoading}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="spanish" className="font-light mt-3">spanish version</Label>
-              <Input
-                id="spanish"
-                type="file"
-                lang="en"
-                accept=".epub"
-                onChange={e => setSpanishFile(e.target.files?.[0] || null)}
-                disabled={isLoading}
-              />
-            </div>
-            </div>
+            {/* <div className="bg-bookWhite/10 bg-cover rounded-xl p-4">
+              <p className="text-bookWhite font-bold text-lg text-center pb-4">Upload the E-book<span className="text-sm font-light italic"> (.epub)</span></p>
+              <div className="grid gap-2">
+                <Label htmlFor="english" className="font-light">english version</Label>
+                <Input
+                  id="english"
+                  type="file"
+                  lang="en"
+                  accept=".epub"
+                  onChange={e => setEnglishFile(e.target.files?.[0] || null)}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="spanish" className="font-light mt-3">spanish version</Label>
+                <Input
+                  id="spanish"
+                  type="file"
+                  lang="en"
+                  accept=".epub"
+                  onChange={e => setSpanishFile(e.target.files?.[0] || null)}
+                  disabled={isLoading}
+                />
+              </div>
+            </div> */}
            {validationError && (
             <p className="text-red-500 text-sm mt-2">{validationError}</p>
           )}

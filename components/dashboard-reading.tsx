@@ -12,9 +12,11 @@ import { motion, AnimatePresence } from "framer-motion"; // Retaining these if y
 import { BookDetails, BookFile, UserBook, StatusDisplay, TabDisplay } from "@/types/book";
 import { toast } from "sonner";
 import { useSession } from "next-auth/react"; // Add session management
+import { useGoals } from '@/lib/goals-context';
 import Image from "next/image";
 import html2canvas from "html2canvas";
 import { ShareAchievementDialog } from "./ShareAchievementDialog";
+import { launchConfettiRealistic } from '@/lib/confetti-utils' // adjust the path to your utils
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -65,7 +67,7 @@ interface FinishedBookDialogProps {
   isOpen: boolean;
   onClose: () => void;
   book: UserBook | null;
-  onSubmit: (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => void;
+  onSubmit: (reviewText: string | null, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null, skipReview: boolean) => void;
   isSubmitting: boolean;
   shareDialogCallback : () => void;
 }
@@ -78,10 +80,12 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [downloadedImageUrl, setDownloadedImageUrl] = useState<string | null>(null);
   const [loadingImage, setLoadingImage] = useState(false);
+  const [hasFiredConfetti, setHasFiredConfetti] = useState(false)
+  const [skipReview, setSkipReview] = useState(false);
 
   const imageRef = useRef(null);
 
-  console.log(book)
+  
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -90,6 +94,19 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
       setRating(null);
     }
   }, [isOpen]);
+
+  // Confetti Effect when opening dialog
+  useEffect(() => {
+    if (isOpen && !hasFiredConfetti) {
+      launchConfettiRealistic()
+      setHasFiredConfetti(true)
+    }
+  }, [isOpen, hasFiredConfetti])
+
+  // Reset it if needed when closing the dialog
+  useEffect(() => {
+    if (!isOpen) setHasFiredConfetti(false)
+  }, [isOpen])
 
   // const handleSubmit = () => {
   //   if (!rating) {
@@ -165,14 +182,22 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
     }
   };
 
-  const handleSubmit = async () => {
-  if (!rating) {
+  const handleSubmit = async (skipReview: boolean = false) => {
+
+  if (!rating && !skipReview) {
     toast.error("Please select a rating");
     return;
   }
 
   try {
-    onSubmit(reviewText, rating); // Wait for review to be submitted
+    // If skipReview is true, submit null for reviewText and rating
+    if (skipReview) {
+
+      onSubmit(null, null, true); // Wait for review to be submitted
+      setSkipReview(true);
+    } else {
+      onSubmit(reviewText, rating, false); // Wait for review to be submitted
+    }
        // Then open share dialog
     if (isSubmitting == false){
       generateAndOpenShareDialog(book);
@@ -201,7 +226,7 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
           <DialogTitle className="text-secondary-light">
             <p className="py-2 px-8 bg-accent/25 rounded-lg mt-3 mb-4 text-xl">🎉 Congratulations 🎉</p>
             <div className="flex flex-row gap-3">
-              <div className="flex justify-center mb-1">
+              <div className="flex justify-center mb-1 w-full">
                 <img
                   src={book.book.cover_url || "/placeholder.svg"}
                   alt={book.book.title}
@@ -268,21 +293,28 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
         <DialogFooter className="gap-1">
           <Button
             variant="outline"
-            onClick={onClose}
+            onClick={() => handleSubmit(true)}
             disabled={isSubmitting}
             className="rounded-full text-bookWhite bg-secondary-light"
           >
-            Skip Review
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              </>
+            ) : (
+              <>
+                Skip Review
+              </>
+            )}
           </Button>
           <Button
-            onClick={handleSubmit}
+            onClick={() => handleSubmit(false)}
             disabled={!rating || isSubmitting}
             className="rounded-full bg-accent hover:bg-accent-variant"
           >
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Submitting...
               </>
             ) : (
               <>
@@ -302,6 +334,7 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
         downloadedImageUrl={downloadedImageUrl}
         loading={loadingImage}
         shareDialogCallback={shareDialogCallback}
+        skipReview={skipReview}
         
       />
 
@@ -344,7 +377,8 @@ export function FinishedBookDialog({ isOpen, onClose, book, onSubmit, isSubmitti
 }
 
 export default function DashboardReading() {
-  const { data: session, status } = useSession(); // Add session management
+  const { data: session, status } = useSession();
+  const { optimisticallyUpdateGoalProgress, rollbackOptimisticUpdate, refreshGoals } = useGoals(); // Add session management
   // State to hold books for each shelf
   const [currentlyReadingBooks, setCurrentlyReadingBooks] = useState<UserBook[]>([]);
   const [queueBooks, setQueueBooks] = useState<UserBook[]>([]);
@@ -388,6 +422,9 @@ export default function DashboardReading() {
     currentShelf: null
   });
   const [isSubmittingFinishedReview, setIsSubmittingFinishedReview] = useState(false);
+
+  // Add state for tracking if goal progress needs to be updated
+  const [needsGoalProgressUpdate, setNeedsGoalProgressUpdate] = useState(false);
 
   const router = useRouter();
 
@@ -560,18 +597,37 @@ export default function DashboardReading() {
   };
 
   const shareDialogCallback = () => {
+    // Close the finished book dialog first
     setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null }); 
+    
+    // Only update goal progress if the book was successfully finished
+    if (needsGoalProgressUpdate) {
+      // Now update goal progress and trigger goal completion check
+      // This will happen after the share dialog closes
+      optimisticallyUpdateGoalProgress(1);
+      
+      // Refresh goals to get the actual updated state from server
+      // This will trigger the goal completion callback if a goal was completed
+      setTimeout(() => {
+        refreshGoals();
+      }, 500); // Small delay to ensure goal progress update is processed
+      
+      // Reset the flag
+      setNeedsGoalProgressUpdate(false);
+    }
   }
 
   // Function to handle finished book review submission
-  const handleFinishedBookReview = async (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => {
+  const handleFinishedBookReview = async (reviewText: string | null, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null, skipReview: boolean = false) => {
     if (!finishedBookDialog.bookId || !finishedBookDialog.currentShelf) return;
 
     setIsSubmittingFinishedReview(true);
     
+    // Don't optimistically update goal progress here - wait until after share dialog
+    
     try {
       // Submit review if text is provided
-      if (reviewText.trim()) {
+      if (reviewText && reviewText.trim() && !skipReview) {
         const reviewResponse = await fetch(`/api/books/${finishedBookDialog.bookId}/reviews`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -585,7 +641,7 @@ export default function DashboardReading() {
           const errorData = await reviewResponse.json();
           throw new Error(errorData.error || 'Failed to submit review');
         }
-      } else {
+      } else if (rating && !skipReview) {
         // If no review text, just submit the rating as a reaction
         const reactionResponse = await fetch('/api/reactions/toggle', {
           method: 'POST',
@@ -625,6 +681,9 @@ export default function DashboardReading() {
         prevBooks.filter(userBook => userBook.book_id !== finishedBookDialog.bookId)
       );
 
+      // Mark that goal progress needs to be updated
+      setNeedsGoalProgressUpdate(true);
+
       // Close dialog and show success message
       //setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
       
@@ -634,13 +693,24 @@ export default function DashboardReading() {
     } catch (err: any) {
       console.error("Error submitting finished book review:", err);
       toast.error(`Failed to submit: ${err.message}`);
+      // Don't update goal progress if book wasn't successfully marked as finished
+      setNeedsGoalProgressUpdate(false);
     } finally {
       setIsSubmittingFinishedReview(false);
+      // Don't refresh goals here - wait until after share dialog
     }
   };
 
   // Function to close the finished book dialog
   const closeFinishedBookDialog = () => {
+    // If user closes dialog without going through share flow, still update goal progress if needed
+    if (needsGoalProgressUpdate) {
+      optimisticallyUpdateGoalProgress(1);
+      setTimeout(() => {
+        refreshGoals();
+      }, 500);
+      setNeedsGoalProgressUpdate(false);
+    }
     setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
   };
 
@@ -1053,6 +1123,59 @@ export default function DashboardReading() {
                     const currentMediaTypeDisplay = getMediaTypeDisplay(userBook.media_type);
                     return (
                       <Card key={userBook.book_id} className="relative overflow-hidden bg-bookWhite py-3">
+                        {/* Three dots menu - positioned absolutely relative to the entire card */}
+                        {bookId && (
+                          <div className="absolute top-3 right-3 z-20">
+                            <DropdownMenu.Root>
+                              <DropdownMenu.Trigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs flex items-center justify-center w-6 h-6 p-0 rounded-full bg-bookWhite/80 border-none hover:bg-bookWhite shadow-sm"
+                                  disabled={currentShelfStatus?.isLoading}
+                                >
+                                  {currentShelfStatus?.isLoading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                  ) : (
+                                    <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                </Button>
+                              </DropdownMenu.Trigger>
+
+                              <DropdownMenu.Portal>
+                                <DropdownMenu.Content
+                                  className="rounded-xl flex flex-col justify-end bg-transparent shadow-xl px-1 mr-8 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                                  sideOffset={5}
+                                >
+                                {SHELF_OPTIONS.filter(shelf => shelf.value !== userBook.shelf).map((shelf) => (
+                                  <DropdownMenu.Item
+                                    key={shelf.value}
+                                    onSelect={() => handleAddToShelf(bookId, shelf.value)}
+                                    className="px-3 py-2 text-xs text-center bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
+                                    disabled={currentShelfStatus?.isLoading}
+                                  >
+                                    {shelf.label}
+                                  </DropdownMenu.Item>
+                                ))}
+                                <DropdownMenu.Item
+                                  onSelect={() => showRemoveConfirmation(bookId, userBook.book.title, 'currently_reading')}
+                                  className="px-3 py-2 w-[132px] self-end text-xs text-end bg-red-700/90 rounded-md cursor-pointer hover:bg-red-600 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
+                                  disabled={currentShelfStatus?.isLoading}
+                                >
+                                  Remove from Shelf
+                                </DropdownMenu.Item>
+                                </DropdownMenu.Content>
+                              </DropdownMenu.Portal>
+                            </DropdownMenu.Root>
+                            {/* Display action status message */}
+                            {currentShelfStatus?.message && (
+                              <p className="absolute top-full mb-1 right-0 text-nowrap text-xs mt-1 bg-primary/85 py-1 px-2 text-center flex-1 rounded-xl z-50" style={{ color: currentShelfStatus.message.startsWith('Error') ? 'red' : 'secondary' }}>
+                                {currentShelfStatus.message}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        
                         <div className="flex flex-row gap-3 px-4">
                           {/* Book Image */}
                           <div className="w-[100px] flex-shrink-0">
@@ -1067,66 +1190,13 @@ export default function DashboardReading() {
                           {/* Content */}
                           <div className="flex flex-col justify-between flex-1">
                             <CardHeader className="pb-2 px-0 pt-0">
-                              <div className="flex flex-row justify-between items-start">
+                              {/* Title and Author - no more right padding needed */}
+                              <div>
                                 <Link href={`/books/${userBook.book_id}`}>
                                   <CardTitle className="leading-5">{userBook.book.title}</CardTitle>
                                 </Link>
-                                <div>
-                                  {/* --- NEW: Change Shelf Dropdown --- */}
-                                  {bookId && (
-                                  <div className="flex items-start relative">
-                                    <DropdownMenu.Root>
-                                      <DropdownMenu.Trigger asChild>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none hover:bg-transparent"
-                                          disabled={currentShelfStatus?.isLoading} // Disable while action is loading
-                                        >
-                                          {currentShelfStatus?.isLoading ? (
-                                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                          ) : (
-                                            <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
-                                          )}
-                                        </Button>
-                                      </DropdownMenu.Trigger>
-
-                                      <DropdownMenu.Portal>
-                                        <DropdownMenu.Content
-                                          className="rounded-xl flex flex-col justify-end bg-transparent shadow-xl px-1 mr-8 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
-                                          sideOffset={5}
-                                        >
-                                        {SHELF_OPTIONS.filter(shelf => shelf.value !== userBook.shelf).map((shelf) => (
-                                          <DropdownMenu.Item
-                                            key={shelf.value}
-                                            onSelect={() => handleAddToShelf(bookId, shelf.value)}
-                                            className="px-3 py-2 text-xs text-center bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
-                                            disabled={currentShelfStatus?.isLoading}
-                                          >
-                                            {shelf.label}
-                                          </DropdownMenu.Item>
-                                        ))}
-                                        <DropdownMenu.Item
-                                          onSelect={() => showRemoveConfirmation(bookId, userBook.book.title, 'currently_reading')}
-                                          className="px-3 py-2 w-[132px] self-end text-xs text-end bg-red-700/90 rounded-md cursor-pointer hover:bg-red-600 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
-                                          disabled={currentShelfStatus?.isLoading}
-                                        >
-                                          Remove from Shelf
-                                        </DropdownMenu.Item>
-                                        </DropdownMenu.Content>
-                                      </DropdownMenu.Portal>
-                                    </DropdownMenu.Root>
-                                    {/* Display action status message */}
-                                    {currentShelfStatus?.message && (
-                                      <p className="absolute top-full mb-1 right-0 text-nowrap text-xs mt-1 bg-primary/85 py-1 px-2 text-center flex-1 rounded-xl z-50" style={{ color: currentShelfStatus.message.startsWith('Error') ? 'red' : 'secondary' }}>
-                                        {currentShelfStatus.message}
-                                      </p>
-                                    )}
-                                  </div>
-                                  )}
-                                </div>
+                                <CardDescription>{userBook.book.author}</CardDescription>
                               </div>
-                              <CardDescription>{userBook.book.author}</CardDescription>
                             </CardHeader>
 
                             <CardContent className="pb-0 px-0">
@@ -1319,6 +1389,49 @@ export default function DashboardReading() {
                     const currentMediaTypeDisplay = getMediaTypeDisplay(userBook.media_type);
                     return (
                       <Card key={userBook.book_id} className="relative overflow-hidden bg-bookWhite py-3">
+                        {/* Three dots menu - positioned absolutely relative to the entire card */}
+                        {bookId && (
+                          <div className="absolute top-3 right-3 z-20">
+                            <DropdownMenu.Root>
+                              <DropdownMenu.Trigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs flex items-center justify-center w-6 h-6 p-0 rounded-full bg-bookWhite/80 border-none hover:bg-bookWhite shadow-sm"
+                                  disabled={currentShelfStatus?.isLoading}
+                                >
+                                  {currentShelfStatus?.isLoading ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                  ) : (
+                                    <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                </Button>
+                              </DropdownMenu.Trigger>
+
+                              <DropdownMenu.Portal>
+                                <DropdownMenu.Content
+                                  className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
+                                  sideOffset={5}
+                                >
+                                  <DropdownMenu.Item
+                                    onSelect={() => showRemoveConfirmation(bookId, userBook.book.title, 'queue')}
+                                    className="px-3 py-2 text-xs text-center bg-red-700/90 my-2 rounded-md cursor-pointer hover:bg-red-800 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
+                                    disabled={currentShelfStatus?.isLoading}
+                                  >
+                                    Remove from Shelf
+                                  </DropdownMenu.Item>
+                                </DropdownMenu.Content>
+                              </DropdownMenu.Portal>
+                            </DropdownMenu.Root>
+                            {/* Display action status message */}
+                            {currentShelfStatus?.message && (
+                              <p className="absolute top-full mb-1 right-0 text-nowrap text-xs mt-1 bg-primary/85 py-1 px-2 text-center flex-1 rounded-xl z-50" style={{ color: currentShelfStatus.message.startsWith('Error') ? 'red' : 'secondary' }}>
+                                {currentShelfStatus.message}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                        
                         <div className="flex flex-row gap-2 px-4">
                           {/* Book Image */}
                           <div className="w-[100px] flex-shrink-0">
@@ -1333,56 +1446,13 @@ export default function DashboardReading() {
                           {/* Content */}
                           <div className="flex flex-col">
                             <CardHeader className="pb-0.5 px-0 pt-0">
-                              <div className="flex flex-row justify-between items-start">
+                              {/* Title and Author - no more right padding needed */}
+                              <div>
                                 <Link href={`/books/${userBook.book_id}`}>
                                   <CardTitle className="leading-5">{userBook.book.title}</CardTitle>
                                 </Link>
-                                <div>
-                                  {/* Queue Management Dropdown */}
-                                  {bookId && (
-                                  <div className="flex items-start relative">
-                                    <DropdownMenu.Root>
-                                      <DropdownMenu.Trigger asChild>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none hover:bg-transparent"
-                                          disabled={currentShelfStatus?.isLoading}
-                                        >
-                                          {currentShelfStatus?.isLoading ? (
-                                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                                          ) : (
-                                            <EllipsisVertical className="h-4 w-4 text-muted-foreground" />
-                                          )}
-                                        </Button>
-                                      </DropdownMenu.Trigger>
-
-                                      <DropdownMenu.Portal>
-                                        <DropdownMenu.Content
-                                          className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
-                                          sideOffset={5}
-                                        >
-                                          <DropdownMenu.Item
-                                            onSelect={() => showRemoveConfirmation(bookId, userBook.book.title, 'queue')}
-                                            className="px-3 py-2 text-xs text-center bg-red-700/90 my-2 rounded-md cursor-pointer hover:bg-red-800 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
-                                            disabled={currentShelfStatus?.isLoading}
-                                          >
-                                            Remove from Shelf
-                                          </DropdownMenu.Item>
-                                        </DropdownMenu.Content>
-                                      </DropdownMenu.Portal>
-                                    </DropdownMenu.Root>
-                                    {/* Display action status message */}
-                                    {currentShelfStatus?.message && (
-                                      <p className="absolute top-full mb-1 right-0 text-nowrap text-xs mt-1 bg-primary/85 py-1 px-2 text-center flex-1 rounded-xl z-50" style={{ color: currentShelfStatus.message.startsWith('Error') ? 'red' : 'secondary' }}>
-                                        {currentShelfStatus.message}
-                                      </p>
-                                    )}
-                                  </div>
-                                  )}
-                                </div>
+                                <CardDescription>{userBook.book.author}</CardDescription>
                               </div>
-                              <CardDescription>{userBook.book.author}</CardDescription>
                             </CardHeader>
                             <CardContent className="pb-0 px-0">
                               <div className="flex flex-wrap gap-1.5 mb-1 items-center">

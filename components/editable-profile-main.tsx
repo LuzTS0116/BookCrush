@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -38,6 +38,9 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner"
 import { useSession } from 'next-auth/react'
+import { useGoals } from '@/lib/goals-context'
+import { launchConfettiRealistic } from '@/lib/confetti-utils'
+import { hasShownCongratulations, markCongratulationsShown } from '@/lib/goal-congratulations'
 import {
   DndContext,
   closestCenter,
@@ -57,6 +60,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import FriendsMain from "./friends-main"
 
 // Helper constants and functions from profile-details.tsx
 const statuses: StatusDisplay[] = [
@@ -288,7 +292,7 @@ interface Profile {
   id: string
   email?: string
   display_name: string | null;
-  nickname?: string | null;
+  full_name?: string | null;
   about?: string | null;
   avatar_url?: string | null;
   kindle_email?: string | null;
@@ -307,6 +311,8 @@ interface Profile {
 export default function EditableProfileMain() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const { optimisticallyUpdateGoalProgress, rollbackOptimisticUpdate, refreshGoals, setGoalCompletedCallback, goals: customGoals, isLoading: goalsLoading, error: goalsError } = useGoals()
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -353,6 +359,9 @@ export default function EditableProfileMain() {
     book: null
   });
 
+  // State for friends dialog
+  const [isFriendsDialogOpen, setIsFriendsDialogOpen] = useState(false);
+
   // Check for feedback notifications
   const { hasUnreadReplies, unreadCount } = useFeedbackNotifications();
   
@@ -380,7 +389,7 @@ export default function EditableProfileMain() {
 
   // Form states
   const [displayName, setDisplayName] = useState("")
-  const [nickname, setNickname] = useState("")
+  const [fullName, setFullName] = useState("")
   const [bio, setBio] = useState("")
   const [kindleEmail, setKindleEmail] = useState("")
   const [selectedGenre, setSelectedGenre] = useState("")
@@ -406,6 +415,16 @@ export default function EditableProfileMain() {
   });
   const [isSubmittingFinishedReview, setIsSubmittingFinishedReview] = useState(false);
 
+  // Add state for tracking if goal progress needs to be updated
+  const [needsGoalProgressUpdate, setNeedsGoalProgressUpdate] = useState(false);
+
+  // Goal completion congratulations state
+  const [congratsDialog, setCongratsDialog] = useState<{
+    isOpen: boolean;
+    goal: any | null;
+  }>({ isOpen: false, goal: null });
+  const [hasFiredConfetti, setHasFiredConfetti] = useState(false);
+
   const genres = [
     "Biography",
     "Children's",
@@ -428,6 +447,73 @@ export default function EditableProfileMain() {
     "Young Adult"
   ]
 
+  const shareDialogCallback = () => {
+    // Close the finished book dialog first
+    setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
+    
+    // Only update goal progress if the book was successfully finished
+    if (needsGoalProgressUpdate) {
+      // Now update goal progress and trigger goal completion check
+      // This will happen after the share dialog closes
+      optimisticallyUpdateGoalProgress(1);
+      
+      // Refresh goals to get the actual updated state from server
+      // This will trigger the goal completion callback if a goal was completed
+      setTimeout(() => {
+        refreshGoals();
+      }, 500); // Small delay to ensure goal progress update is processed
+      
+      // Reset the flag
+      setNeedsGoalProgressUpdate(false);
+    }
+  };
+
+  // Handle goal completion callback - Define early
+  const handleGoalCompleted = useCallback((goal: any) => {
+    // Add null check to prevent errors
+    if (!goal || !goal.id) {
+      console.error('[Profile] Invalid goal data received in completion callback:', goal);
+      return;
+    }
+    
+    const hasShown = hasShownCongratulations(goal.id);
+    
+    // Check if we already showed congratulations for this goal
+    if (!hasShown && !congratsDialog.isOpen) {
+      // Reduce the delay since the share dialog should already be closed by now
+      setTimeout(() => {
+        // Double-check that the dialog is still not open after the delay
+        setCongratsDialog(prev => {
+          if (!prev.isOpen) {
+            markCongratulationsShown(goal.id);
+            return { isOpen: true, goal };
+          }
+          return prev;
+        });
+      }, 200); // Reduced delay since we already waited for share dialog to close
+    }
+  }, [congratsDialog.isOpen]);
+
+  // Set the goal completion callback IMMEDIATELY - before any other effects
+  useEffect(() => {
+    if (setGoalCompletedCallback) {
+      setGoalCompletedCallback(handleGoalCompleted);
+    }
+  }, [setGoalCompletedCallback, handleGoalCompleted]);
+
+  // Confetti effect for congratulations dialog
+  useEffect(() => {
+    if (congratsDialog.isOpen && !hasFiredConfetti) {
+      launchConfettiRealistic();
+      setHasFiredConfetti(true);
+    }
+  }, [congratsDialog.isOpen, hasFiredConfetti]);
+
+  // Reset confetti flag when dialog closes
+  useEffect(() => {
+    if (!congratsDialog.isOpen) setHasFiredConfetti(false);
+  }, [congratsDialog.isOpen]);
+
   // Fetch profile data
   useEffect(() => {
     const fetchProfile = async () => {
@@ -449,10 +535,11 @@ export default function EditableProfileMain() {
 
         const profileData: Profile = await response.json()
         setProfile(profileData)
+        console.log("profileData", profileData)
         
         // Set form values
         setDisplayName(profileData.display_name || "")
-        setNickname(profileData.nickname || "")
+        setFullName(profileData.full_name || "")
         setBio(profileData.about || "")
         setKindleEmail(profileData.kindle_email || "")
         setFavoriteGenres(profileData.favorite_genres || [])
@@ -491,6 +578,18 @@ export default function EditableProfileMain() {
 
     fetchProfile()
   }, [])
+
+  // Check for URL parameter to auto-open custom goals dialog
+  useEffect(() => {
+    const openGoals = searchParams.get('openGoals')
+    if (openGoals === 'true') {
+      setIsCustomGoalsDialogOpen(true)
+      // Remove the parameter from URL without causing a navigation
+      const url = new URL(window.location.href)
+      url.searchParams.delete('openGoals')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [searchParams])
 
   const addGenre = () => {
     if (selectedGenre && !favoriteGenres.includes(selectedGenre)) {
@@ -598,11 +697,11 @@ export default function EditableProfileMain() {
         },
         body: JSON.stringify({
           display_name: displayName.trim(),
-          nickname: nickname.trim(),
+          full_name: fullName.trim(),
           about: bio.trim(),
           kindle_email: kindleEmail.trim() || null,
           favorite_genres: favoriteGenres,
-          avatar_url: avatarUrl
+          ...(avatarUrl && { avatar_url: avatarUrl }) // Only include avatar_url if there's a new upload
         })
       })
       
@@ -643,7 +742,7 @@ export default function EditableProfileMain() {
 
     // Reset form values
     setDisplayName(profile.display_name || "")
-    setNickname(profile.nickname || "")
+    setFullName(profile.full_name || "")
     setBio(profile.about || "")
     setKindleEmail(profile.kindle_email || "")
     setFavoriteGenres(profile.favorite_genres || [])
@@ -806,19 +905,17 @@ export default function EditableProfileMain() {
     }
   };
 
-  const shareDialogCallback = () => {
-    setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
-  }
-
   // Function to handle finished book review submission
-  const handleFinishedBookReview = async (reviewText: string, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN") => {
+  const handleFinishedBookReview = async (reviewText: string | null, rating: "HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null, skipReview: boolean = false) => {
     if (!finishedBookDialog.bookId || !finishedBookDialog.currentShelf) return;
 
     setIsSubmittingFinishedReview(true);
     
+    // Don't optimistically update goal progress here - wait until after share dialog
+    
     try {
-      // Submit review if text is provided
-      if (reviewText.trim()) {
+      // Submit review if text is provided and not skipping review
+      if (reviewText && reviewText.trim() && !skipReview) {
         const reviewResponse = await fetch(`/api/books/${finishedBookDialog.bookId}/reviews`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -832,7 +929,7 @@ export default function EditableProfileMain() {
           const errorData = await reviewResponse.json();
           throw new Error(errorData.error || 'Failed to submit review');
         }
-      } else {
+      } else if (rating && !skipReview) {
         // If no review text, just submit the rating as a reaction
         const reactionResponse = await fetch('/api/reactions/toggle', {
           method: 'POST',
@@ -879,20 +976,38 @@ export default function EditableProfileMain() {
         ]);
       }
 
+      // Mark that goal progress needs to be updated
+      setNeedsGoalProgressUpdate(true);
+
       // Close dialog and show success message
-      setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
-      toast.success('Book marked as finished! Thanks for sharing your thoughts.');
+      //setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
+      if (skipReview) {
+        toast.success('Book marked as finished!');
+      } else {
+        toast.success('Book marked as finished! Thanks for sharing your thoughts.');
+      }
 
     } catch (err: any) {
       console.error("Error submitting finished book review:", err);
       toast.error(`Failed to submit: ${err.message}`);
+      // Don't update goal progress if book wasn't successfully marked as finished
+      setNeedsGoalProgressUpdate(false);
     } finally {
       setIsSubmittingFinishedReview(false);
+      // Don't refresh goals here - wait until after share dialog
     }
   };
 
   // Function to close the finished book dialog
   const closeFinishedBookDialog = () => {
+    // If user closes dialog without going through share flow, still update goal progress if needed
+    if (needsGoalProgressUpdate) {
+      optimisticallyUpdateGoalProgress(1);
+      setTimeout(() => {
+        refreshGoals();
+      }, 500);
+      setNeedsGoalProgressUpdate(false);
+    }
     setFinishedBookDialog({ isOpen: false, book: null, bookId: null, currentShelf: null });
   };
 
@@ -1487,8 +1602,8 @@ export default function EditableProfileMain() {
         </div>
       )}
       
-      <div className="flex flex-col bg-transparent md:flex-row gap-2">
-        <div className="md:w-1/3 bg-transparent">
+      <div className="flex flex-col bg-transparent md:items-center gap-2">
+        <div className="md:w-3/4 bg-transparent">
           <Card className="px-0 bg-bookWhite/90 rounded-b-3xl rounded-t-none overflow-hidden">
             <CardHeader className="relative p-0">
               {/* Banner */}
@@ -1598,30 +1713,36 @@ export default function EditableProfileMain() {
                     {isEditing ? (
                       <div className="space-y-1">
                         <Input
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          className="text-sm bg-white/80 border-secondary/20 h-6"
+                          placeholder="Full name (optional)"
+                        />
+                        <Input
                           value={displayName}
                           onChange={(e) => setDisplayName(e.target.value)}
                           className="text-sm bg-white/80 border-secondary/20 h-6"
-                          placeholder="Display name"
+                          placeholder="Username"
                         />
-                        <Input
-                          value={nickname}
-                          onChange={(e) => setNickname(e.target.value)}
-                          className="text-sm bg-white/80 border-secondary/20 h-6"
-                          placeholder="username"
-                        />
+                        
                       </div>
                     ) : (
                       <>
                         <h2 className="text-lg leading-none font-semibold text-secondary-light">
-                          {profile?.display_name || "No name"}
+                          {profile?.full_name || "No name"}
                         </h2>
-                        {profile?.nickname && (
+                        {profile?.display_name && (
                           <p className="text-sm text-secondary/70 font-normal">
-                            {profile.nickname}
+                            {profile.display_name}
                           </p>
                         )}
                         <p className="text-xs text-secondary/50 font-normal">
-                          <span>{currentFriends} friend{currentFriends !== 1 ? 's' : ''}</span>
+                          <button 
+                            onClick={() => setIsFriendsDialogOpen(true)}
+                            className="hover:text-secondary/70 transition-colors cursor-pointer underline-offset-2 hover:underline"
+                          >
+                            {currentFriends} friend{currentFriends !== 1 ? 's' : ''}
+                          </button>
                         </p>
                       </>
                     )}
@@ -1745,7 +1866,7 @@ export default function EditableProfileMain() {
         </div>
 
         {/* Right side - Books tabs */}
-        <div className="md:w-2/3">
+        <div className="md:w-3/4">
           <Tabs defaultValue="currently-reading" className="w-full">
             <TabsList className="grid w-full grid-cols-5 rounded-full h-auto p-1 bg-bookWhite/10 text-primary">
               <TabsTrigger value="currently-reading" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">
@@ -2196,6 +2317,23 @@ export default function EditableProfileMain() {
         onOpenChange={setIsCustomGoalsDialogOpen}
       />
 
+      {/* Friends Dialog */}
+      <Dialog open={isFriendsDialogOpen} onOpenChange={setIsFriendsDialogOpen}>
+        <DialogContent className="w-[85vw] rounded-2xl">
+          <Image 
+            src="/images/background.png"
+            alt="Create and Manage your Book Clubs | BookCrush"
+            width={1622}
+            height={2871}
+            className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+          />
+          <DialogHeader className="flex justify-start">
+            <DialogTitle>My Connections</DialogTitle>
+          </DialogHeader>
+          <FriendsMain />
+        </DialogContent>
+      </Dialog>
+
       {/* Confirmation Modal */}
       {confirmRemoval.bookId && (
         <div 
@@ -2241,6 +2379,71 @@ export default function EditableProfileMain() {
           </div>
         </div>
       )}
+
+      {/* Goal Completion Congratulations Dialog */}
+      <Dialog open={congratsDialog.isOpen} onOpenChange={(open) => setCongratsDialog({ isOpen: open, goal: null })}>
+        <DialogContent className="w-[85vw] rounded-2xl px-0 py-1">
+          <Image 
+            src="/images/background.png"
+            alt="Congratulations on completing your reading goal!"
+            width={1622}
+            height={2871}
+            className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+          />
+          <DialogHeader className="px-6 pt-4">
+            <DialogTitle className="mt-7 text-center text-xl">🎉 Goal Completed 🎉</DialogTitle>
+            <DialogDescription className="text-center text-base text-bookWhite/75">
+              You’ve successfully completed your reading challenge!
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-2 px-6">
+            {congratsDialog.goal && (
+              <div className="text-center space-y-6">
+                <div className="bg-bookWhite/90 rounded-lg p-2 mx-4">
+                  <h3 className="font-bold text-lg text-secondary mb-2">
+                    {congratsDialog.goal.name}
+                  </h3>
+                  <div className="bg-green-100 rounded-full h-3 mb-2">
+                    <div 
+                      className="bg-gradient-to-r from-primary-dark to-accent h-3 rounded-full"
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <p className="text-sm font-semibold text-secondary-light">
+                    {congratsDialog.goal.progress.current_value}/{congratsDialog.goal.progress.target_value} book{congratsDialog.goal.progress.target_value === 1 ? '' : 's'} completed!
+                  </p>
+                </div>
+                
+                <p className="text-bookWhite/75 text-center px-4">
+                  Celebrate your progress and pick your next challenge to stay inspired.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="justify-center px-6 pb-4">
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setCongratsDialog({ isOpen: false, goal: null })}
+                className="bg-white/90 text-bookBlack rounded-full hover:bg-white"
+              >
+                Close
+              </Button>
+              <Button 
+                onClick={() => {
+                  setCongratsDialog({ isOpen: false, goal: null });
+                  setIsCustomGoalsDialogOpen(true);
+                }}
+                className="bg-primary text-secondary rounded-full hover:bg-primary-dark"
+              >
+                Set New Goal
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 

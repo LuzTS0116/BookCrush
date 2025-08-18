@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
+import { useSession } from 'next-auth/react';
 import {useParams} from "next/navigation";
 import { AddBookDialog } from "@/components/add-book-dialog"
 import { BookDetails } from "@/types/book"
@@ -72,6 +73,7 @@ interface ClubData {
 }
 
 export default function PostulateBooksPage({ params }: { params: { id: string } }) {
+  const { data: session, status } = useSession();
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedBooks, setSelectedBooks] = useState<string[]>([])
   const [reason, setReason] = useState("")
@@ -309,10 +311,17 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
       setSearchResults([])
       return
     }
-
+    if (!session) {
+      return
+    }
     setLoading(true)
     try {
-      const response = await fetch(`/api/books/search?q=${encodeURIComponent(searchQuery)}&limit=10`)
+      const response = await fetch(`/api/books/search?q=${encodeURIComponent(searchQuery)}&limit=10`, {
+        headers: {
+          'Authorization': `Bearer ${session.supabaseAccessToken}`,
+          'Content-Type': 'application/json',
+        },
+      })
       if (response.ok) {
         const results = await response.json()
         setSearchResults(results || [])
@@ -405,7 +414,7 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="md:col-span-2">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-3">
               <TabsList className="grid w-full grid-cols-2 bg-secondary-light text-primary rounded-full">

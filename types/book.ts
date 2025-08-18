@@ -16,6 +16,7 @@ export interface BookDetails {
   pages?: number | undefined;
   genres?: string[];
   published_date?: string;
+  alternate_titles?: string[];
   added_by?: string;
   rating?: number;
   created_at?: string;

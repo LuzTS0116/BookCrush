@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
                 select: {
                   id: true,
                   display_name: true,
-                  nickname: true,
+                  
                   avatar_url: true,
                 },
               },

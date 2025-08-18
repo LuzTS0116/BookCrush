@@ -14,8 +14,8 @@ datasource db {
 model Profile {
   id              String   @id @db.Uuid // PK *and* FK to auth.users.id
   email           String?  @unique
-  display_name    String
-  nickname        String?
+  display_name    String   @unique // This will be the unique username (formerly nickname)
+  full_name     String?  // Optional real name (private)
   about           String?  @db.Text
   avatar_url      String?
   kindle_email    String?  @db.Text
@@ -69,6 +69,9 @@ model Profile {
   // Voting starter relation
   startedVotingCycles  Club[] @relation("VotingStarter")
 
+  // Custom Goals
+  customGoals CustomGoal[] @relation("UserCustomGoals")
+
   @@map("profiles")
   @@schema("public")
 }
@@ -84,6 +87,7 @@ model Book {
   genres         String[]
   published_date String?
   rating         Float?
+  alternate_titles String[] // Store titles in different languages
   added_by       String?  @db.Uuid // This will now point to Profile.id
   created_at     DateTime @default(now()) @db.Timestamptz(6)
 
@@ -395,7 +399,7 @@ model ClubDiscussion {
 enum ActivityType {
   // Books / Reading
   ADDED_BOOK_TO_LIBRARY // User added a new book to the general 'books' table
-  ADDED_BOOK_TO_SHELF   // User added an existing book to one of their shelves (UserBook: favorite, currently_reading, queue)
+  ADDED_BOOK_TO_SHELF   // User added an existing book to one of their shelves (UserBook: favorite, currently_reading, queue, history)
   CHANGED_BOOK_STATUS   // User changed status of a book they are reading (UserBook: in_progress, almost_done, finished)
   FINISHED_READING_BOOK // Specifically when a book status changes to 'finished'
   REVIEWED_BOOK         // User added a review (requires a Review model)
@@ -504,6 +508,8 @@ model ClubMeeting {
   meeting_type     ClubMeetingType   @default(DISCUSSION)
   status           ClubMeetingStatus @default(SCHEDULED)
   created_by       String            @db.Uuid // Profile ID of who created the meeting
+  meeting_notes    String?           // Notes from the completed meeting
+  completed_at     DateTime?         @db.Timestamptz(6) // When the meeting was marked as completed
   created_at       DateTime          @default(now()) @db.Timestamptz(6)
   updated_at       DateTime          @updatedAt @db.Timestamptz(6)
   
@@ -519,12 +525,14 @@ model ClubMeeting {
 
 // Track meeting attendance
 model ClubMeetingAttendee {
-  id           String                    @id @default(uuid()) @db.Uuid
-  meeting_id   String                    @db.Uuid
-  user_id      String                    @db.Uuid
-  status       ClubMeetingAttendeeStatus @default(NOT_RESPONDED)
-  responded_at DateTime?                 @db.Timestamptz(6)
-  created_at   DateTime                  @default(now()) @db.Timestamptz(6)
+  id               String                    @id @default(uuid()) @db.Uuid
+  meeting_id       String                    @db.Uuid
+  user_id          String                    @db.Uuid
+  status           ClubMeetingAttendeeStatus @default(NOT_RESPONDED)
+  responded_at     DateTime?                 @db.Timestamptz(6)
+  actually_attended Boolean?                  // null = not marked, true = attended, false = didn't attend
+  marked_at        DateTime?                 @db.Timestamptz(6) // when attendance was marked by admin
+  created_at       DateTime                  @default(now()) @db.Timestamptz(6)
 
   meeting ClubMeeting @relation(fields: [meeting_id], references: [id], onDelete: Cascade)
   user    Profile     @relation("MeetingAttendee", fields: [user_id], references: [id], onDelete: Cascade)
@@ -692,6 +700,49 @@ model ClubBookSuggestionVote {
 }
 
 // --------------- READING STREAKS & ACHIEVEMENTS SYSTEM -----------------
+
+// Custom Goals - User-specific reading goals (separate from global achievements)
+enum CustomGoalStatus {
+  ACTIVE
+  COMPLETED
+  EXPIRED
+  CANCELLED
+  
+  @@schema("public")
+}
+
+enum CustomGoalPeriod {
+  ONE_MONTH
+  THREE_MONTHS
+  SIX_MONTHS
+  ONE_YEAR
+  
+  @@schema("public")
+}
+
+model CustomGoal {
+  id               String            @id @default(uuid()) @db.Uuid
+  user_id          String            @db.Uuid
+  name             String            // User-defined name for the goal
+  description      String?           @db.Text
+  target_books     Int               // Number of books to read
+  time_period      CustomGoalPeriod  // Duration of the goal
+  status           CustomGoalStatus  @default(ACTIVE)
+  current_progress Int               @default(0) // Current number of books read
+  start_date       DateTime          @default(now()) @db.Timestamptz(6)
+  end_date         DateTime          @db.Timestamptz(6)
+  completed_at     DateTime?         @db.Timestamptz(6) // When goal was achieved
+  created_at       DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime          @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  user Profile @relation("UserCustomGoals", fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@index([user_id, status])
+  @@index([user_id, end_date])
+  @@map("custom_goals")
+  @@schema("public")
+}
 
 enum AchievementCategory {
   READING_MILESTONE    // Books read milestones

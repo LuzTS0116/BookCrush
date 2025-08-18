@@ -247,7 +247,7 @@ export const authOptions: NextAuthOptions = {
             // Check if profile exists
                           const existingProfile = await prisma.profile.findUnique({
                 where: { id: googleUser.id },
-                select: { id: true, display_name: true, email: true, nickname: true, avatar_url: true }
+                select: { id: true, display_name: true, email: true, avatar_url: true }
               });
 
             if (!existingProfile) {
@@ -258,9 +258,8 @@ export const authOptions: NextAuthOptions = {
                 data: {
                   id: googleUser.id,
                   email: googleUser.email,
-                  // Use Google name as fallback, but keep display_name empty to force profile completion
-                  display_name: '', // Keep empty to ensure profile-setup redirect
-                  nickname: null, // Will be set in profile-setup
+                  // Keep display_name empty to force username selection in profile-setup
+                  display_name: '', // Will be set to username in profile-setup
                   avatar_url: userMetadata.avatar_url || userMetadata.picture,
                   about: null,
                   kindle_email: null,
@@ -296,8 +295,8 @@ export const authOptions: NextAuthOptions = {
                 });
               }
               
-              // Profile is complete if has display_name and nickname
-              token.profileComplete = !!(existingProfile.display_name && existingProfile.nickname);
+              // Profile is complete if has display_name (username)
+              token.profileComplete = !!(existingProfile.display_name);
             }
           } catch (profileError) {
             console.error('[Auth JWT Callback] Error managing profile for Google user:', profileError);
@@ -395,9 +394,7 @@ export const authOptions: NextAuthOptions = {
             const { data: userData } = await supabaseAdmin.auth.getUser(token.supa.access_token);
             if (userData.user?.user_metadata?.display_name) {
               session.user.name = userData.user.user_metadata.display_name;
-            } else if (userData.user?.user_metadata?.nickname) {
-              session.user.name = userData.user.user_metadata.nickname;
-            }
+            } 
           } catch (error) {
             // console.warn('[Auth Session Callback] Could not fetch user metadata:', error);
           }

@@ -12,7 +12,7 @@ export function parseShelfType(shelf: string): shelf_type {
     case 'history':
       return shelf_type.history;
     default:
-      throw new Error(`Invalid shelf type provided: ${shelf}`);
+      throw new Error(`Invalid shelf type provided: ${shelf}. Valid types are: favorite, currently_reading, queue, history`);
   }
 }
 

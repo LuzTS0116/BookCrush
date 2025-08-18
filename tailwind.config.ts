@@ -77,16 +77,28 @@ const config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-6px)' },
+        },
+        twinkle: {
+          '0%, 100%': { opacity: '0.8', filter: 'brightness(1)' },
+          '50%': { opacity: '1', filter: 'brightness(1.6)' },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        float: 'float 6s ease-in-out infinite',
+        'float-slow': 'float 10s ease-in-out infinite',
+        twinkle: 'twinkle 2s ease-in-out infinite',
+        'float-twinkle': 'float 6s ease-in-out infinite, twinkle 2s ease-in-out infinite',
+        'float-slow-twinkle': 'float 10s ease-in-out infinite, twinkle 3.5s ease-in-out infinite',
       },
     },
   },
   plugins: [
     require("tailwindcss-animate"),
-    require("@tailwindcss/line-clamp"),
   ],
 } satisfies Config
 

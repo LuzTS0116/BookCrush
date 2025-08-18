@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
         id: true,
         email: true,
         display_name: true,
-        nickname: true,
+        full_name: true,
         about: true,
         avatar_url: true,
         created_at: true,

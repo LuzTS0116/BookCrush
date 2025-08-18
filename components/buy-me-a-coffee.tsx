@@ -6,14 +6,14 @@ import Link from "next/link";
 export function SupportSection() {
   return (
     <>
-    <div className="rounded-b-3xl p-4 pb-15 md:p-6 shadow-sm text-xs md:text-base max-w-xl mx-auto">
+    <div className="rounded-b-3xl p-4 pb-15 md:p-6 shadow-sm text-sm md:text-base max-w-xl mx-auto">
       <p className="text-bookWhite mt-1 text-center font-serif">
         This project is a labor of love, brewed with a lot of passion and late nights. If you’d like to support us, consider sharing a warm matcha.
       </p>
       <div className="flex justify-center">
         <Link
           href="https://ko-fi.com/luztunon"
-          className="text-xs flex mt-4 bg-accent-variant/80 items-center text-center text-bookWhite font-medium px-4 py-1.5 rounded-full hover:bg-[#b1c5a0] transition-colors"
+          className="text-xs flex mt-2 bg-accent-variant/80 items-center text-center text-bookWhite font-medium px-4 py-1.5 rounded-full hover:bg-[#b1c5a0] transition-colors"
         >
           <Coffee size={16} weight="fill" className="text-bookWhite mr-1" />
           Support with a matcha

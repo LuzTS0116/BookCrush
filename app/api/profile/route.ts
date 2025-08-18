@@ -48,8 +48,8 @@ export async function GET(request: NextRequest) {
       where: { id: user.id },
       select: {
         id: true,
-        display_name: true,
-        nickname: true,
+        display_name: true, // This is now the username
+        full_name: true,
         avatar_url: true,
         about: true,
         favorite_genres: true,
@@ -125,27 +125,43 @@ if (!supabase) {
     }
   const payload = await req.json()
   const {
-    display_name,
+    display_name, // This is now the username
+    full_name,    // Optional real name
     about,
     favorite_genres = [],
-    nickname,
     kindle_email,
     avatar_url
   } = payload
 
-  // Basic validation example (you might want more extensive validation)
+  // Basic validation for username (display_name)
   if (!display_name || typeof display_name !== 'string' || display_name.trim() === '') {
     return NextResponse.json(
-      { error: 'Validation failed', details: 'Display name is required and must be a non-empty string.' },
+      { error: 'Validation failed', details: 'Username is required and must be a non-empty string.' },
+      { status: 400 }
+    );
+  }
+
+  // Username format validation
+  if (display_name.length < 3) {
+    return NextResponse.json(
+      { error: 'Validation failed', details: 'Username must be at least 3 characters long.' },
+      { status: 400 }
+    );
+  }
+
+  if (!/^[a-zA-Z0-9_.-]+$/.test(display_name)) {
+    return NextResponse.json(
+      { error: 'Validation failed', details: 'Username can only contain letters, numbers, dots, hyphens, and underscores.' },
       { status: 400 }
     );
   }
 
   // upsert avoids "duplicate key" if user hits the endpoint twice
+  // Note: Need to regenerate Prisma client first: npx prisma generate
   const profile = await prisma.profile.upsert({
     where: { id: user.id },
-    update: { display_name, about, favorite_genres, nickname, kindle_email, avatar_url },
-    create: { id: user.id, display_name, about, favorite_genres, nickname, kindle_email, avatar_url }
+    update: { display_name, about, favorite_genres, kindle_email, avatar_url, full_name },
+    create: { id: user.id, display_name, about, favorite_genres, kindle_email, avatar_url, full_name }
   })
 
   // Format the profile with proper avatar URL for consistency with GET endpoint

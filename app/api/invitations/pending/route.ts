@@ -38,6 +38,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
     }
 
+    function processAvatarUrl(avatarPath: string | null | undefined): string | null {
+      if (!avatarPath) return null;
+
+      // If already a full URL (Google avatars, etc.), return as-is
+      if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
+        return avatarPath;
+      }
+
+      // Convert relative path to public URL synchronously
+      if (supabase) {
+        const { data } = supabase.storage.from('profiles').getPublicUrl(avatarPath);
+        return data.publicUrl;
+      }
+
+      return null;
+    }
+
     // Fetch pending invitations for the current user
     const pendingInvitations = await prisma.clubInvitation.findMany({
       where: {
@@ -79,7 +96,7 @@ export async function GET(req: NextRequest) {
                   select: {
                     id: true,
                     display_name: true,
-                    nickname: true,
+                    
                     avatar_url: true,
                   },
                 },
@@ -117,7 +134,7 @@ export async function GET(req: NextRequest) {
       club_name: invitation.club.name,
       club_description: invitation.club.description,
       inviter_name: invitation.inviter.display_name || 'Unknown User',
-      inviter_avatar: invitation.inviter.avatar_url,
+      inviter_avatar: processAvatarUrl(invitation.inviter.avatar_url),
       message: invitation.message,
       created_at: invitation.created_at.toISOString(),
       club: {
@@ -131,7 +148,6 @@ export async function GET(req: NextRequest) {
         members: invitation.club.memberships.map((member: any) => ({
           id: member.user.id,
           display_name: member.user.display_name,
-          nickname: member.user.nickname,
           avatar_url: member.user.avatar_url,
           role: member.role,
           joined_at: member.joined_at,
