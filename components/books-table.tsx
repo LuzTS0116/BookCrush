@@ -847,7 +847,7 @@ export default function BooksTableOptimized() {
     
     // Show immediate visual feedback
     const shelfDisplayName = shelf.replace(/_/g, ' ')
-    toast.success(`📚 Adding to ${shelfDisplayName}...`, { duration: 1000 })
+    toast.success(`Adding to ${shelfDisplayName}...`, { duration: 1000 })
     
     try {
       const response = await fetch('/api/shelf', {
@@ -877,7 +877,7 @@ export default function BooksTableOptimized() {
       }
       
       const shelfDisplayName = shelf.replace(/_/g, ' ')
-      toast.success(`✅ Successfully added to ${shelfDisplayName}!`)
+      toast.success(`Successfully added to ${shelfDisplayName}!`)
 
     } catch (err: any) {
       console.error("Error adding book to shelf:", err)

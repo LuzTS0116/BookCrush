@@ -137,7 +137,7 @@ export function AchievementCard({
       </div>
 
       {/* Achievement Icon */}
-      <div className="flex items-start gap-3 pr-8"> {/* Added pr-8 to give space for the 3-dot button */}
+      <div className="flex items-start gap-3"> {/* Added pr-8 to give space for the 3-dot button */}
         <div className="flex-1 min-w-0">
           <div className='flex flex-row gap-1'>
             <div className='achievement-icon'>
@@ -146,22 +146,22 @@ export function AchievementCard({
             <div className="flex-1">
               {/* Achievement Name & Points */}
               <div className="flex items-center justify-between">
-                <h3 className={`font-semibold text-sm ${isEarned ? 'text-gray-900' : 'text-gray-600'}`}>
+                <h3 className={`font-semibold text-sm/4 ${isEarned ? 'text-gray-900' : 'text-gray-600'}`}>
                   Reading Goal
                 </h3>
               </div>
 
               {/* Achievement Description */}
-              <p className={`text-xs mb-1 ${isEarned ? 'text-gray-700' : 'text-gray-500'}`}>
+              <p className={`text-xs/3 ${isEarned ? 'text-gray-700' : 'text-gray-500'}`}>
                 {achievement.description}
               </p>
 
-              {/* Time remaining information - now inside the card */}
+              {/* Time remaining information - now inside the card bg-accent-variant/20 text-gray-500 */}
               {timeInfo && !goalStatus && (
-                <div className={`text-xs font-medium mb-2 ${
-                  pastDueTime ? 'text-orange-600' : 'text-gray-500'
+                <div className={`text-xs font-medium mb-1 inline-block rounded-full px-2 ${
+                  pastDueTime ? 'bg-accent/20 text-red-400' : 'bg-accent-variant/20 text-gray-500'
                 }`}>
-                  {pastDueTime ? '⚠️ ' : '⏰ '}{timeInfo.text}
+                  {timeInfo.text}
                 </div>
               )}
             </div>
@@ -209,8 +209,8 @@ export function AchievementCard({
 
       {/* Earned Overlay */}
       {isEarned && (
-        <div className="absolute top-2 right-2">
-          <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+        <div className="absolute top-[10px] right-8">
+          <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
             <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>

@@ -585,66 +585,85 @@ const handleClickShare = async () => {
 
           {/* Custom Goals Section */}
           {customGoals.length > 0 ? (
-            <Card className="bg-accent-variant text-bookWhite rounded-b-2xl">
+            <Card className="bg-[url('/images/goals-active-bg.svg')] bg-cover text-bookBlack rounded-b-2xl">
               <CardContent className="px-2 py-2">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1.5">
-                  {customGoals.slice(0, 3).map((goal) => {
-                    const timeInfo = goal.end_date ? formatTimeRemaining(goal.end_date) : null;
-                    return (
-                    <div key={goal.id} className={`${timeInfo?.isPastDue ? 'bg-orange-100/20 border border-orange-400/30 rounded-lg p-2' : 'bg-bookWhite/10 rounded-lg p-2'}`}>
-                      <div className="flex items-center justify-between mb-0.5">
-                        <div className="flex items-center gap-1">
-                          <div className="text-sm font-medium text-bookWhite">
-                            Reading Goal
+                {customGoals.length <= 3 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1.5">
+                    {customGoals.slice(0, 3).map((goal) => {
+                      const timeInfo = goal.end_date ? formatTimeRemaining(goal.end_date) : null;
+                      return (
+                      <div key={goal.id} className={`${timeInfo?.isPastDue ? 'bg-red-100/20 border border-red-400/30 rounded-lg p-2' : 'bg-bookWhite/15 border-2 border-bookWhite/10 backdrop-blur-md rounded-lg p-2'}`}>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <div className="flex items-center gap-1">
+                            <div className="text-sm font-medium">
+                              Reading Goal
+                            </div>
+                            {timeInfo?.isPastDue && (
+                              <AlertTriangle className="h-3 w-3 text-red-600" />
+                            )}
                           </div>
-                          {timeInfo?.isPastDue && (
-                            <AlertTriangle className="h-3 w-3 text-orange-400" />
+                          <div className="text-xs text-bookBlack/70">
+                            {goal.progress.current_value}/{goal.progress.target_value}
+                          </div>
+                        </div>
+                        <div className="w-full bg-bookWhite/50 border-2 border-bookWhite/40 rounded-full h-3 mb-0.5">
+                          <div 
+                            className={`h-2 rounded-full transition-all duration-300 ${
+                              timeInfo?.isPastDue 
+                                ? 'bg-gradient-to-r from-orange-400 to-red-400' 
+                                : 'bg-gradient-to-r from-primary-dark to-accent'
+                            }`}
+                            style={{ width: `${goal.progress.progress_percentage}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <div className="text-xs font-serif font-semibold">
+                            {goal.description}
+                          </div>
+                          {timeInfo && (
+                            <div className={`text-xs ${
+                              timeInfo.isPastDue ? 'text-red-800' : ''
+                            }`}>
+                              {timeInfo.text}
+                            </div>
                           )}
                         </div>
-                        <div className="text-xs text-bookWhite/70">
-                          {goal.progress.current_value}/{goal.progress.target_value}
-                        </div>
-                      </div>
-                      <div className="w-full bg-bookWhite/20 rounded-full h-2 mb-0.5">
-                        <div 
-                          className={`h-2 rounded-full transition-all duration-300 ${
-                            timeInfo?.isPastDue 
-                              ? 'bg-gradient-to-r from-orange-400 to-red-400' 
-                              : 'bg-gradient-to-r from-primary-dark to-accent'
-                          }`}
-                          style={{ width: `${goal.progress.progress_percentage}%` }}
-                        />
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <div className="text-xs font-serif text-bookWhite/80">
-                          {goal.description}
-                        </div>
-                        {timeInfo && (
-                          <div className={`text-xs font-medium ${
-                            timeInfo.isPastDue ? 'text-orange-300' : 'text-bookWhite/60'
-                          }`}>
-                            {timeInfo.text}
+                        {timeInfo?.isPastDue && (
+                          <div className="mt-1">
+                            <Link href="/profile" className="text-xs text-orange-300 hover:text-orange-200 underline">
+                              Edit goal →
+                            </Link>
                           </div>
                         )}
                       </div>
-                      {timeInfo?.isPastDue && (
-                        <div className="mt-1">
-                          <Link href="/profile" className="text-xs text-orange-300 hover:text-orange-200 underline">
-                            Edit goal →
-                          </Link>
+                      );
+                    })}
+                  </div>
+                ):(
+                  <Card className="bg-bookWhite/25 text-bookBlack rounded-b-3xl">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 pt-3 pb-0">
+                      <CardTitle className="text-sm font-medium">Reading Goals</CardTitle>
+                    </CardHeader>
+                    <CardContent className="px-3 pb-3">
+                      <div className="flex flex-row justify-between items-center">
+                        <div className="flex flex-col">
+                          <div className="text-xl font-bold leading-6">You have {customGoals.length} goals</div>
                         </div>
-                      )}
-                    </div>
-                    );
-                  })}
-                </div>
-                {customGoals.length > 3 && (
+                        <Link href={`/profile?openGoals=true`}> 
+                          <p className="text-xs font-medium text-bookBlack px-2.5 py-1 border-[6px] border-bookWhite/70 inline-block rounded-full bg-gradient-to-r from-primary-dark to-accent cursor-pointer hover:bg-bookWhite hover:text-bookBlack">view your goals</p>
+                        </Link>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {/* {customGoals.length > 3 && (
                   <div className="text-center mt-3">
                     <Link href="/profile" className="text-xs text-bookWhite/70 hover:text-bookWhite">
                       View all {customGoals.length} goals →
                     </Link>
                   </div>
-                )}
+                )} */}
               </CardContent>
             </Card>
           ) : (
