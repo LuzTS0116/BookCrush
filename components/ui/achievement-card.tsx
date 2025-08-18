@@ -141,7 +141,7 @@ export function AchievementCard({
         <div className="flex-1 min-w-0">
           <div className='flex flex-row gap-1'> 
             <div className='achievement-icon'>
-              {achievement.icon}
+              {achievement.icon} 
             </div>
             <div className="flex-1">
               {/* Achievement Name & Points */}
