@@ -35,8 +35,15 @@ const globalPublicRoutes = [
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   console.log('[Main Middleware] Start for path:', pathname);
+  console.log('[Main Middleware] Request URL:', request.url);
+  console.log('[Main Middleware] NEXTAUTH_URL:', process.env.NEXTAUTH_URL);
+  console.log('[Main Middleware] NEXTAUTH_SECRET exists:', !!process.env.NEXTAUTH_SECRET);
 
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  console.log('[Main Middleware] getToken result:', {
+    hasToken: !!token,
+    tokenKeys: token ? Object.keys(token) : []
+  });
   
   const isGloballyPublic = globalPublicRoutes.some(route =>
     route.exact ? pathname === route.path : pathname.startsWith(route.path)
