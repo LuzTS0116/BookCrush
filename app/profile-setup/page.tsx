@@ -54,21 +54,32 @@ export default function ProfileSetupPage() {
     "Biography",
     "Children's",
     "Classics",
+    "Comedy",
+    "Contemporary Fiction",
     "Dark Romance",
     "Fantasy",
     "Fiction",
+    "Graphic Novels",
+    "Healing Fiction",
     "Historical Fiction",
     "Horror",
     "Literary Fiction",
     "Manga",
+    "Memoir",
     "Mystery",
+    "New Adult",
     "Non-Fiction",
     "Poetry",
+    "Psychological Thriller",
     "Romance",
+    "Romcoms",
     "Romantasy",
     "Science Fiction",
     "Self-Help",
+    "Short Stories",
+    "Spirituality",
     "Thriller",
+    "True Crime",
     "Young Adult"
   ]
 
@@ -357,7 +368,7 @@ export default function ProfileSetupPage() {
             
             {/* Success Alert */}
             {success && (
-              <Alert className="mb-4 bg-green-500/20 border-green-500/30 text-green-100">
+              <Alert className="mb-2 border-none bg-green-500/20 text-green-100">
                 <CheckCircle className="h-4 w-4" />
                 <AlertDescription>{success}</AlertDescription>
               </Alert>
@@ -495,9 +506,13 @@ export default function ProfileSetupPage() {
                     <SelectTrigger className="flex-1 rounded-full bg-secondary border-none text-bookWhite/70 disabled:opacity-50">
                       <SelectValue placeholder="Select a genre" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-xl bg-secondary/90 backdrop-blur-sm border-none shadow-lg">
                       {genres.map((genre) => (
-                        <SelectItem key={genre} value={genre}>
+                        <SelectItem 
+                          key={genre} 
+                          value={genre}
+                          className="cursor-pointer rounded-xl px-3 py-2 text-bookWhite/80 focus:bg-accent focus:text-secondary hover:bg-accent/70 hover:text-secondary/70 data-[state=checked]:bg-accent data-[state=checked]:text-secondary [&_svg]:hidden"
+                        >
                           {genre}
                         </SelectItem>
                       ))}
