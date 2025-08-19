@@ -389,6 +389,7 @@ export default function ProfileSetupPage() {
                     <AvatarImage 
                       src={profilePicturePreview || "/placeholder.svg?height=96&width=96"} 
                       alt="@user" 
+                      className="h-full w-full object-cover"
                     />
                     <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
                       {username ? username.charAt(0).toUpperCase() : "U"}

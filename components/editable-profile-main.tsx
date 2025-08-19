@@ -1699,6 +1699,7 @@ export default function EditableProfileMain() {
                       <AvatarImage 
                         src={currentAvatar || undefined} 
                         alt="@user" 
+                        className="h-full w-full object-cover"
                       />
                       <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
                         {displayName ? displayName.charAt(0).toUpperCase() : "U"}
