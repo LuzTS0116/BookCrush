@@ -489,8 +489,8 @@ const handleSelect = async (suggestion: BookSuggestion) => {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogTrigger asChild>
-          <Button className="bg-primary hover:bg-primary-light text-secondary rounded-full">
-            <Plus className="mr-2 h-4 w-4" /> Add Book
+          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-semibold shadow-lg hover:shadow-xl transition-all duration-200 px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base min-h-[40px] sm:min-h-[44px]">
+            <Plus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" /> Add Book
           </Button>
         </DialogTrigger>
         <DialogContent className="w-[85vw] rounded-2xl">
@@ -508,12 +508,12 @@ const handleSelect = async (suggestion: BookSuggestion) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogTrigger asChild>
-        <Button 
-          className="bg-primary hover:bg-primary-light text-secondary rounded-full"
-          disabled={status === 'loading'}
-        >
-            <Plus className="mr-2 h-4 w-4" /> Add Book
-        </Button>
+          <Button 
+            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-semibold shadow-lg hover:shadow-xl transition-all duration-200 px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base min-h-[40px] sm:min-h-[44px]"
+            disabled={status === 'loading'}
+          >
+            <Plus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" /> Add Book
+          </Button>
         </DialogTrigger>
 
       <DialogContent className="w-[85vw] rounded-2xl">
