@@ -340,7 +340,7 @@ export default function ProfileSetupPage() {
         </div>
       ) : (
         <Card className="w-full max-w-2xl bg-secondary-light/30 backdrop-blur-md border-secondary-light/20 mb-12">
-          <CardHeader className="space-y-1">
+          <CardHeader className="space-y-2">
             <CardTitle className="text-2xl/6 font-bold text-center text-bookWhite">Choose Your username</CardTitle>
             <CardDescription className="text-center text-base/5 font-medium font-serif text-bookWhite">
               Pick a unique username and tell us about yourself — your identity in our book community.
@@ -492,7 +492,7 @@ export default function ProfileSetupPage() {
                     onValueChange={setSelectedGenre}
                     disabled={isSubmitting}
                   >
-                    <SelectTrigger className="flex-1 rounded-full bg-white/60 disabled:opacity-50">
+                    <SelectTrigger className="flex-1 rounded-full bg-secondary border-none text-bookWhite/70 disabled:opacity-50">
                       <SelectValue placeholder="Select a genre" />
                     </SelectTrigger>
                     <SelectContent>
@@ -507,7 +507,7 @@ export default function ProfileSetupPage() {
                     type="button" 
                     onClick={addGenre} 
                     disabled={!selectedGenre || isSubmitting} 
-                    className="rounded-full bg-primary-dark text-bookWhite disabled:opacity-50"
+                    className="rounded-full bg-primary-dark text-secondary-light disabled:opacity-50"
                   >
                     Add
                   </Button>
