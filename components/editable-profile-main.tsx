@@ -1763,7 +1763,7 @@ export default function EditableProfileMain() {
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
                       placeholder="Tell us about yourself and your reading interests..."
-                      className="min-h-[80px] rounded-2xl font-serif text-sm/4 italic text-wrap bg-white/60 text-secondary border border-secondary-light placeholder:text-secondary/70"
+                      className="min-h-[80px] rounded-2xl font-serif text-sm/4 italic text-wrap bg-white/60 text-secondary border-none placeholder:text-secondary/70"
                     />
                   ) : (
                     <p className="text-sm/4 font-serif font-medium text-secondary/50">
@@ -1773,7 +1773,7 @@ export default function EditableProfileMain() {
                 </div>
 
                 {/* Kindle Email Section */}
-                {isEditing && (
+                {/* {isEditing && (
                   <div>
                     <Input
                       value={kindleEmail}
@@ -1782,7 +1782,7 @@ export default function EditableProfileMain() {
                       className="bg-white/60 text-secondary border border-secondary-light"
                     />
                   </div>
-                )}
+                )} */}
 
                 {/* Genres Section */}
                 <div>
@@ -1806,12 +1806,16 @@ export default function EditableProfileMain() {
                   {isEditing && (
                     <div className="flex gap-2 items-center">
                       <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-                        <SelectTrigger className="flex-1 rounded-full bg-white/60">
+                        <SelectTrigger className="flex-1 rounded-full bg-white/60 border-none">
                           <SelectValue placeholder="Add a genre" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="rounded-xl bg-white/80 backdrop-blur-md border-none shadow-lg">
                           {genres.map((genre) => (
-                            <SelectItem key={genre} value={genre}>
+                            <SelectItem 
+                              key={genre} 
+                              value={genre}
+                              className="cursor-pointer rounded-2xl px-3 py-2 text-secondary focus:bg-accent/30 focus:text-secondary hover:bg-accent/30 hover:text-secondary data-[state=checked]:bg-accent/30 data-[state=checked]:text-secondary [&_svg]:hidden"
+                            >
                               {genre}
                             </SelectItem>
                           ))}
