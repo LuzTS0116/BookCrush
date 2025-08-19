@@ -59,9 +59,11 @@ export function ContributionBookDialog({ addedBooks }: { addedBooks: BookDetails
                   ))}
                 </div>
               </div>
+              {addedBooks.pages && (
               <p className="text-secondary/80 font-sans font-normal text-xs leading-none mt-0 inline-block">
                 {addedBooks.pages} pages • {addedBooks.reading_time}
               </p>
+              )}
             </div>
           </div>
         </div>

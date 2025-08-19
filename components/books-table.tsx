@@ -404,11 +404,13 @@ const BookCard = React.memo(({
             ) : null}
           </div>
 
-          <div className="flex-1">
-            <p className="text-secondary/60 font-sans font-normal bg-accent/20 rounded-full px-2 text-xs inline-block">
-              {book.pages} pages • {book.reading_time}
-            </p>
-          </div>
+          {book.pages && (
+            <div className="flex-1">
+              <p className="text-secondary/60 font-sans font-normal bg-accent/20 rounded-full px-2 text-xs inline-block">
+                {book.pages} pages • {book.reading_time}
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-row justify-between items-end gap-2 text-sm">
             <div>
