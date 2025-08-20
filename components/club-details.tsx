@@ -349,6 +349,7 @@ interface ClubMembership {
   status: 'ACTIVE' | 'PENDING' | 'REJECTED' | 'LEFT' | 'BANNED';
   joined_at: string; // ISO Date string  
   user: { // Added this nested user object based on your API structure
+    id: string;
     display_name: string;
     avatar_url?: string | null; // Optional: if your API provides user avatar
     // Add other user fields like id, initials if they are part of this nested object
@@ -3237,9 +3238,11 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="text-sm font-medium">
-                          {club.memberships[i].user.display_name}
-                        </p>
+                        <Link href={`/profile/${club.memberships[i].user.id}`}>
+                          <p className="text-sm font-medium">
+                            {club.memberships[i].user.display_name}
+                          </p>
+                        </Link>
                         <p className="text-xs text-secondary font-serif font-normal">
                           {rolePrefix}
                           {currentBookSet && (
