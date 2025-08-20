@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { BookMarked, ArrowLeft, Smartphone, BookOpen, Headphones, CircleCheckBig, CircleAlert, Star, UserMinus } from "lucide-react"
+import { BookMarked, ArrowLeft, Smartphone, BookOpen, Headphones, CircleCheckBig, CircleAlert, Star, UserMinus, AlertCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { ProfileBookHistory } from "./profile-book-history";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -17,7 +17,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation"
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Loader2 } from "lucide-react"
 import { LucideHeart, LucideThumbsUp, LucideThumbsDown } from "lucide-react"
 import { AddFriendButton } from '@/components/social/add-friend-button';
@@ -122,6 +122,9 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isUnfriending, setIsUnfriending] = useState(false);
+  
+  // Unfriend confirmation dialog state
+  const [unfriendDialogOpen, setUnfriendDialogOpen] = useState(false);
 
   const router = useRouter();
 
@@ -192,15 +195,6 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
       return;
     }
 
-    // Show confirmation dialog
-    const confirmed = window.confirm(
-      `Are you sure you want to unfriend ${profile.display_name  || 'this user'}? This action cannot be undone.`
-    );
-    
-    if (!confirmed) {
-      return;
-    }
-
     setIsUnfriending(true);
     try {
       const response = await fetch('/api/friends', {
@@ -227,6 +221,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
       console.error('Error unfriending user:', err);
     } finally {
       setIsUnfriending(false);
+      setUnfriendDialogOpen(false);
     }
   };
 
@@ -308,7 +303,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                       {profile.isFriend && profile.id !== session?.user?.id && (
                         <div className="flex justify-start">
                           <Button
-                            onClick={handleUnfriend}
+                            onClick={() => setUnfriendDialogOpen(true)}
                             disabled={isUnfriending}
                             variant="outline"
                             size="sm"
@@ -646,6 +641,57 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
           )}
         </div>
       </div>
+
+      {/* Unfriend Confirmation Dialog */}
+      <Dialog open={unfriendDialogOpen} onOpenChange={setUnfriendDialogOpen}>
+        <DialogContent className="w-[85vw] rounded-2xl">
+          <DialogHeader className="pt-8">
+            <DialogTitle className="text-center">Unfriend User?</DialogTitle>
+            <DialogDescription className="text-center font-serif leading-5">
+              Are you sure you want to unfriend {profile?.display_name || 'this user'}?
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-red-800">This action cannot be undone</p>
+                  <p className="text-sm text-red-700 mt-1">
+                    You'll no longer be able to see each other's reading activity, and you'll need to send a new friend request to reconnect.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setUnfriendDialogOpen(false)}
+              disabled={isUnfriending}
+              className="rounded-full flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUnfriend}
+              disabled={isUnfriending}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-full flex-1"
+            >
+              {isUnfriending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Unfriending...
+                </>
+              ) : (
+                "Yes, Unfriend"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
