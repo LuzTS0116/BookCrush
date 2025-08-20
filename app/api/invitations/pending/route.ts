@@ -96,7 +96,6 @@ export async function GET(req: NextRequest) {
                   select: {
                     id: true,
                     display_name: true,
-                    
                     avatar_url: true,
                   },
                 },
@@ -117,6 +116,7 @@ export async function GET(req: NextRequest) {
         },
         inviter: {
           select: {
+            id: true,
             display_name: true,
             avatar_url: true
           }
@@ -133,6 +133,7 @@ export async function GET(req: NextRequest) {
       club_id: invitation.club_id,
       club_name: invitation.club.name,
       club_description: invitation.club.description,
+      inviter_id: invitation.inviter.id,
       inviter_name: invitation.inviter.display_name || 'Unknown User',
       inviter_avatar: processAvatarUrl(invitation.inviter.avatar_url),
       message: invitation.message,

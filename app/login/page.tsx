@@ -70,16 +70,21 @@ export default function LoginPage() {
   // Check for session clearing flag from middleware
   useEffect(() => {
     const shouldClearSession = searchParams.get('clearSession');
-    if (shouldClearSession === 'true' && status === 'authenticated') {
+    const invalidSessionError = searchParams.get('error') === 'invalid_session';
+    
+    if (shouldClearSession === 'true' || invalidSessionError) {
       console.log('Clearing invalid session as requested by middleware');
       setIsClearingSession(true);
+      
+      // Force sign out regardless of current session status
       signOut({ redirect: false }).finally(() => {
         setIsClearingSession(false);
         // Clear the URL parameters after clearing session
-        router.replace('/login', { scroll: false });
+        const cleanUrl = new URL('/login', window.location.origin);
+        router.replace(cleanUrl.pathname, { scroll: false });
       });
     }
-  }, [searchParams, status, router]);
+  }, [searchParams, router]);
 
   // Check for OAuth errors and display them
   useEffect(() => {

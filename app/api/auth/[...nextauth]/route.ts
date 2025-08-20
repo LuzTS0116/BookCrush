@@ -425,15 +425,38 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         
-        // Try to get user data from Supabase to populate name if missing
-        if (token.supa?.access_token && !session.user.name) {
+        // Try to get user profile from database to populate name
+        if (token.id) {
           try {
-            const { data: userData } = await supabaseAdmin.auth.getUser(token.supa.access_token);
-            if (userData.user?.user_metadata?.display_name) {
-              session.user.name = userData.user.user_metadata.display_name;
-            } 
+            const profile = await prisma.profile.findUnique({
+              where: { id: token.id as string },
+              select: { full_name: true, display_name: true }
+            });
+
+            if (profile) {
+              // Prioritize full_name, fallback to display_name if full_name is not available
+              session.user.name = profile.full_name || profile.display_name;
+            } else if (token.supa?.access_token && !session.user.name) {
+              // Fallback to Supabase user metadata if profile doesn't exist
+              const { data: userData } = await supabaseAdmin.auth.getUser(token.supa.access_token);
+              if (userData.user?.user_metadata?.display_name) {
+                session.user.name = userData.user.user_metadata.display_name;
+              }
+            }
           } catch (error) {
-            console.warn('[Auth Session Callback] Could not fetch user metadata:', error);
+            console.warn('[Auth Session Callback] Could not fetch user profile:', error);
+            
+            // Final fallback to Supabase user metadata
+            if (token.supa?.access_token && !session.user.name) {
+              try {
+                const { data: userData } = await supabaseAdmin.auth.getUser(token.supa.access_token);
+                if (userData.user?.user_metadata?.display_name) {
+                  session.user.name = userData.user.user_metadata.display_name;
+                }
+              } catch (supabaseError) {
+                console.warn('[Auth Session Callback] Could not fetch user metadata:', supabaseError);
+              }
+            }
           }
         }
       }

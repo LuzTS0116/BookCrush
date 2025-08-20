@@ -47,13 +47,15 @@ interface RecommendationCardProps {
   type: 'inbox' | 'sent'
   onUpdate?: (id: string, status: string) => void
   onDelete?: (id: string) => void
+  onAddToShelf?: (bookId: string, shelf: string, bookData: any) => void
 }
 
 export function RecommendationCard({ 
   recommendation, 
   type, 
   onUpdate, 
-  onDelete 
+  onDelete,
+  onAddToShelf
 }: RecommendationCardProps) {
   const { data: session } = useSession()
   const [isLoading, setIsLoading] = useState(false)
@@ -85,6 +87,21 @@ export function RecommendationCard({
 
       const shelfName = shelf === 'currently_reading' ? 'Currently Reading' : 'Reading Queue'
       toast.success(`"${recommendation.book.title}" added to ${shelfName}!`)
+      
+      // Trigger optimistic update in parent component
+      if (onAddToShelf) {
+        const bookData = {
+          id: recommendation.book.id,
+          title: recommendation.book.title,
+          author: recommendation.book.author,
+          cover_url: recommendation.book.cover_url,
+          genres: recommendation.book.genres,
+          description: recommendation.book.description,
+          pages: recommendation.book.pages,
+          reading_time: recommendation.book.reading_time
+        }
+        onAddToShelf(recommendation.book.id, shelf, bookData)
+      }
       
       if (onUpdate) {
         onUpdate(recommendation.id, 'ADDED')
@@ -253,11 +270,11 @@ export function RecommendationCard({
               </div>
 
               {/* Book details */}
-              <div className="flex-1 mb-1">
-                {recommendation.book.pages && (
+              {recommendation.book.pages && (
+                <div className="flex-1 mb-1">
                   <p className="inline-block text-xs text-secondary/60 rounded-full bg-primary/80 py-0.5 px-2">{recommendation.book.pages} pages • {recommendation.book.reading_time}</p>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Note */}
               {type === 'sent' && (
@@ -289,7 +306,7 @@ export function RecommendationCard({
           )}
 
           {/* Actions */}
-          <div className="flex flex-wrap justify-end gap-1">
+          <div className="flex flex-wrap justify-end mt-2 gap-1">
             {type === 'inbox' && recommendation.status === 'PENDING' && (
               <>
                 <Button

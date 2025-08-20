@@ -122,21 +122,32 @@ export default function ClubsMain({
     "Biography",
     "Children's",
     "Classics",
+    "Comedy",
+    "Contemporary Fiction",
     "Dark Romance",
     "Fantasy",
     "Fiction",
+    "Graphic Novels",
+    "Healing Fiction",
     "Historical Fiction",
     "Horror",
     "Literary Fiction",
     "Manga",
+    "Memoir",
     "Mystery",
+    "New Adult",
     "Non-Fiction",
     "Poetry",
+    "Psychological Thriller",
     "Romance",
+    "Romcoms",
     "Romantasy",
     "Science Fiction",
     "Self-Help",
+    "Short Stories",
+    "Spirituality",
     "Thriller",
+    "True Crime",
     "Young Adult"
   ];
 
@@ -453,7 +464,7 @@ console.log(pendingInvitations);
                               type="button"
                               onClick={addGenre} 
                               disabled={!selectedGenre || loadingAction}
-                              className="bg-primary hover:bg-primary-light text-primary-foreground"
+                              className="bg-primary rounded-full hover:bg-primary-light text-primary-foreground"
                             >
                               Add
                             </Button>
@@ -679,9 +690,11 @@ console.log(pendingInvitations);
                                         </span>
                                       ))}
                                     </div>
+                                    {invitation.club.current_book?.pages && (
                                     <div className="flex">
                                         <p className="text-secondary text-xs/4">{invitation.club.current_book?.pages} pages • {invitation.club.current_book?.reading_time}</p>
                                     </div>
+                                    )}
                                     {invitation.club.meetings && invitation.club.meetings.length > 0 ? (
                                       <span className="flex flex-row items-center w-36 mt-1.5 h-5 px-2 bg-accent-variant/75 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
                                         <Calendar className="h-3 w-3 mr-1"/>
@@ -723,7 +736,7 @@ console.log(pendingInvitations);
                                       {invitation.inviter_name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
-                                  {invitation.inviter_name} invited you to join this club!
+                                  <Link href={`/profile/${invitation.inviter_id}`}>{invitation.inviter_name}</Link> invited you to join this club!
                                 </CardTitle>
                                 <span className="text-xs text-secondary/60 font-serif pl-6">
                                   {formatDate(invitation.created_at)}
@@ -869,9 +882,11 @@ console.log(pendingInvitations);
                                           </span>
                                         ))}
                                       </div>
+                                      {club.current_book?.pages && (
                                       <div className="flex">
                                           <p className="text-secondary text-xs/4">{club.current_book?.pages} pages • {club.current_book?.reading_time}</p>
                                       </div>
+                                      )}
                                       {club.meetings && club.meetings.length > 0 ? (
                                         <span className="flex flex-row items-center w-36 mt-1.5 h-5 px-2 bg-accent-variant/75 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
                                           <Calendar className="h-3 w-3 mr-1"/>
@@ -1185,9 +1200,11 @@ console.log(pendingInvitations);
                                           </span>
                                         ))}
                                       </div>
+                                      {club.current_book?.pages && (
                                       <div className="flex">
                                           <p className="text-secondary text-xs/4">{club.current_book?.pages} pages • {club.current_book?.reading_time}</p>
                                       </div>
+                                      )}
                                       {club.meetings && club.meetings.length > 0 ? (
                                         <span className="flex flex-row items-center w-36 mt-1.5 h-5 px-2 bg-accent-variant/75 text-bookWhite text-xs/3 rounded-full font-serif font-medium">
                                           <Calendar className="h-3 w-3 mr-1"/>

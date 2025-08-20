@@ -948,9 +948,11 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                     </Badge>
                   ))}
                 </div> 
-                <div className="flex-1">
-                  <span className="font-medium font-serif text-xs/3 text-secondary-light bg-secondary/5 rounded-full px-2 py-0.5">{book.pages} pages • {book.reading_time}</span>
-                </div>
+                {book.pages && (
+                  <div className="flex-1">
+                    <span className="font-medium font-serif text-xs/3 text-secondary-light bg-secondary/5 rounded-full px-2 py-0.5">{book.pages} pages • {book.reading_time}</span>
+                  </div>
+                )}
 
                 <div className="mt-2">
                   {/* Quick Reaction Section */}

@@ -349,6 +349,7 @@ interface ClubMembership {
   status: 'ACTIVE' | 'PENDING' | 'REJECTED' | 'LEFT' | 'BANNED';
   joined_at: string; // ISO Date string  
   user: { // Added this nested user object based on your API structure
+    id: string;
     display_name: string;
     avatar_url?: string | null; // Optional: if your API provides user avatar
     // Add other user fields like id, initials if they are part of this nested object
@@ -453,6 +454,7 @@ interface ClubMembershipRequest {
 interface InvitableUser {
   id: string;
   display_name: string;
+  full_name: string | null; // Added full_name for search
   email: string;
   avatar_url?: string | null;
   about?: string | null;
@@ -649,6 +651,9 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   const [deletingMeetingId, setDeletingMeetingId] = useState<string | null>(null)
   const [updatingMeeting, setUpdatingMeeting] = useState(false)
   
+  // Leave club confirmation dialog state
+  const [leaveClubDialogOpen, setLeaveClubDialogOpen] = useState(false)
+  
   // RSVP details dialog states
   const [rsvpDetailsDialog, setRsvpDetailsDialog] = useState<{
     isOpen: boolean;
@@ -791,15 +796,6 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
       return;
     }
 
-    // Show confirmation dialog
-    const confirmed = window.confirm(
-      `Are you sure you want to leave "${club.name}"? This action cannot be undone and you'll need to reapply if you want to rejoin.`
-    );
-    
-    if (!confirmed) {
-      return;
-    }
-
     setLoadingAction(true);
     try {
       const response = await fetch('/api/clubs/leave', {
@@ -827,6 +823,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
       console.error("Error leaving club:", err);
     } finally {
       setLoadingAction(false);
+      setLeaveClubDialogOpen(false);
     }
   };
 
@@ -3204,7 +3201,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               <CardDescription className="font-serif text-sm font-normal">{club.memberCount} members</CardDescription> {/* Updated to memberCount */}
             </CardHeader>
             <CardContent className="p-3">
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {/* Dynamically display members based on club.memberCount */}
 
                 {[...Array(Math.min(6, club.memberships.length ?? 0))].map((member, i) => {
@@ -3219,7 +3216,8 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                   
                   // Get book status display
                   const bookStatus = memberStatus?.book_status || (loadingMemberStatuses ? 'Loading...' : 'Not in Library');
-                  const statusDisplay = rolePrefix ? `${rolePrefix} - Current Book Status: ${bookStatus}` : `Current Book Status: ${bookStatus}`;
+                  const statusDisplay = rolePrefix ? ` - Current Book Status: ${bookStatus}` : `Current Book Status: ${bookStatus}`;
+                  const currentBookSet = club.current_book
 
                   return (
                     <div key={i} className="flex items-center gap-3">
@@ -3236,11 +3234,18 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="text-sm font-medium">
-                          {club.memberships[i].user.display_name}
-                        </p>
+                        <Link href={`/profile/${club.memberships[i].user.id}`}>
+                          <p className="text-sm font-medium">
+                            {club.memberships[i].user.display_name}
+                          </p>
+                        </Link>
                         <p className="text-xs text-secondary font-serif font-normal">
+                          {rolePrefix}
+                          {currentBookSet && (
+                          <span className="text-xs text-secondary font-serif font-normal">
                            {statusDisplay}
+                          </span>
+                        )}
                         </p>
                       </div>
                     </div>
@@ -3281,12 +3286,12 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                       <div className="space-y-4">
                         {/* Search Input */}
                         <div className="relative">
-                          <Search className="absolute left-3 top-2 h-4 w-4 text-muted-foreground" />
+                          <Search className="absolute left-3 top-2 h-4 w-4 text-secondary" />
                           <Input
                             placeholder="Search users by name..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-9 bg-bookWhite/80 font-medium"
+                            className="pl-9 bg-bookWhite/80 text-secondary placeholder:text-secondary/70 font-medium"
                           />
                         </div>
 
@@ -3318,17 +3323,18 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                               {searchResults.map((user) => (
                                 <div key={user.id} className="flex items-center justify-between p-3 bg-secondary-light/10 rounded-lg">
                                   <div className="flex items-center gap-3">
-                                    <Avatar className="h-10 w-10">
-                                      <AvatarImage src={user.avatar_url || "/placeholder.svg"} alt={user.display_name} />
-                                      <AvatarFallback className="bg-primary text-primary-foreground">
-                                        {user.initials}
-                                      </AvatarFallback>
-                                    </Avatar>
+                                    <Link href={`/profile/${user.id}`}>
+                                      <Avatar className="h-10 w-10">
+                                        <AvatarImage src={user.avatar_url || "/placeholder.svg"} alt={user.display_name} />
+                                        <AvatarFallback className="bg-primary text-primary-foreground">
+                                          {user.initials}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                    </Link>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium truncate">{user.display_name}</p>
-                                      <p className="text-xs text-secondary font-serif font-normal truncate">{user.email}</p>
-                                      {user.about && (
-                                        <p className="text-xs text-muted-foreground font-serif mt-1 line-clamp-1">{user.about}</p>
+                                      <Link href={`/profile/${user.id}`}><p className="text-sm/4 font-medium truncate max-w-28">{user.display_name}</p></Link>
+                                      {user.full_name && user.full_name !== user.display_name && (
+                                        <p className="text-xs text-muted-foreground font-serif mt-0 line-clamp-1">{user.full_name}</p>
                                       )}
                                     </div>
                                   </div>
@@ -3341,9 +3347,9 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                                     {loadingInvite ? (
                                       <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : (
-                                      <Send className="mr-1 h-4 w-4" />
+                                      <Send className="h-4 w-4" />
                                     )}
-                                    Send Invite
+                                    Send
                                   </Button>
                                 </div>
                               ))}
@@ -3983,7 +3989,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={handleLeaveClub}
+                    onClick={() => setLeaveClubDialogOpen(true)}
                     disabled={loadingAction}
                     className="bg-red-900 hover:bg-red-800 text-bookWhite/80 border-none hover:text-bookWhite rounded-full h-6 text-xs"
                   >
@@ -4030,7 +4036,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
           <DialogHeader className="pt-4 flex-shrink-0">
             <DialogTitle>Complete Meeting</DialogTitle>
             <DialogDescription className="font-serif leading-4">
-              Done discussing? Let’s wrap things up, write what was discussed and confirm who joined.
+              Done discussing? Let's wrap things up, write what was discussed and confirm who joined.
             </DialogDescription>
           </DialogHeader>
           
@@ -4523,6 +4529,65 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Leave Club Confirmation Dialog */}
+      <Dialog open={leaveClubDialogOpen} onOpenChange={setLeaveClubDialogOpen}>
+        <DialogContent className="w-[85vw] rounded-2xl">
+          <Image 
+            src="/images/background.png"
+            alt="Leave Club Confirmation"
+            width={1622}
+            height={2871}
+            className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
+          />
+          <DialogHeader className="pt-8">
+            <DialogTitle className="text-center">Leave Club?</DialogTitle>
+            <DialogDescription className="text-center font-serif leading-5">
+              Are you sure you want to leave "{club?.name}"? 
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <div className="bg-red-50/80 border border-red-200 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-red-800">This action cannot be undone</p>
+                  <p className="text-sm text-red-700 mt-1">
+                    You'll lose access to all club discussions, meetings, and updates. 
+                    If you want to rejoin later, you'll need to apply again and wait for approval.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setLeaveClubDialogOpen(false)}
+              disabled={loadingAction}
+              className="rounded-full flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleLeaveClub}
+              disabled={loadingAction}
+              className="bg-red-600 hover:bg-red-700 text-white rounded-full flex-1"
+            >
+              {loadingAction ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Leaving...
+                </>
+              ) : (
+                "Yes, Leave Club"
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

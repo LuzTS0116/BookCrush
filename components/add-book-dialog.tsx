@@ -489,8 +489,8 @@ const handleSelect = async (suggestion: BookSuggestion) => {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogTrigger asChild>
-          <Button className="bg-primary hover:bg-primary-light text-secondary rounded-full">
-            <Plus className="mr-2 h-4 w-4" /> Add Book
+          <Button className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-semibold shadow-lg hover:shadow-xl transition-all duration-200 px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base min-h-[40px] sm:min-h-[44px]">
+            <Plus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" /> Add Book
           </Button>
         </DialogTrigger>
         <DialogContent className="w-[85vw] rounded-2xl">
@@ -508,12 +508,12 @@ const handleSelect = async (suggestion: BookSuggestion) => {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogTrigger asChild>
-        <Button 
-          className="bg-primary hover:bg-primary-light text-secondary rounded-full"
-          disabled={status === 'loading'}
-        >
-            <Plus className="mr-2 h-4 w-4" /> Add Book
-        </Button>
+          <Button 
+            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full font-semibold shadow-lg hover:shadow-xl transition-all duration-200 px-4 py-2 sm:px-6 sm:py-3 text-sm sm:text-base min-h-[40px] sm:min-h-[44px]"
+            disabled={status === 'loading'}
+          >
+            <Plus className="mr-2 h-4 w-4 sm:h-5 sm:w-5" /> Add Book
+          </Button>
         </DialogTrigger>
 
       <DialogContent className="w-[85vw] rounded-2xl">
@@ -543,6 +543,7 @@ const handleSelect = async (suggestion: BookSuggestion) => {
                 disabled={isLoading}
               />
               {suggestions.length > 0 && (
+                <>
                 <div className="border rounded-xl p-2 max-h-60 overflow-y-auto bg-bookWhite shadow">
                     {(showAllSuggestions ? suggestions : suggestions.slice(0, 10)).map((suggestion) => (
                     <div
@@ -569,18 +570,33 @@ const handleSelect = async (suggestion: BookSuggestion) => {
                     </div>
                     )}
                 </div>
-              )}
-              
-              {/* Show "Book Not Found" option when there are no suggestions and user has typed something */}
-              {title.trim().length > 2 && suggestions.length === 0 && (
-                <div className="border rounded-xl p-4 bg-bookWhite/80 shadow">
-                  <p className="text-secondary text-sm mb-3">
+
+                <div className="rounded-xl p-3 bg-bookWhite/10 shadow flex flex-col items-center">
+                  <p className="text-bookWhite text-center max-w-52 text-sm/4 mb-1">
                     Can't find the book you're looking for?
                   </p>
                   <Button
                     onClick={handleShowBookNotFoundForm}
                     variant="outline"
-                    className="w-full rounded-full text-secondary border-secondary/30 hover:bg-secondary/10"
+                    className="w-full rounded-full bg-primary text-secondary border-secondary/30 hover:bg-primary-dark"
+                    disabled={isLoading}
+                  >
+                    Report Missing Book
+                  </Button>
+                </div>
+                </>
+              )}
+              
+              {/* Show "Book Not Found" option when there are no suggestions and user has typed something */}
+              {title.trim().length > 2 && suggestions.length === 0 && (
+                <div className="rounded-xl p-3 bg-bookWhite/10 shadow flex flex-col items-center">
+                  <p className="text-bookWhite text-center max-w-52 text-sm/4 mb-1">
+                    Can't find the book you're looking for?
+                  </p>
+                  <Button
+                    onClick={handleShowBookNotFoundForm}
+                    variant="outline"
+                    className="w-full rounded-full bg-primary text-secondary border-secondary/30 hover:bg-primary-dark"
                     disabled={isLoading}
                   >
                     Report Missing Book
@@ -604,14 +620,14 @@ const handleSelect = async (suggestion: BookSuggestion) => {
 
             <DialogHeader>
               <DialogTitle className="mt-7">Report Missing Book</DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="text-bookWhite/80 leading-4">
                 Help us improve our collection by telling us about the book you're looking for.
               </DialogDescription>
             </DialogHeader>
             
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-4 pt-7 pb-4">
               <div className="grid gap-2">
-                <Label htmlFor="missing-title" className="text-secondary font-medium">
+                <Label htmlFor="missing-title" className="text-bookWhite font-medium">
                   Book Title *
                 </Label>
                 <Input
@@ -625,7 +641,7 @@ const handleSelect = async (suggestion: BookSuggestion) => {
               </div>
               
               <div className="grid gap-2">
-                <Label htmlFor="missing-author" className="text-secondary font-medium">
+                <Label htmlFor="missing-author" className="text-bookWhite font-medium">
                   Author *
                 </Label>
                 <Input
@@ -639,7 +655,7 @@ const handleSelect = async (suggestion: BookSuggestion) => {
               </div>
               
               <div className="grid gap-2">
-                <Label htmlFor="additional-info" className="text-secondary font-medium">
+                <Label htmlFor="additional-info" className="text-bookWhite font-medium">
                   Additional Information (Optional)
                 </Label>
                 <Input

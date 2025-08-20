@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import Link from "next/link"
 import Image from "next/image";
@@ -9,26 +7,23 @@ import { handleSignIn } from '@/lib/auth';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { BookOpen, Mail, Lock, User, Loader2, AlertCircle } from "lucide-react"
+import { Mail, Lock, Loader2, AlertCircle } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useRouter } from 'next/navigation'
 import { signIn } from 'next-auth/react'
-// import { createClient } from '@/lib/supabaseClient';
 import { createClient } from '@/lib/supabaseClient';
 
 export default function SignupPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [username, setUsername] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [error, setError] = useState("")
   const [loadingStep, setLoadingStep] = useState("")
   const router = useRouter()
-//   const supabase = supabaseBrowser()
   const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,11 +43,6 @@ export default function SignupPage() {
       return;
     }
     
-    if (!username.trim()) {
-      setError("Username is required");
-      return;
-    }
-    
     setIsLoading(true);
     
     try {
@@ -63,11 +53,6 @@ export default function SignupPage() {
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ 
         email, 
         password,
-        options: {
-          data: {
-            display_name: username.trim()
-          }
-        }
       });
       
       if (signUpError) throw signUpError;
@@ -97,9 +82,8 @@ export default function SignupPage() {
       
       setLoadingStep("Redirecting...");
       
-      // Pass the username to profile setup page so it can be used as initial username
-      const profileSetupUrl = `/profile-setup?username=${encodeURIComponent(username.trim())}`;
-      router.push(profileSetupUrl);
+      // Redirect to profile setup page where user will choose username
+      router.push('/profile-setup');
     } catch (error: unknown) {
       console.error('Authentication error:', error);
       const errorMessage = error instanceof Error ? error.message : 'An error occurred during signup. Please try again.';
@@ -182,22 +166,6 @@ export default function SignupPage() {
                 </div>
                 </div>
                 <div className="space-y-2">
-                <Label htmlFor="username" className="text-bookWhite">Username</Label>
-                <div className="relative">
-                    <User className="absolute left-3 top-2 h-4 w-4 text-bookWhite" />
-                    <Input
-                    id="username"
-                    type="text"
-                    placeholder="Your username"
-                    className="pl-10 text-bookWhite log-sign"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    disabled={isLoading}
-                    required
-                    />
-                </div>
-                </div>
-                <div className="space-y-2">
                 <Label htmlFor="password" className="text-bookWhite">Password</Label>
                 <div className="relative">
                     <Lock className="absolute left-3 top-2 h-4 w-4 text-bookWhite" />
@@ -232,7 +200,10 @@ export default function SignupPage() {
                 <Button 
                   type="submit" 
                   className="w-full bg-primary hover:bg-primary-light disabled:opacity-50" 
-                  disabled={isLoading || isGoogleLoading}
+                  disabled={
+                    isLoading || 
+                    isGoogleLoading
+                  }
                 >
                   {isLoading ? (
                     <>

@@ -21,6 +21,7 @@ interface ClubInvitation {
   club_id: string;
   club_name: string;
   club_description: string;
+  inviter_id: string;
   inviter_name: string;
   inviter_avatar?: string;
   message?: string;

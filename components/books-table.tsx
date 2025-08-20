@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Filter, Plus, Search, ChevronDown, Loader2, Grid, List, BookMarked, ThumbsUp, ThumbsDown, User, CircleAlert } from "lucide-react"
+import { Filter, Plus, Search, ChevronDown, Loader2, Grid, List, BookMarked, ThumbsUp, ThumbsDown, User, CircleAlert, X } from "lucide-react"
 import { Heart, Books, Bookmark, CheckCircle } from "@phosphor-icons/react"
 import Link from "next/link"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
@@ -312,7 +312,7 @@ const BookCard = React.memo(({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-xs flex items-start justify-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none"
+                      className="text-xs flex items-start justify-end px-0 rounded-full h-6 w-6 gap-1 bg-transparent ml-1 border-none hover:bg-secondary/5"
                       disabled={isLoading}
                       aria-label="Add book to shelf"
                     >
@@ -404,11 +404,13 @@ const BookCard = React.memo(({
             ) : null}
           </div>
 
-          <div className="flex-1">
-            <p className="text-secondary/60 font-sans font-normal bg-accent/20 rounded-full px-2 text-xs inline-block">
-              {book.pages} pages • {book.reading_time}
-            </p>
-          </div>
+          {book.pages && (
+            <div className="flex-1">
+              <p className="text-secondary/60 font-sans font-normal bg-accent/20 rounded-full px-2 text-xs inline-block">
+                {book.pages} pages • {book.reading_time}
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-row justify-between items-end gap-2 text-sm">
             <div>
@@ -674,6 +676,10 @@ export default function BooksTableOptimized() {
 
   const handleSearchChange = useCallback((query: string) => {
     updateState({ searchQuery: query })
+  }, [updateState])
+
+  const handleClearSearch = useCallback(() => {
+    updateState({ searchQuery: '' })
   }, [updateState])
 
   // ✅ IMPROVEMENT 4: API calls with AbortController
@@ -1052,45 +1058,137 @@ export default function BooksTableOptimized() {
             </TabsList>
           </div>
 
-                      {/* Search and View Controls */}
-            <div className="flex flex-row gap-2 items-center mb-4">
-              <div className="relative w-full">
-                <Search className={`absolute left-3 top-4 -translate-y-1/2 h-4 w-4 ${isTabLoading ? 'text-muted-foreground/50' : 'text-secondary'}`} />
-                <Input
-                  placeholder="Search books, authors, genres..."
-                  className={`pl-10 rounded-full bg-bookWhite/90 text-secondary/85 transition-opacity ${isTabLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  value={state.searchQuery}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  disabled={isTabLoading}
-                />
-                {isTabLoading && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  </div>
-                )}
+                      {/* Search and Controls Bar */}
+            <div className="flex flex-col gap-4 mb-6">
+              {/* Search Bar */}
+              <div className="flex justify-center">
+                <div className="relative w-full max-w-md sm:max-w-lg lg:max-w-xl">
+                  <Search className={`absolute left-3 top-4 -translate-y-1/2 h-4 w-4 ${isTabLoading ? 'text-muted-foreground/50' : 'text-secondary'}`} />
+                  <Input
+                    placeholder="Search books, authors, genres..."
+                    className={`pl-10 ${state.searchQuery.trim() && !isTabLoading ? 'pr-10' : 'pr-4'} rounded-full bg-bookWhite/90 text-secondary/85 transition-opacity ${isTabLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    value={state.searchQuery}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    disabled={isTabLoading}
+                  />
+                  {state.searchQuery.trim() && !isTabLoading && (
+                    <button
+                      onClick={handleClearSearch}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-secondary/10 rounded-full transition-colors"
+                      aria-label="Clear search"
+                      type="button"
+                    >
+                      <X className="h-4 w-4 text-muted-foreground hover:text-secondary" />
+                    </button>
+                  )}
+                  {isTabLoading && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
               </div>
               
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant={state.viewMode === "card" ? "default" : "outline"}
-                  size="icon"
-                  onClick={() => updateState({ viewMode: "card" })}
-                  aria-label="Card view"
-                  disabled={isTabLoading}
-                  className={isTabLoading ? 'opacity-50 cursor-not-allowed' : ''}
-                >
-                  <Grid className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={state.viewMode === "table" ? "default" : "outline"}
-                  size="icon"
-                  onClick={() => updateState({ viewMode: "table" })}
-                  aria-label="Table view"
-                  disabled={isTabLoading}
-                  className={isTabLoading ? 'opacity-50 cursor-not-allowed' : ''}
-                >
-                  <List className="h-4 w-4" />
-                </Button>
+              {/* Controls Row */}
+              <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+                {/* Left side - Filters (Friends Library only) */}
+                <div className="flex items-center gap-3">
+                  {state.activeTab === 'friends-library' && (
+                    <div className={`flex items-center gap-3 transition-opacity ${isTabLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+                      <div className="flex items-center gap-2">
+                        <Filter className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Filter by:</span>
+                      </div>
+                      
+                      {/* Friend Filter */}
+                      <Select 
+                        value={state.selectedFriend} 
+                        onValueChange={(value) => updateState({ selectedFriend: value })}
+                        disabled={isTabLoading}
+                      >
+                        <SelectTrigger className="w-36 h-8 text-xs">
+                          <SelectValue placeholder="All friends" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All friends</SelectItem>
+                          {friendsList.length === 0 ? (
+                            <SelectItem value="no-friends" disabled>
+                              No friends found
+                            </SelectItem>
+                          ) : (
+                            friendsList.map((friend) => (
+                              <SelectItem key={friend.id} value={friend.id}>
+                                {friend.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+
+                      {/* Shelf Status Filter */}
+                      <Select 
+                        value={state.selectedShelfStatus} 
+                        onValueChange={(value) => updateState({ selectedShelfStatus: value })}
+                        disabled={isTabLoading}
+                      >
+                        <SelectTrigger className="w-36 h-8 text-xs">
+                          <SelectValue placeholder="All shelves" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All shelves</SelectItem>
+                          <SelectItem value="currently_reading">📖 Currently Reading</SelectItem>
+                          <SelectItem value="queue">📚 In Queue</SelectItem>
+                          <SelectItem value="history">📖 Finished</SelectItem>
+                          <SelectItem value="favorite">❤️ Favorites</SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      {/* Clear Filters Button */}
+                      {(state.selectedFriend !== 'all' || state.selectedShelfStatus !== 'all') && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            updateState({ selectedFriend: 'all', selectedShelfStatus: 'all' })
+                          }}
+                          className="h-8 text-xs px-3"
+                          disabled={isTabLoading}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Right side - View Controls */}
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground">View:</span>
+                  <div className="flex items-center bg-muted/30 rounded-lg p-1">
+                    <Button
+                      variant={state.viewMode === "card" ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => updateState({ viewMode: "card" })}
+                      aria-label="Card view"
+                      disabled={isTabLoading}
+                      className={`px-3 py-1.5 h-8 ${state.viewMode === "card" ? 'shadow-sm' : ''} ${isTabLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <Grid className="h-4 w-4 mr-1.5" />
+                      Cards
+                    </Button>
+                    <Button
+                      variant={state.viewMode === "table" ? "secondary" : "ghost"}
+                      size="sm"
+                      onClick={() => updateState({ viewMode: "table" })}
+                      aria-label="Table view"
+                      disabled={isTabLoading}
+                      className={`px-3 py-1.5 h-8 ${state.viewMode === "table" ? 'shadow-sm' : ''} ${isTabLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    >
+                      <List className="h-4 w-4 mr-1.5" />
+                      Table
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1111,73 +1209,7 @@ export default function BooksTableOptimized() {
             </div>
           )}
 
-          {/* Friends Library Filters */}
-          {state.activeTab === 'friends-library' && (
-            <div className={`flex flex-row gap-2 justify-evenly mb-4 transition-opacity ${isTabLoading ? 'opacity-50 pointer-events-none' : ''}`}>
-              <div className="flex items-center gap-2 w-36">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Filter by:</span>
-              </div>
-              
-              {/* Friend Filter */}
-              <Select 
-                value={state.selectedFriend} 
-                onValueChange={(value) => updateState({ selectedFriend: value })}
-                disabled={isTabLoading}
-              >
-                <SelectTrigger className="w-40 h-8 text-xs">
-                  <SelectValue placeholder="All friends" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All friends</SelectItem>
-                  {friendsList.length === 0 ? (
-                    <SelectItem value="no-friends" disabled>
-                      No friends found
-                    </SelectItem>
-                  ) : (
-                    friendsList.map((friend) => (
-                      <SelectItem key={friend.id} value={friend.id}>
-                        {friend.name}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
 
-              {/* Shelf Status Filter */}
-              <Select 
-                value={state.selectedShelfStatus} 
-                onValueChange={(value) => updateState({ selectedShelfStatus: value })}
-                disabled={isTabLoading}
-              >
-                <SelectTrigger className="w-40 h-8 text-xs">
-                  <SelectValue placeholder="All shelves" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All shelves</SelectItem>
-                  <SelectItem value="currently_reading">📖 Currently Reading</SelectItem>
-                  <SelectItem value="queue">📚 In Queue</SelectItem>
-                  <SelectItem value="history">📖 Finished</SelectItem>
-                  <SelectItem value="favorite">❤️ Favorites</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* Clear Filters Button */}
-              {(state.selectedFriend !== 'all' || state.selectedShelfStatus !== 'all') && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    updateState({ selectedFriend: 'all', selectedShelfStatus: 'all' })
-                  }}
-                  className="h-8 text-xs p-1.5"
-                  disabled={isTabLoading}
-                >
-                  Clear
-                </Button>
-              )}
-            </div>
-          )}
 
           {/* Content */}
           <TabsContent value={state.activeTab} className="space-y-4">
