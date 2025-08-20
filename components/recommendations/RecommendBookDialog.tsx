@@ -24,7 +24,7 @@ interface Book {
   id: string
   title: string
   author: string
-  cover_url: string
+  cover_url?: string
 }
 
 interface RecommendBookDialogProps {
@@ -65,7 +65,7 @@ export function RecommendBookDialog({
   }, [open])
 
   const fetchFriends = async () => {
-    if (!session?.supabaseAccessToken || !session?.user?.id) return
+    if (!session?.supabaseAccessToken) return
 
     setIsFetchingFriends(true)
     try {
@@ -80,23 +80,22 @@ export function RecommendBookDialog({
       }
 
       const data = await response.json()
-      console.log('Friends data:', data)
       
-      // Extract friend information from friendship objects
+      // Transform friendship data to friends array
       const friendsList: Friend[] = data.map((friendship: any) => {
-        // Determine which user is the friend (not the current user)
-        const currentUserId = session.user?.id
-        const friend = friendship.userId1 === currentUserId ? friendship.user_two : friendship.user_one
+        const friend = friendship.user_one?.id === session?.user?.id 
+          ? friendship.user_two 
+          : friendship.user_one
         
         return {
-          id: friend.id,
-          display_name: friend.display_name,
-          avatar_url: friend.avatar_url
+          id: friend?.id || '',
+          display_name: friend?.display_name || 'Unknown',
+          avatar_url: friend?.avatar_url
         }
-      })
-      
+      }).filter((friend: Friend) => friend.id)
+
       setFriends(friendsList)
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching friends:', error)
       toast.error('Failed to load friends')
     } finally {
@@ -212,108 +211,110 @@ export function RecommendBookDialog({
                   />
                 </div>
 
-                {/* Friends List - Flexible height */}
-                <div className="flex-1 min-h-0">
-                  <ScrollArea className="h-full border rounded-lg p-2">
-                    {isFetchingFriends ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-accent" />
-                        <span className="ml-2 text-sm text-secondary/70">Loading friends...</span>
-                      </div>
-                    ) : filteredFriends.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-8 text-center">
-                        <Users className="h-8 w-8 text-secondary/30 mb-2" />
-                        <p className="text-sm text-secondary/70">
-                          {searchQuery ? 'No friends found matching your search' : 'No friends found'}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {filteredFriends.map((friend) => (
-                          <div
-                            key={friend.id}
-                            className="flex items-center space-x-3 py-1 px-2 rounded-lg hover:bg-accent/5 transition-colors"
-                          >
-                            <Checkbox
-                              id={friend.id}
-                              checked={selectedFriends.includes(friend.id)}
-                              onCheckedChange={() => handleFriendToggle(friend.id)}
+                {/* Friends List */}
+                <ScrollArea className="flex-1 min-h-0">
+                  {isFetchingFriends ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-accent" />
+                      <span className="ml-2 text-sm text-secondary">Loading friends...</span>
+                    </div>
+                  ) : filteredFriends.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <Users className="h-12 w-12 text-secondary/30 mb-3" />
+                      <p className="text-sm text-secondary/70 mb-1">
+                        {searchQuery ? 'No friends found' : 'No friends to recommend to'}
+                      </p>
+                      <p className="text-xs text-secondary/50">
+                        {searchQuery ? 'Try a different search term' : 'Add friends to start sharing book recommendations'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {filteredFriends.map((friend) => (
+                        <div
+                          key={friend.id}
+                          className="flex items-center space-x-3 p-2 hover:bg-bookWhite/30 rounded-md transition-colors"
+                        >
+                          <Checkbox
+                            id={`friend-${friend.id}`}
+                            checked={selectedFriends.includes(friend.id)}
+                            onCheckedChange={() => handleFriendToggle(friend.id)}
+                          />
+                          <Avatar className="h-8 w-8 flex-shrink-0">
+                            <AvatarImage
+                              src={friend.avatar_url || undefined}
+                              alt={friend.display_name}
                             />
-                            <Avatar className="h-8 w-8">
-                              <AvatarImage src={friend.avatar_url || undefined} />
-                              <AvatarFallback className="text-xs">
-                                {friend.display_name.charAt(0).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <label
-                              htmlFor={friend.id}
-                              className="flex-1 text-sm font-medium cursor-pointer"
-                            >
-                              {friend.display_name}
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </ScrollArea>
-                </div>
-
-                {/* Selected Count - Fixed position */}
-                {selectedFriends.length > 0 && (
-                  <div className="flex-shrink-0">
-                    <Badge variant="secondary" className="bg-accent/10 text-accent">
-                      {selectedFriends.length} friend{selectedFriends.length > 1 ? 's' : ''} selected
-                    </Badge>
-                  </div>
-                )}
+                            <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                              {friend.display_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                                                     <Label
+                             htmlFor={`friend-${friend.id}`}
+                             className="flex-1 text-sm font-medium cursor-pointer"
+                           >
+                             {friend.display_name}
+                           </Label>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
               </div>
+
+              {selectedFriends.length > 0 && (
+                <div className="flex-shrink-0 pt-2">
+                  <Badge variant="secondary" className="bg-primary/20 text-primary">
+                    {selectedFriends.length} friend{selectedFriends.length > 1 ? 's' : ''} selected
+                  </Badge>
+                </div>
+              )}
             </div>
 
-            {/* Note */}
-            <div className="flex-shrink-0">
-              <Label htmlFor="note" className="text-sm font-medium">
-                Personal Note (Optional)
+            {/* Note Section */}
+            <div className="flex-shrink-0 space-y-2">
+              <Label htmlFor="recommendation-note" className="text-sm font-medium">
+                Add a Note (Optional)
               </Label>
               <Textarea
-                id="note"
-                placeholder="Add a personal message about why you're recommending this book..."
+                id="recommendation-note"
+                placeholder="Tell your friends why you loved this book..."
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                className="mt-2 resize-none bg-bookWhite/95 border-none text-secondary placeholder:text-secondary/60 font-light text-sm leading-4"
-                rows={3}
+                className="min-h-[80px] bg-bookWhite/95 text-secondary resize-none"
                 maxLength={500}
               />
-              <p className="text-xs text-bookWhite/50 text-right mt-1">
-                {note.length}/500 characters
-              </p>
+              <div className="flex justify-between text-xs text-secondary/50">
+                <span>Share what made this book special to you</span>
+                <span>{note.length}/500</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Actions - Fixed at bottom */}
-        <div className="flex gap-2 pt-4 flex-shrink-0 border-t border-border/50 mt-0">
+        {/* Actions */}
+        <div className="flex justify-end gap-2 mt-4 flex-shrink-0">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isLoading}
-            className="flex-1"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSendRecommendations}
-            disabled={isLoading || selectedFriends.length === 0}
-            className="flex-1 bg-accent/80 hover:bg-accent-variant text-bookWhite"
+            disabled={selectedFriends.length === 0 || isLoading}
+            className="bg-accent hover:bg-accent-variant"
           >
             {isLoading ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Sending...
               </>
             ) : (
               <>
-                <Send className="h-4 w-4 mr-2" />
-                Send Recommendation
+                <Send className="mr-2 h-4 w-4" />
+                Send Recommendation{selectedFriends.length > 1 ? 's' : ''}
               </>
             )}
           </Button>

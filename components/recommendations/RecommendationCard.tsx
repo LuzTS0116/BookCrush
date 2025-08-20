@@ -47,13 +47,15 @@ interface RecommendationCardProps {
   type: 'inbox' | 'sent'
   onUpdate?: (id: string, status: string) => void
   onDelete?: (id: string) => void
+  onAddToShelf?: (bookId: string, shelf: string, bookData: any) => void
 }
 
 export function RecommendationCard({ 
   recommendation, 
   type, 
   onUpdate, 
-  onDelete 
+  onDelete,
+  onAddToShelf
 }: RecommendationCardProps) {
   const { data: session } = useSession()
   const [isLoading, setIsLoading] = useState(false)
@@ -85,6 +87,21 @@ export function RecommendationCard({
 
       const shelfName = shelf === 'currently_reading' ? 'Currently Reading' : 'Reading Queue'
       toast.success(`"${recommendation.book.title}" added to ${shelfName}!`)
+      
+      // Trigger optimistic update in parent component
+      if (onAddToShelf) {
+        const bookData = {
+          id: recommendation.book.id,
+          title: recommendation.book.title,
+          author: recommendation.book.author,
+          cover_url: recommendation.book.cover_url,
+          genres: recommendation.book.genres,
+          description: recommendation.book.description,
+          pages: recommendation.book.pages,
+          reading_time: recommendation.book.reading_time
+        }
+        onAddToShelf(recommendation.book.id, shelf, bookData)
+      }
       
       if (onUpdate) {
         onUpdate(recommendation.id, 'ADDED')

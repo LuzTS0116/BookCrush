@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react"; // Added useEffect, useMemo
+import { useState, useEffect, useRef, useMemo, useCallback } from "react"; // Added useEffect, useMemo, useCallback
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronDown, Smartphone, BookOpen, Headphones, Sparkles, ArrowRight, EllipsisVertical, Loader2, Edit3, Check, X, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown } from "lucide-react";
+import { ChevronDown, Smartphone, BookOpen, Headphones, Sparkles, ArrowRight, EllipsisVertical, Loader2, Edit3, Check, X, Heart as LucideHeart, ThumbsUp as LucideThumbsUp, ThumbsDown as LucideThumbsDown, BookMarked } from "lucide-react";
 import { Heart } from "@phosphor-icons/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import Link from "next/link";
@@ -18,6 +18,7 @@ import html2canvas from "html2canvas";
 import { ShareAchievementDialog } from "./ShareAchievementDialog";
 import { launchConfettiRealistic } from '@/lib/confetti-utils' // adjust the path to your utils
 import { Textarea } from "@/components/ui/textarea";
+import { RecommendBookDialog } from "./recommendations/RecommendBookDialog";
 import {
   Dialog,
   DialogContent,
@@ -60,6 +61,15 @@ const getStatusDisplay = (statusCode: UserBook['status']): StatusDisplay => {
 // Helper function to get media type display info
 const getMediaTypeDisplay = (mediaType: UserBook['media_type']) => {
   return readingOptions.find(option => option.value === mediaType) || readingOptions[1]; // Default to E-Reader
+};
+
+// Helper function to sort queue books by position to maintain order from profile drag & drop
+const sortQueueBooks = (books: UserBook[]): UserBook[] => {
+  return books.sort((a, b) => {
+    const positionA = a.position || 0;
+    const positionB = b.position || 0;
+    return positionA - positionB;
+  });
 };
 
 // Add interface for the finished book dialog
@@ -426,6 +436,12 @@ export default function DashboardReading() {
   // Add state for tracking if goal progress needs to be updated
   const [needsGoalProgressUpdate, setNeedsGoalProgressUpdate] = useState(false);
 
+  // State for recommend dialog
+  const [recommendDialog, setRecommendDialog] = useState<{
+    isOpen: boolean
+    book: UserBook | null
+  }>({ isOpen: false, book: null });
+
   const router = useRouter();
 
 
@@ -456,7 +472,8 @@ export default function DashboardReading() {
       if (shelf === "currently_reading") {
         setCurrentlyReadingBooks(data);
       } else if (shelf === "queue") {
-        setQueueBooks(data);
+        // Sort queue books by position to maintain order from profile drag & drop
+        setQueueBooks(sortQueueBooks(data));
       }
     } catch (err: any) {
       console.error(`Error fetching ${shelf} books:`, err);
@@ -1034,6 +1051,11 @@ export default function DashboardReading() {
     router.push('/books'); // Navigate to the friends page where the full activity is shown
   };
 
+  // Function to handle book recommendation
+  const handleRecommendBook = useCallback((userBook: UserBook) => {
+    setRecommendDialog({ isOpen: true, book: userBook });
+  }, []);
+
   // Functions to handle confirmation dialogs
   const showRemoveConfirmation = (bookId: string, bookTitle: string, shelf: 'currently_reading' | 'queue') => {
     setConfirmRemoval({
@@ -1157,6 +1179,14 @@ export default function DashboardReading() {
                                     {shelf.label}
                                   </DropdownMenu.Item>
                                 ))}
+                                <DropdownMenu.Item
+                                  onSelect={() => handleRecommendBook(userBook)}
+                                  className="px-3 py-2 text-xs text-center bg-accent/90 my-2 text-secondary rounded-md cursor-pointer hover:bg-accent-variant hover:text-bookWhite focus:bg-accent-variant focus:outline-none transition-colors flex justify-center items-center gap-2"
+                                  disabled={currentShelfStatus?.isLoading}
+                                >
+                                  <BookMarked className="h-3 w-3" />
+                                  Recommend to Friends
+                                </DropdownMenu.Item>
                                 <DropdownMenu.Item
                                   onSelect={() => showRemoveConfirmation(bookId, userBook.book.title, 'currently_reading')}
                                   className="px-3 py-2 w-[132px] self-end text-xs text-end bg-red-700/90 rounded-md cursor-pointer hover:bg-red-600 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
@@ -1414,6 +1444,14 @@ export default function DashboardReading() {
                                   sideOffset={5}
                                 >
                                   <DropdownMenu.Item
+                                    onSelect={() => handleRecommendBook(userBook)}
+                                    className="px-3 py-2 text-xs text-center bg-accent/90 my-2 text-secondary rounded-md cursor-pointer hover:bg-accent-variant hover:text-bookWhite focus:bg-accent-variant focus:outline-none transition-colors flex justify-center items-center gap-2"
+                                    disabled={currentShelfStatus?.isLoading}
+                                  >
+                                    <BookMarked className="h-3 w-3" />
+                                    Recommend to Friends
+                                  </DropdownMenu.Item>
+                                  <DropdownMenu.Item
                                     onSelect={() => showRemoveConfirmation(bookId, userBook.book.title, 'queue')}
                                     className="px-3 py-2 text-xs text-center bg-red-700/90 my-2 rounded-md cursor-pointer hover:bg-red-800 hover:text-bookWhite focus:bg-red-600 focus:outline-none transition-colors"
                                     disabled={currentShelfStatus?.isLoading}
@@ -1597,6 +1635,19 @@ export default function DashboardReading() {
         onSubmit={handleFinishedBookReview}
         isSubmitting={isSubmittingFinishedReview}
         shareDialogCallback={shareDialogCallback}
+      />
+
+      {/* Recommend Dialog */}
+      <RecommendBookDialog
+        open={recommendDialog.isOpen}
+        onOpenChange={(open) => setRecommendDialog(prev => ({ ...prev, isOpen: open }))}
+        book={recommendDialog.book && recommendDialog.book.book_id ? {
+          id: recommendDialog.book.book_id,
+          title: recommendDialog.book.book.title,
+          author: recommendDialog.book.book.author,
+          cover_url: recommendDialog.book.book.cover_url
+        } : null}
+        onSuccess={() => toast.success('Book recommendation sent successfully!')}
       />
     </div>
   );

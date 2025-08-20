@@ -42,12 +42,12 @@ export async function GET(req: NextRequest) {
     // console.log('[API explore-users GET] User authenticated:', user.id);
     const currentUserId = user.id;
     
-    // 1. Get IDs of existing friends and the current user
+    // 1. Get existing friendships
     const friendships = await prisma.friendship.findMany({
       where: {
         OR: [
-          { userId1: currentUserId }, // !!! IMPORTANT: Use your actual column names from schema.prisma (e.g., userId1, userAId)
-          { userId2: currentUserId }, // !!! IMPORTANT: Use your actual column names from schema.prisma (e.g., userId2, userBId)
+          { userId1: currentUserId },
+          { userId2: currentUserId },
         ],
       },
       select: {
@@ -56,14 +56,13 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    const connectedUserIds = new Set<string>();
+    const friendUserIds = new Set<string>();
     friendships.forEach(f => {
-      connectedUserIds.add(f.userId1);
-      connectedUserIds.add(f.userId2);
+      if (f.userId1 !== currentUserId) friendUserIds.add(f.userId1);
+      if (f.userId2 !== currentUserId) friendUserIds.add(f.userId2);
     });
-    connectedUserIds.add(currentUserId); // Always exclude the current user from explore list
 
-    // 2. Get IDs of users with pending friend requests (sent by or received by current user)
+    // 2. Get pending friend requests
     const friendRequests = await prisma.friendRequest.findMany({
       where: {
         OR: [
@@ -72,23 +71,30 @@ export async function GET(req: NextRequest) {
         ],
       },
       select: {
+        id: true,
         senderId: true,
         receiverId: true,
       },
     });
 
+    // Create maps for quick lookup
+    const sentRequestsMap = new Map<string, string>(); // userId -> requestId
+    const receivedRequestsMap = new Map<string, string>(); // userId -> requestId
+    
     friendRequests.forEach(fr => {
-      connectedUserIds.add(fr.senderId);
-      connectedUserIds.add(fr.receiverId);
+      if (fr.senderId === currentUserId) {
+        sentRequestsMap.set(fr.receiverId, fr.id);
+      } else if (fr.receiverId === currentUserId) {
+        receivedRequestsMap.set(fr.senderId, fr.id);
+      }
     });
 
-    // 3. Fetch all users with their profiles, excluding current user, friends, and pending requests
+    // 3. Fetch all users with their profiles, excluding only current user and existing friends
     const explorableUsers = await prisma.profile.findMany({
       where: {
         id: {
-          notIn: Array.from(connectedUserIds), // Exclude based on the collected IDs
+          notIn: [currentUserId, ...Array.from(friendUserIds)], // Only exclude current user and friends
         },
-       
       },
       select: {
         id: true,
@@ -102,9 +108,29 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Format all profiles with proper avatar URLs (handles both Google URLs and storage keys)
+    // Format all profiles with proper avatar URLs and friendship status
     const formattedUsers = await Promise.all(
-      explorableUsers.map(user => formatProfileWithAvatarUrlServer(supabase!, user))
+      explorableUsers.map(async (user) => {
+        const formattedUser = await formatProfileWithAvatarUrlServer(supabase!, user);
+        
+        // Determine friendship status
+        let friendshipStatus: 'NOT_FRIENDS' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'FRIENDS' = 'NOT_FRIENDS';
+        let pendingRequestId: string | null = null;
+
+        if (sentRequestsMap.has(user.id)) {
+          friendshipStatus = 'PENDING_SENT';
+          pendingRequestId = sentRequestsMap.get(user.id) || null;
+        } else if (receivedRequestsMap.has(user.id)) {
+          friendshipStatus = 'PENDING_RECEIVED';
+          pendingRequestId = receivedRequestsMap.get(user.id) || null;
+        }
+
+        return {
+          ...formattedUser,
+          friendshipStatus,
+          pendingRequestId,
+        };
+      })
     );
 
     return NextResponse.json(formattedUsers, { status: 200 });

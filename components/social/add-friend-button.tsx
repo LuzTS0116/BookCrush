@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { UserPlus, UserCheck, Loader2, XCircle } from 'lucide-react';
+import { UserPlus, UserCheck, Loader2, XCircle, Check, X } from 'lucide-react';
 import { sendFriendRequest, cancelFriendRequest, acceptFriendRequest, declineFriendRequest } from '@/lib/api-helpers';
 import { useSession } from 'next-auth/react';
 import { UserProfileMinimal } from '@/types/social';
@@ -127,28 +127,31 @@ export const AddFriendButton: React.FC<AddFriendButtonProps> = ({
   // Special handling for PENDING_RECEIVED status - show Accept/Decline buttons
   if (status === 'PENDING_RECEIVED') {
     return (
-      <div className="flex gap-2">
-        <Button 
-          onClick={handleAcceptRequest} 
-          disabled={isLoading}
-          variant="default"
-          className='bg-accent-variant/80 hover:bg-accent-variant text-destructive-foreground rounded-full h-8'
-        >
-          {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-          Accept
-        </Button>
-        <Button 
-          onClick={handleDeclineRequest} 
-          disabled={isLoading}
-          variant="default" 
-          className='rounded-full h-8 bg-red-800/70 text-destructive-foreground hover:bg-red-800'
-          //rounded-full h-8 bg-accent-variant/80 hover:bg-green text-white backdrop-blur-sm
-          //bg-accent-variant/80 hover:bg-accent-variant text-white rounded-full h-7 text-xs px-3
-        >
-          {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-          Decline
-        </Button>
-        {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+      <div className="flex flex-col items-center gap-1">
+        
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleAcceptRequest} 
+            disabled={isLoading}
+            variant="default"
+            size="sm"
+            className='bg-accent-variant/80 hover:bg-accent-variant text-destructive-foreground rounded-full h-7 w-7 p-0'
+            title="Accept friend request"
+          >
+            {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+          </Button>
+          <Button 
+            onClick={handleDeclineRequest} 
+            disabled={isLoading}
+            variant="default" 
+            size="sm"
+            className='rounded-full h-7 w-7 p-0 bg-red-800/70 text-destructive-foreground hover:bg-red-800'
+            title="Decline friend request"
+          >
+            {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+          </Button>
+        </div>
+        {error && <p className="text-red-500 text-xs mt-1 text-center">{error}</p>}
       </div>
     );
   }
@@ -177,12 +180,17 @@ export const AddFriendButton: React.FC<AddFriendButtonProps> = ({
         onClick={status === 'PENDING_SENT' ? handleCancelRequest : handleSendRequest} 
         disabled={buttonDisabled}
         variant={buttonVariant}
-        className='rounded-full h-8 bg-bookWhite/80 backdrop-blur-sm'
+        size={status === 'PENDING_SENT' ? 'sm' : 'default'}
+        className={`rounded-full bg-bookWhite/80 backdrop-blur-sm ${
+          status === 'PENDING_SENT' 
+            ? 'h-7 text-xs px-3' 
+            : 'h-8'
+        }`}
       >
-        {isLoading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+        {isLoading && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
         {buttonText}
       </Button>
-      {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+      {error && <p className="text-red-500 text-xs mt-1 text-center">{error}</p>}
     </div>
   );
 };

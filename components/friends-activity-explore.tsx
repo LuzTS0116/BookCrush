@@ -60,7 +60,12 @@ function ExploreUserCard({ user, onFriendRequestSent }: ExploreUserCardProps) {
         )}
     </CardContent>
     <div className={user.favorite_genres && user.favorite_genres.length > 0 ?  "mt-2 flex justify-center" : "mt-6 flex justify-center"}>
-        <AddFriendButton targetUser={targetUserForAddFriendButton} onFriendRequestSent={onFriendRequestSent} />
+        <AddFriendButton 
+          targetUser={targetUserForAddFriendButton} 
+          initialStatus={user.friendshipStatus}
+          pendingRequestId={user.pendingRequestId}
+          onFriendRequestSent={onFriendRequestSent} 
+        />
     </div>
     </Card>
     </div>
