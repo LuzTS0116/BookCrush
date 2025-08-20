@@ -289,7 +289,7 @@ export function RecommendationCard({
           )}
 
           {/* Actions */}
-          <div className="flex flex-wrap justify-end gap-1">
+          <div className="flex flex-wrap justify-end mt-2 gap-1">
             {type === 'inbox' && recommendation.status === 'PENDING' && (
               <>
                 <Button
