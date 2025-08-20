@@ -454,6 +454,7 @@ interface ClubMembershipRequest {
 interface InvitableUser {
   id: string;
   display_name: string;
+  full_name: string;
   email: string;
   avatar_url?: string | null;
   about?: string | null;
@@ -3290,12 +3291,12 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                       <div className="space-y-4">
                         {/* Search Input */}
                         <div className="relative">
-                          <Search className="absolute left-3 top-2 h-4 w-4 text-muted-foreground" />
+                          <Search className="absolute left-3 top-2 h-4 w-4 text-secondary" />
                           <Input
                             placeholder="Search users by name..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-9 bg-bookWhite/80 font-medium"
+                            className="pl-9 bg-bookWhite/80 text-secondary placeholder:text-secondary/70 font-medium"
                           />
                         </div>
 
@@ -3327,17 +3328,18 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                               {searchResults.map((user) => (
                                 <div key={user.id} className="flex items-center justify-between p-3 bg-secondary-light/10 rounded-lg">
                                   <div className="flex items-center gap-3">
-                                    <Avatar className="h-10 w-10">
-                                      <AvatarImage src={user.avatar_url || "/placeholder.svg"} alt={user.display_name} />
-                                      <AvatarFallback className="bg-primary text-primary-foreground">
-                                        {user.initials}
-                                      </AvatarFallback>
-                                    </Avatar>
+                                    <Link href={`/profile/${user.id}`}>
+                                      <Avatar className="h-10 w-10">
+                                        <AvatarImage src={user.avatar_url || "/placeholder.svg"} alt={user.display_name} />
+                                        <AvatarFallback className="bg-primary text-primary-foreground">
+                                          {user.initials}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                    </Link>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium truncate">{user.display_name}</p>
-                                      <p className="text-xs text-secondary font-serif font-normal truncate">{user.email}</p>
-                                      {user.about && (
-                                        <p className="text-xs text-muted-foreground font-serif mt-1 line-clamp-1">{user.about}</p>
+                                      <Link href={`/profile/${user.id}`}><p className="text-sm/4 font-medium truncate max-w-28">{user.display_name}</p></Link>
+                                      {user.full_name && (
+                                        <p className="text-xs text-muted-foreground font-serif mt-0 line-clamp-1">{user.full_name}</p>
                                       )}
                                     </div>
                                   </div>
@@ -3350,9 +3352,9 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                                     {loadingInvite ? (
                                       <Loader2 className="h-4 w-4 animate-spin" />
                                     ) : (
-                                      <Send className="mr-1 h-4 w-4" />
+                                      <Send className="h-4 w-4" />
                                     )}
-                                    Send Invite
+                                    Send
                                   </Button>
                                 </div>
                               ))}
