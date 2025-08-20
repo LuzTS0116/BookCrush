@@ -464,7 +464,7 @@ console.log(pendingInvitations);
                               type="button"
                               onClick={addGenre} 
                               disabled={!selectedGenre || loadingAction}
-                              className="bg-primary hover:bg-primary-light text-primary-foreground"
+                              className="bg-primary rounded-full hover:bg-primary-light text-primary-foreground"
                             >
                               Add
                             </Button>

@@ -3204,7 +3204,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
               <CardDescription className="font-serif text-sm font-normal">{club.memberCount} members</CardDescription> {/* Updated to memberCount */}
             </CardHeader>
             <CardContent className="p-3">
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {/* Dynamically display members based on club.memberCount */}
 
                 {[...Array(Math.min(6, club.memberships.length ?? 0))].map((member, i) => {
@@ -3219,7 +3219,8 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                   
                   // Get book status display
                   const bookStatus = memberStatus?.book_status || (loadingMemberStatuses ? 'Loading...' : 'Not in Library');
-                  const statusDisplay = rolePrefix ? `${rolePrefix} - Current Book Status: ${bookStatus}` : `Current Book Status: ${bookStatus}`;
+                  const statusDisplay = rolePrefix ? ` - Current Book Status: ${bookStatus}` : `Current Book Status: ${bookStatus}`;
+                  const currentBookSet = club.current_book
 
                   return (
                     <div key={i} className="flex items-center gap-3">
@@ -3240,7 +3241,12 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                           {club.memberships[i].user.display_name}
                         </p>
                         <p className="text-xs text-secondary font-serif font-normal">
+                          {rolePrefix}
+                          {currentBookSet && (
+                          <span className="text-xs text-secondary font-serif font-normal">
                            {statusDisplay}
+                          </span>
+                        )}
                         </p>
                       </div>
                     </div>
