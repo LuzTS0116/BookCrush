@@ -70,6 +70,7 @@ interface ProfileData {
   addedBooks?: any[]; // Optional for non-friends
   isFriend: boolean; // New property to track friendship status
   friendshipStatus: 'NOT_FRIENDS' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'FRIENDS';
+  pendingRequestId?: string | null; // Added for handling friend requests
   _count: {
     friendshipsAsUser1: number,
     friendshipsAsUser2: number,
@@ -295,6 +296,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                         <AddFriendButton 
                           targetUser={targetUserForAddFriendButton} 
                           initialStatus={profile.friendshipStatus}
+                          pendingRequestId={profile.pendingRequestId}
                           onFriendRequestSent={handleFriendRequestSent} 
                         />
                       )}

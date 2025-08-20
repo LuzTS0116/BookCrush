@@ -57,6 +57,7 @@ export async function GET(
     
     // Check friendship and friend request status
     let friendshipStatus: 'NOT_FRIENDS' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'FRIENDS' = 'NOT_FRIENDS';
+    let pendingRequestId: string | null = null;
     
     if (user.id !== id) { // Don't check friendship status for own profile
       if (canView) {
@@ -74,6 +75,7 @@ export async function GET(
         
         if (pendingRequest) {
           friendshipStatus = pendingRequest.senderId === user.id ? 'PENDING_SENT' : 'PENDING_RECEIVED';
+          pendingRequestId = pendingRequest.id; // Store the request ID
         }
       }
     }
@@ -121,7 +123,8 @@ export async function GET(
       return NextResponse.json({ 
         ...formattedProfile, 
         isFriend: true, 
-        friendshipStatus 
+        friendshipStatus,
+        pendingRequestId
       }, { status: 200 });
     } else {
       // If users are not friends, return only basic information
@@ -132,7 +135,7 @@ export async function GET(
         select: {
           id: true,
           display_name: true,
-          
+          full_name: true,
           avatar_url: true,
           about: true,
           favorite_genres: true,
@@ -157,7 +160,8 @@ export async function GET(
       return NextResponse.json({ 
         ...formattedProfile, 
         isFriend: false, 
-        friendshipStatus 
+        friendshipStatus,
+        pendingRequestId
       }, { status: 200 });
     }
 
