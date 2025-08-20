@@ -453,6 +453,7 @@ interface ClubMembershipRequest {
 interface InvitableUser {
   id: string;
   display_name: string;
+  full_name: string | null; // Added full_name for search
   email: string;
   avatar_url?: string | null;
   about?: string | null;
@@ -3321,6 +3322,9 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                                     </Avatar>
                                     <div className="flex-1 min-w-0">
                                       <p className="text-sm font-medium truncate">{user.display_name}</p>
+                                      {user.full_name && user.full_name !== user.display_name && (
+                                        <p className="text-xs text-secondary/70 font-serif font-normal truncate">{user.full_name}</p>
+                                      )}
                                       <p className="text-xs text-secondary font-serif font-normal truncate">{user.email}</p>
                                       {user.about && (
                                         <p className="text-xs text-muted-foreground font-serif mt-1 line-clamp-1">{user.about}</p>

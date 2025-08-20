@@ -94,6 +94,7 @@ export async function GET(req: NextRequest) {
         id: true,
         email: true,
         display_name: true,
+        full_name: true, // Include full_name for search
         about: true,
         favorite_genres: true,
         avatar_url: true, // Include avatar_url

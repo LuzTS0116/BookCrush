@@ -49,6 +49,23 @@ export async function GET(
 
     const memberIds = existingMembers.map(m => m.user_id);
 
+    function processAvatarUrl(avatarPath: string | null | undefined): string | null {
+      if (!avatarPath) return null;
+
+      // If already a full URL (Google avatars, etc.), return as-is
+      if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
+        return avatarPath;
+      }
+
+      // Convert relative path to public URL synchronously
+      if (supabase) {
+        const { data } = supabase.storage.from('profiles').getPublicUrl(avatarPath);
+        return data.publicUrl;
+      }
+
+      return null;
+    }
+
     // Get users with pending invitations
     const pendingInvitations = await prisma.clubInvitation.findMany({
       where: { 
@@ -81,8 +98,13 @@ export async function GET(
                   contains: query,
                   mode: 'insensitive'
                 }
+              },
+              {
+                full_name: {
+                  contains: query,
+                  mode: 'insensitive'
+                }
               }
-              
             ]
           }
         ] : []
@@ -90,6 +112,7 @@ export async function GET(
       select: {
         id: true,
         display_name: true,
+        full_name: true, // Include full_name for search
         avatar_url: true,
         about: true
       },
@@ -102,6 +125,7 @@ export async function GET(
     // Format users with initials for frontend
     const formattedUsers = users.map(user => ({
       ...user,
+      avatar_url: processAvatarUrl(user.avatar_url),
       initials: user.display_name
         .split(' ')
         .map((word: string) => word.charAt(0))
