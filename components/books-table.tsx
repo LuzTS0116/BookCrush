@@ -312,7 +312,7 @@ const BookCard = React.memo(({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-xs flex items-start justify-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none"
+                      className="text-xs flex items-start justify-end px-0 rounded-full h-6 w-6 gap-1 bg-transparent ml-1 border-none hover:bg-secondary/5"
                       disabled={isLoading}
                       aria-label="Add book to shelf"
                     >
