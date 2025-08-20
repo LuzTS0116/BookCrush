@@ -529,9 +529,11 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
                               ))}
                             </div>
                             {/* Pages & Time */}
+                            {book.pages && (
                             <div className="flex-1">
                               <p className="text-secondary/80 font-sans font-normal text-sm inline-block">{book.pages} pages • {book.reading_time}</p>
                             </div>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -678,9 +680,11 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
                                     ))}
                                   </div>
                                   {/* Pages & Time */}
+                                  {suggestion.book.pages && (
                                   <div className="flex-1">
                                     <p className="text-secondary/80 font-sans font-normal text-sm inline-block">{suggestion.book.pages} pages • {suggestion.book.reading_time}</p>
                                   </div>
+                                  )}
                                 </div>
                               </div>
                               <div className="flex items-start gap-1 mt-1 px-2 pt-1 pb-1 border-t border-secondary/30">

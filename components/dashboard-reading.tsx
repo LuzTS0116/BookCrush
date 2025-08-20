@@ -1511,9 +1511,11 @@ export default function DashboardReading() {
                                 </div>
                               </div>
                               {/* Pages & Time */}
+                              {userBook.book.pages && (
                               <div className="flex-1">
                                 <p className="text-secondary/80 font-sans font-normal text-sm inline-block">{userBook.book.pages} pages • {userBook.book.reading_time}</p>
                               </div>
+                              )}
                               {/* Move to currently reading */}
                               <div className="flex items-end justify-start mt-1">
                                 <Button 

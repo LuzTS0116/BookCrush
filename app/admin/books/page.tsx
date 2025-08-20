@@ -53,10 +53,36 @@ interface AdminBook {
 }
 
 const GENRES = [
-  "Biography", "Children's", "Classics", "Dark Romance", "Fantasy", "Fiction",
-  "Historical Fiction", "Horror", "Literary Fiction", "Manga", "Mystery",
-  "Non-Fiction", "Poetry", "Romance", "Romantasy", "Science Fiction",
-  "Self-Help", "Thriller", "Young Adult"
+  "Biography",
+  "Children's",
+  "Classics",
+  "Comedy",
+  "Contemporary Fiction",
+  "Dark Romance",
+  "Fantasy",
+  "Fiction",
+  "Graphic Novels",
+  "Healing Fiction",
+  "Historical Fiction",
+  "Horror",
+  "Literary Fiction",
+  "Manga",
+  "Memoir",
+  "Mystery",
+  "New Adult",
+  "Non-Fiction",
+  "Poetry",
+  "Psychological Thriller",
+  "Romance",
+  "Romcoms",
+  "Romantasy",
+  "Science Fiction",
+  "Self-Help",
+  "Short Stories",
+  "Spirituality",
+  "Thriller",
+  "True Crime",
+  "Young Adult"
 ];
 
 export default function AdminBooksPage() {

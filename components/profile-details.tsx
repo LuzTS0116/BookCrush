@@ -453,9 +453,11 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                                   ))}
                                 </div>
                                 {/* Pages & Time */}
+                                {userBook.book.pages && (
                                 <div className="flex-1">
                                   <p className="text-secondary/80 font-sans font-normal text-sm inline-block">{userBook.book.pages} pages • {userBook.book.reading_time}</p>
                                 </div>
+                                )}
                               </div>
                               <div className="flex flex-wrap gap-1 items-center">
                                 {/* Added On */}
@@ -537,9 +539,11 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                               ))}
                             </div>
                             {/* Pages & Time */}
+                            {userBook.book.pages && (
                             <div className="flex-1">
                               <p className="text-secondary/80 font-sans font-normal text-sm inline-block">{userBook.book.pages} pages • {userBook.book.reading_time}</p>
                             </div>
+                            )}
                             {userBook.added_at && (
                               <span className="px-2 py-0.5 text-xs font-regular bg-primary-dark/50 text-secondary rounded-full">
                                 Added: {new Date(userBook.added_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}

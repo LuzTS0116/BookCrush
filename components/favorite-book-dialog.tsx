@@ -129,9 +129,11 @@ export function FavoriteBookDialog({
                   ))}
                 </div>
               </div>
+              {userBook.book.pages && (
               <p className="text-secondary/80 font-sans font-normal text-sm inline-block">
                 {userBook.book.pages} pages • {userBook.book.reading_time}
               </p>
+              )}
               {userBook.book_id && (
                     <div className="flex justify-end items-end">
                         <button

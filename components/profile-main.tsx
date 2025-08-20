@@ -25,21 +25,32 @@ export default function ProfileMain() {
   "Biography",
   "Children's",
   "Classics",
+  "Comedy",
+  "Contemporary Fiction",
   "Dark Romance",
   "Fantasy",
   "Fiction",
+  "Graphic Novels",
+  "Healing Fiction",
   "Historical Fiction",
   "Horror",
   "Literary Fiction",
   "Manga",
+  "Memoir",
   "Mystery",
+  "New Adult",
   "Non-Fiction",
   "Poetry",
+  "Psychological Thriller",
   "Romance",
+  "Romcoms",
   "Romantasy",
   "Science Fiction",
   "Self-Help",
+  "Short Stories",
+  "Spirituality",
   "Thriller",
+  "True Crime",
   "Young Adult"
 ];
 
@@ -104,7 +115,7 @@ export default function ProfileMain() {
                   )}
                 </div>
 
-                <div>
+                {/* <div>
                   <h3 className="text-sm font-medium mb-0">Kindle Email</h3>
                   {isEditing ? (
                     <div className="flex items-center">
@@ -117,7 +128,7 @@ export default function ProfileMain() {
                       <span className="text-sm font-serif text-secondary/50">{kindleEmail}</span>
                     </div>
                   )}
-                </div>
+                </div> */}
 
                 <div>
                   <h3 className="text-sm font-medium mb-2">Favorite Genres</h3>

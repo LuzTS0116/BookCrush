@@ -253,11 +253,11 @@ export function RecommendationCard({
               </div>
 
               {/* Book details */}
-              <div className="flex-1 mb-1">
-                {recommendation.book.pages && (
+              {recommendation.book.pages && (
+                <div className="flex-1 mb-1">
                   <p className="inline-block text-xs text-secondary/60 rounded-full bg-primary/80 py-0.5 px-2">{recommendation.book.pages} pages • {recommendation.book.reading_time}</p>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Note */}
               {type === 'sent' && (
@@ -289,7 +289,7 @@ export function RecommendationCard({
           )}
 
           {/* Actions */}
-          <div className="flex flex-wrap justify-end gap-1">
+          <div className="flex flex-wrap justify-end mt-2 gap-1">
             {type === 'inbox' && recommendation.status === 'PENDING' && (
               <>
                 <Button

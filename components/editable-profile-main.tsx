@@ -266,9 +266,11 @@ function SortableQueueBook({
               </div>
             </div>
             {/* Pages & Time */}
+            {userBook.book.pages && (
             <div className="flex-1">
               <p className="text-secondary/80 font-sans font-normal text-sm inline-block">{userBook.book.pages} pages • {userBook.book.reading_time}</p>
             </div>
+            )}
             {/* Move to currently reading */}
             <div className="flex items-end justify-start mt-0.5">
               <Button 
@@ -429,21 +431,32 @@ export default function EditableProfileMain() {
     "Biography",
     "Children's",
     "Classics",
+    "Comedy",
+    "Contemporary Fiction",
     "Dark Romance",
     "Fantasy",
     "Fiction",
+    "Graphic Novels",
+    "Healing Fiction",
     "Historical Fiction",
     "Horror",
     "Literary Fiction",
     "Manga",
+    "Memoir",
     "Mystery",
+    "New Adult",
     "Non-Fiction",
     "Poetry",
+    "Psychological Thriller",
     "Romance",
+    "Romcoms",
     "Romantasy",
     "Science Fiction",
     "Self-Help",
+    "Short Stories",
+    "Spirituality",
     "Thriller",
+    "True Crime",
     "Young Adult"
   ]
 
@@ -1603,7 +1616,7 @@ export default function EditableProfileMain() {
       )}
       
       <div className="flex flex-col bg-transparent md:items-center gap-2">
-        <div className="md:w-3/4 bg-transparent">
+        <div className="md:container bg-transparent">
           <Card className="px-0 bg-bookWhite/90 rounded-b-3xl rounded-t-none overflow-hidden">
             <CardHeader className="relative p-0">
               {/* Banner */}
@@ -1688,6 +1701,7 @@ export default function EditableProfileMain() {
                       <AvatarImage 
                         src={currentAvatar || undefined} 
                         alt="@user" 
+                        className="h-full w-full object-cover"
                       />
                       <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
                         {displayName ? displayName.charAt(0).toUpperCase() : "U"}
@@ -1763,7 +1777,7 @@ export default function EditableProfileMain() {
                       value={bio}
                       onChange={(e) => setBio(e.target.value)}
                       placeholder="Tell us about yourself and your reading interests..."
-                      className="min-h-[80px] rounded-2xl font-serif text-sm/4 italic text-wrap bg-white/60 text-secondary border border-secondary-light placeholder:text-secondary/70"
+                      className="min-h-[80px] rounded-2xl font-serif text-sm/4 italic text-wrap bg-white/60 text-secondary border-none placeholder:text-secondary/70"
                     />
                   ) : (
                     <p className="text-sm/4 font-serif font-medium text-secondary/50">
@@ -1773,7 +1787,7 @@ export default function EditableProfileMain() {
                 </div>
 
                 {/* Kindle Email Section */}
-                {isEditing && (
+                {/* {isEditing && (
                   <div>
                     <Input
                       value={kindleEmail}
@@ -1782,7 +1796,7 @@ export default function EditableProfileMain() {
                       className="bg-white/60 text-secondary border border-secondary-light"
                     />
                   </div>
-                )}
+                )} */}
 
                 {/* Genres Section */}
                 <div>
@@ -1806,12 +1820,16 @@ export default function EditableProfileMain() {
                   {isEditing && (
                     <div className="flex gap-2 items-center">
                       <Select value={selectedGenre} onValueChange={setSelectedGenre}>
-                        <SelectTrigger className="flex-1 rounded-full bg-white/60">
+                        <SelectTrigger className="flex-1 rounded-full bg-white/60 border-none">
                           <SelectValue placeholder="Add a genre" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="rounded-xl bg-white/80 backdrop-blur-md border-none shadow-lg">
                           {genres.map((genre) => (
-                            <SelectItem key={genre} value={genre}>
+                            <SelectItem 
+                              key={genre} 
+                              value={genre}
+                              className="cursor-pointer rounded-2xl px-3 py-2 text-secondary focus:bg-accent/30 focus:text-secondary hover:bg-accent/30 hover:text-secondary data-[state=checked]:bg-accent/30 data-[state=checked]:text-secondary [&_svg]:hidden"
+                            >
                               {genre}
                             </SelectItem>
                           ))}
@@ -1866,7 +1884,7 @@ export default function EditableProfileMain() {
         </div>
 
         {/* Right side - Books tabs */}
-        <div className="md:w-3/4">
+        <div className="md:container">
           <Tabs defaultValue="currently-reading" className="w-full">
             <TabsList className="grid w-full grid-cols-5 rounded-full h-auto p-1 bg-bookWhite/10 text-primary">
               <TabsTrigger value="currently-reading" className="rounded-full data-[state=active]:text-bookWhite data-[state=active]:bg-secondary">

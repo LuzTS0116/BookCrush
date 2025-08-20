@@ -90,6 +90,7 @@ export async function GET(
       select: {
         id: true,
         display_name: true,
+        full_name: true,
         avatar_url: true,
         about: true
       },

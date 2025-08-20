@@ -312,7 +312,7 @@ const BookCard = React.memo(({
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-xs flex items-start justify-end px-0 rounded-full h-auto gap-1 bg-transparent ml-1 border-none"
+                      className="text-xs flex items-start justify-end px-0 rounded-full h-6 w-6 gap-1 bg-transparent ml-1 border-none hover:bg-secondary/5"
                       disabled={isLoading}
                       aria-label="Add book to shelf"
                     >
@@ -404,11 +404,13 @@ const BookCard = React.memo(({
             ) : null}
           </div>
 
-          <div className="flex-1">
-            <p className="text-secondary/60 font-sans font-normal bg-accent/20 rounded-full px-2 text-xs inline-block">
-              {book.pages} pages • {book.reading_time}
-            </p>
-          </div>
+          {book.pages && (
+            <div className="flex-1">
+              <p className="text-secondary/60 font-sans font-normal bg-accent/20 rounded-full px-2 text-xs inline-block">
+                {book.pages} pages • {book.reading_time}
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-row justify-between items-end gap-2 text-sm">
             <div>

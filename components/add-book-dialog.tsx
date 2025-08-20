@@ -543,6 +543,7 @@ const handleSelect = async (suggestion: BookSuggestion) => {
                 disabled={isLoading}
               />
               {suggestions.length > 0 && (
+                <>
                 <div className="border rounded-xl p-2 max-h-60 overflow-y-auto bg-bookWhite shadow">
                     {(showAllSuggestions ? suggestions : suggestions.slice(0, 10)).map((suggestion) => (
                     <div
@@ -569,18 +570,33 @@ const handleSelect = async (suggestion: BookSuggestion) => {
                     </div>
                     )}
                 </div>
-              )}
-              
-              {/* Show "Book Not Found" option when there are no suggestions and user has typed something */}
-              {title.trim().length > 2 && suggestions.length === 0 && (
-                <div className="border rounded-xl p-4 bg-bookWhite/80 shadow">
-                  <p className="text-secondary text-sm mb-3">
+
+                <div className="rounded-xl p-3 bg-bookWhite/10 shadow flex flex-col items-center">
+                  <p className="text-bookWhite text-center max-w-52 text-sm/4 mb-1">
                     Can't find the book you're looking for?
                   </p>
                   <Button
                     onClick={handleShowBookNotFoundForm}
                     variant="outline"
-                    className="w-full rounded-full text-secondary border-secondary/30 hover:bg-secondary/10"
+                    className="w-full rounded-full bg-primary text-secondary border-secondary/30 hover:bg-primary-dark"
+                    disabled={isLoading}
+                  >
+                    Report Missing Book
+                  </Button>
+                </div>
+                </>
+              )}
+              
+              {/* Show "Book Not Found" option when there are no suggestions and user has typed something */}
+              {title.trim().length > 2 && suggestions.length === 0 && (
+                <div className="rounded-xl p-3 bg-bookWhite/10 shadow flex flex-col items-center">
+                  <p className="text-bookWhite text-center max-w-52 text-sm/4 mb-1">
+                    Can't find the book you're looking for?
+                  </p>
+                  <Button
+                    onClick={handleShowBookNotFoundForm}
+                    variant="outline"
+                    className="w-full rounded-full bg-primary text-secondary border-secondary/30 hover:bg-primary-dark"
                     disabled={isLoading}
                   >
                     Report Missing Book
@@ -604,14 +620,14 @@ const handleSelect = async (suggestion: BookSuggestion) => {
 
             <DialogHeader>
               <DialogTitle className="mt-7">Report Missing Book</DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="text-bookWhite/80 leading-4">
                 Help us improve our collection by telling us about the book you're looking for.
               </DialogDescription>
             </DialogHeader>
             
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-4 pt-7 pb-4">
               <div className="grid gap-2">
-                <Label htmlFor="missing-title" className="text-secondary font-medium">
+                <Label htmlFor="missing-title" className="text-bookWhite font-medium">
                   Book Title *
                 </Label>
                 <Input
@@ -625,7 +641,7 @@ const handleSelect = async (suggestion: BookSuggestion) => {
               </div>
               
               <div className="grid gap-2">
-                <Label htmlFor="missing-author" className="text-secondary font-medium">
+                <Label htmlFor="missing-author" className="text-bookWhite font-medium">
                   Author *
                 </Label>
                 <Input
@@ -639,7 +655,7 @@ const handleSelect = async (suggestion: BookSuggestion) => {
               </div>
               
               <div className="grid gap-2">
-                <Label htmlFor="additional-info" className="text-secondary font-medium">
+                <Label htmlFor="additional-info" className="text-bookWhite font-medium">
                   Additional Information (Optional)
                 </Label>
                 <Input

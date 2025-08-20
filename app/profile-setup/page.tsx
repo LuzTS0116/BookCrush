@@ -54,21 +54,32 @@ export default function ProfileSetupPage() {
     "Biography",
     "Children's",
     "Classics",
+    "Comedy",
+    "Contemporary Fiction",
     "Dark Romance",
     "Fantasy",
     "Fiction",
+    "Graphic Novels",
+    "Healing Fiction",
     "Historical Fiction",
     "Horror",
     "Literary Fiction",
     "Manga",
+    "Memoir",
     "Mystery",
+    "New Adult",
     "Non-Fiction",
     "Poetry",
+    "Psychological Thriller",
     "Romance",
+    "Romcoms",
     "Romantasy",
     "Science Fiction",
     "Self-Help",
+    "Short Stories",
+    "Spirituality",
     "Thriller",
+    "True Crime",
     "Young Adult"
   ]
 
@@ -339,17 +350,17 @@ export default function ProfileSetupPage() {
           </div>
         </div>
       ) : (
-        <Card className="w-full max-w-2xl border-primary/20 bg-[url('/images/quote-bg.svg')] bg-cover mb-12">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl/6 font-bold text-center text-secondary">Choose Your Username</CardTitle>
-            <CardDescription className="text-center text-base/5 font-medium font-serif">
+        <Card className="w-full max-w-2xl bg-secondary-light/30 backdrop-blur-md border-secondary-light/20 mb-12">
+          <CardHeader className="space-y-2">
+            <CardTitle className="text-2xl/6 font-bold text-center text-bookWhite">Choose Your username</CardTitle>
+            <CardDescription className="text-center text-base/5 font-medium font-serif text-bookWhite">
               Pick a unique username and tell us about yourself — your identity in our book community.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {/* Error Alert */}
             {error && (
-              <Alert variant="destructive" className="mb-4 bg-red-500/20 border-red-500/30 text-red-100">
+              <Alert variant="destructive" className="mb-4 bg-red-400/20 border-red-400/30 text-red-200">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
@@ -357,7 +368,7 @@ export default function ProfileSetupPage() {
             
             {/* Success Alert */}
             {success && (
-              <Alert className="mb-4 bg-green-500/20 border-green-500/30 text-green-100">
+              <Alert className="mb-2 border-none bg-green-500/20 text-green-100">
                 <CheckCircle className="h-4 w-4" />
                 <AlertDescription>{success}</AlertDescription>
               </Alert>
@@ -378,6 +389,7 @@ export default function ProfileSetupPage() {
                     <AvatarImage 
                       src={profilePicturePreview || "/placeholder.svg?height=96&width=96"} 
                       alt="@user" 
+                      className="h-full w-full object-cover"
                     />
                     <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
                       {username ? username.charAt(0).toUpperCase() : "U"}
@@ -415,12 +427,12 @@ export default function ProfileSetupPage() {
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-0">
-                  <Label htmlFor="username">Username * <span className="text-xs text-muted-foreground">(Your public display name)</span></Label>
+                  <Label htmlFor="username" className="text-bookWhite">Username *</Label>
                   <Input
                     id="username"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="bg-white/60 text-secondary border border-secondary-light file:text-bookWhite placeholder:text-secondary/70"
+                    className="text-bookWhite file:text-bookWhite placeholder:text-bookWhite/70"
                     placeholder="bookworm123"
                     disabled={isSubmitting}
                     required
@@ -430,21 +442,18 @@ export default function ProfileSetupPage() {
                   </p>
                 </div>
                 <div className="space-y-0">
-                  <Label htmlFor="fullName">Real Name <span className="text-xs text-muted-foreground">(Optional, private)</span></Label>
+                  <Label htmlFor="fullName" className="text-bookWhite">Full Name <span className="text-xs text-muted-foreground">(optional)</span></Label>
                   <Input
                     id="fullName"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="bg-white/60 text-secondary border border-secondary-light file:text-bookWhite placeholder:text-secondary/70"
+                    className="text-bookWhite file:text-bookWhite placeholder:text-bookWhite/70"
                     placeholder="Jane Doe"
                     disabled={isSubmitting}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Only visible to you, used for personal records.
-                  </p>
                 </div>
-                <div className="space-y-0">
-                  <Label htmlFor="kindle-email">Kindle Email (Optional)</Label>
+                {/* <div className="space-y-0">
+                  <Label htmlFor="kindle-email" className="text-bookWhite">Kindle Email (Optional)</Label>
                   <Input
                     id="kindle-email"
                     type="email"
@@ -454,23 +463,23 @@ export default function ProfileSetupPage() {
                     placeholder="your_kindle@kindle.com"
                     disabled={isSubmitting}
                   />
-                </div>
+                </div> */}
               </div>
 
               <div className="space-y-0">
-                <Label htmlFor="bio">About You</Label>
+                <Label htmlFor="bio" className="text-bookWhite">About You</Label>
                 <Textarea
                   id="bio"
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   placeholder="Tell us about yourself and your reading interests..."
-                  className="min-h-[100px] rounded-2xl font-serif text-sm/4 italic bg-white/60 text-secondary border border-secondary-light placeholder:text-secondary/70"
+                  className="min-h-[100px] rounded-xl font-serif text-sm/4 italic border-none text-bookWhite file:text-bookWhite placeholder:text-bookWhite/70"
                   disabled={isSubmitting}
                 />
               </div>
 
-              <div className="space-y-1">
-                <Label>Favorite Genres</Label>
+              <div className="space-y-1 mt-1">
+                <Label className="text-bookWhite">Favorite Genres</Label>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {favoriteGenres.map((genre) => (
                     <Badge key={genre} variant="secondary" className="px-3 py-1 text-primary-dark">
@@ -486,7 +495,7 @@ export default function ProfileSetupPage() {
                     </Badge>
                   ))}
                   {favoriteGenres.length === 0 && (
-                    <p className="text-sm text-muted-foreground">Tell us what you love to read</p>
+                    <p className="text-xs text-muted-foreground">Tell us what you love to read</p>
                   )}
                 </div>
                 <div className="flex gap-2 items-center">
@@ -495,12 +504,16 @@ export default function ProfileSetupPage() {
                     onValueChange={setSelectedGenre}
                     disabled={isSubmitting}
                   >
-                    <SelectTrigger className="flex-1 rounded-full bg-white/60 disabled:opacity-50">
+                    <SelectTrigger className="flex-1 rounded-full bg-secondary border-none text-bookWhite/70 disabled:opacity-50">
                       <SelectValue placeholder="Select a genre" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="rounded-xl bg-secondary/90 backdrop-blur-sm border-none shadow-lg">
                       {genres.map((genre) => (
-                        <SelectItem key={genre} value={genre}>
+                        <SelectItem 
+                          key={genre} 
+                          value={genre}
+                          className="cursor-pointer rounded-xl px-3 py-2 text-bookWhite/80 focus:bg-accent focus:text-secondary hover:bg-accent/70 hover:text-secondary/70 data-[state=checked]:bg-accent data-[state=checked]:text-secondary [&_svg]:hidden"
+                        >
                           {genre}
                         </SelectItem>
                       ))}
@@ -510,7 +523,7 @@ export default function ProfileSetupPage() {
                     type="button" 
                     onClick={addGenre} 
                     disabled={!selectedGenre || isSubmitting} 
-                    className="rounded-full bg-primary-dark text-bookWhite disabled:opacity-50"
+                    className="rounded-full bg-primary-dark text-secondary-light disabled:opacity-50"
                   >
                     Add
                   </Button>
@@ -526,12 +539,12 @@ export default function ProfileSetupPage() {
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                   Saving Profile...
                 </>
               ) : (
                 <>
-                  <Save className="mr-2 h-4 w-4" />
+                  <Save className="h-4 w-4" />
                   Save Profile
                 </>
               )}
