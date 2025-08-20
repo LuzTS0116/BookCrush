@@ -736,7 +736,7 @@ console.log(pendingInvitations);
                                       {invitation.inviter_name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
-                                  {invitation.inviter_name} invited you to join this club!
+                                  <Link href={`/profile/${invitation.inviter_id}`}>{invitation.inviter_name}</Link> invited you to join this club!
                                 </CardTitle>
                                 <span className="text-xs text-secondary/60 font-serif pl-6">
                                   {formatDate(invitation.created_at)}
