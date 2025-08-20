@@ -45,9 +45,10 @@ interface BookRecommendation {
 
 interface RecommendationsMainProps {
   onClose?: () => void
+  onAddToShelf?: (bookId: string, shelf: string, bookData: any) => void
 }
 
-export function RecommendationsMain({ onClose }: RecommendationsMainProps) {
+export function RecommendationsMain({ onClose, onAddToShelf }: RecommendationsMainProps) {
   const { data: session } = useSession()
   const [activeTab, setActiveTab] = useState("inbox")
   const [inboxRecommendations, setInboxRecommendations] = useState<BookRecommendation[]>([])
@@ -253,6 +254,7 @@ export function RecommendationsMain({ onClose }: RecommendationsMainProps) {
                     recommendation={recommendation}
                     type="inbox"
                     onUpdate={handleRecommendationUpdate}
+                    onAddToShelf={onAddToShelf}
                   />
                 ))}
               </div>

@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from "next-auth/react";
+import { useUsernameValidation } from '@/hooks/use-username-validation'
 
 // Simple loading component
 function LoadingClubs() {
@@ -49,6 +50,9 @@ export default function ProfileSetupPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectedFrom = searchParams.get('redirectedFrom')
+
+  // Username validation hook
+  const usernameValidation = useUsernameValidation()
 
   const genres = [
     "Biography",
@@ -93,6 +97,18 @@ export default function ProfileSetupPage() {
 
   const removeGenre = (genre: string) => {
     setFavoriteGenres(favoriteGenres.filter((g) => g !== genre))
+  }
+
+  // Username change handler with validation
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newUsername = e.target.value
+    setUsername(newUsername)
+    usernameValidation.validateUsername(newUsername)
+    
+    // Clear any previous form errors when user starts typing
+    if (error && error.includes('Username')) {
+      setError(null)
+    }
   }
 
   // Profile picture upload handler
@@ -194,6 +210,22 @@ export default function ProfileSetupPage() {
       setError('Username can only contain letters, numbers, dots, hyphens, and underscores');
       return;
     }
+
+    // Check username validation status
+    if (usernameValidation.isChecking) {
+      setError("Please wait while we validate your username");
+      return;
+    }
+
+    if (usernameValidation.isValid === false) {
+      setError(usernameValidation.error || "Please choose a different username");
+      return;
+    }
+
+    if (usernameValidation.isValid !== true) {
+      setError("Please wait for username validation to complete");
+      return;
+    }
     
     if (kindleEmail && !kindleEmail.includes('@')) {
       setError('Please enter a valid Kindle email address');
@@ -265,7 +297,7 @@ export default function ProfileSetupPage() {
   useEffect(() => {
     setIsLoading(false);
     
-    // Get username from URL parameters
+    // Get username from URL parameters (optional now)
     const usernameFromUrl = searchParams.get('display_name') || searchParams.get('username');
     if (usernameFromUrl) {
       setUsername(usernameFromUrl);
@@ -273,26 +305,24 @@ export default function ProfileSetupPage() {
     
     // Pre-populate with Google data if available
     if (session?.googleData) {
-      if (session.googleData.name) {
+      if (session.googleData.name && !username) {
         if (!fullName) {
           setFullName(session.googleData.name); // Use real name for full_name
         }
-        if (!username) {
-          // Create a username suggestion from the real name
-          const suggestedUsername = session.googleData.name
-            .toLowerCase()
-            .replace(/[^a-zA-Z0-9]/g, '_')
-            .replace(/_+/g, '_')
-            .replace(/^_|_$/g, '');
-          setUsername(suggestedUsername);
-        }
+        // Create a username suggestion from the real name only if no username is set
+        const suggestedUsername = session.googleData.name
+          .toLowerCase()
+          .replace(/[^a-zA-Z0-9]/g, '_')
+          .replace(/_+/g, '_')
+          .replace(/^_|_$/g, '');
+        setUsername(suggestedUsername);
       }
       if (session.googleData.avatar_url && !profilePicturePreview) {
         setProfilePicturePreview(session.googleData.avatar_url);
         setAvatarUrl(session.googleData.avatar_url);
       }
     }
-  }, [searchParams, session]);
+  }, [searchParams, session, username, fullName, profilePicturePreview]);
 
   // Cleanup profile picture preview URL
   useEffect(() => {
@@ -428,15 +458,40 @@ export default function ProfileSetupPage() {
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-0">
                   <Label htmlFor="username" className="text-bookWhite">Username *</Label>
-                  <Input
-                    id="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="text-bookWhite file:text-bookWhite placeholder:text-bookWhite/70"
-                    placeholder="bookworm123"
-                    disabled={isSubmitting}
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      id="username"
+                      value={username}
+                      onChange={handleUsernameChange}
+                      className="text-bookWhite file:text-bookWhite placeholder:text-bookWhite/70 pr-10"
+                      placeholder="bookworm123"
+                      disabled={isSubmitting}
+                      required
+                    />
+                    {/* Username validation status icon */}
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      {usernameValidation.isChecking && (
+                        <Loader2 className="h-4 w-4 animate-spin text-yellow-600" />
+                      )}
+                      {usernameValidation.isValid === true && !usernameValidation.isChecking && (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      )}
+                      {usernameValidation.isValid === false && !usernameValidation.isChecking && (
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                      )}
+                    </div>
+                  </div>
+                  {/* Username validation messages */}
+                  {usernameValidation.message && usernameValidation.isValid === true && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✓ {usernameValidation.message}
+                    </p>
+                  )}
+                  {usernameValidation.error && usernameValidation.isValid === false && (
+                    <p className="text-xs text-red-600 mt-1">
+                      ✗ {usernameValidation.error}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground mt-1">
                     This is how others will see you. Must be unique and 3+ characters.
                   </p>
@@ -535,12 +590,22 @@ export default function ProfileSetupPage() {
             <Button 
               onClick={handleSubmit} 
               className="rounded-full text-bookWhite font-normal bg-accent-variant/80 hover:bg-accent-variant disabled:opacity-50"
-              disabled={isSubmitting || isUploadingPicture}
+              disabled={
+                isSubmitting || 
+                isUploadingPicture || 
+                usernameValidation.isChecking ||
+                usernameValidation.isValid === false
+              }
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Saving Profile...
+                </>
+              ) : usernameValidation.isChecking ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Checking Username...
                 </>
               ) : (
                 <>

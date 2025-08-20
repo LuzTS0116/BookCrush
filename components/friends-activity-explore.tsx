@@ -49,14 +49,23 @@ function ExploreUserCard({ user, onFriendRequestSent }: ExploreUserCardProps) {
         </CardTitle>
     </CardHeader>
     <CardContent className="flex flex-col p-0 items-center">
-        {user.favorite_genres && (
+        {user.favorite_genres && user.favorite_genres.length > 0 && (
           <div className='flex gap-2 max-w-full justify-items-center'>
-            {user.favorite_genres.slice(0, 2).map((genre)=>(<p className="text-xs font-serif font-normal text-accent bg-secondary-light/80 px-2 rounded-full truncate max-w-full">{genre}</p>))}
+            {user.favorite_genres.slice(0, 2).map((genre: string, index: number) => (
+              <p key={index} className="text-xs font-serif font-normal text-accent bg-secondary-light/80 px-2 rounded-full truncate max-w-full">
+                {genre}
+              </p>
+            ))}
           </div>
         )}
     </CardContent>
-    <div className={user.favorite_genres?.length ?  "mt-2 flex justify-center" : "mt-6 flex justify-center"}>
-        <AddFriendButton targetUser={targetUserForAddFriendButton} onFriendRequestSent={onFriendRequestSent} />
+    <div className={user.favorite_genres && user.favorite_genres.length > 0 ?  "mt-2 flex justify-center" : "mt-6 flex justify-center"}>
+        <AddFriendButton 
+          targetUser={targetUserForAddFriendButton} 
+          initialStatus={user.friendshipStatus}
+          pendingRequestId={user.pendingRequestId}
+          onFriendRequestSent={onFriendRequestSent} 
+        />
     </div>
     </Card>
     </div>
@@ -72,6 +81,17 @@ export default function FriendsActivityExplore() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Helper function to filter users by both display_name and full_name
+  const matchesSearchQuery = (user: ExplorableUser, query: string): boolean => {
+    if (!query.trim()) return true;
+    
+    const lowerQuery = query.toLowerCase();
+    const displayNameMatch = user.display_name.toLowerCase().includes(lowerQuery);
+    const fullNameMatch = user.full_name?.toLowerCase().includes(lowerQuery) || false;
+    
+    return displayNameMatch || fullNameMatch;
+  };
 
   const fetchData = async () => {
     if (sessionStatus !== 'authenticated' || !currentUserId || !session?.supabaseAccessToken) {
@@ -177,12 +197,12 @@ export default function FriendsActivityExplore() {
                   <Loader2 className="h-6 w-6 animate-spin mx-auto text-bookWhite" />
                   <p className="mt-2 text-bookWhite/70">Loading users to explore...</p>
               </div>
-            ) : exploreUsers.filter(user => user.display_name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
+            ) : exploreUsers.filter(user => matchesSearchQuery(user, searchQuery)).length === 0 ? (
               <p className="text-bookWhite/70 text-center py-10">{searchQuery ? "No users match your search." : "No new users to explore right now."}</p>
             ) : (
               <div className="grid grid-cols-3 gap-2 bg-transparent mx-2 overflow-y-auto no-scrollbar rounded-lg p-1 pb-14 md:grid-cols-4">
                 {exploreUsers
-                  .filter(user => user.display_name.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .filter(user => matchesSearchQuery(user, searchQuery))
                   .map((user) => (
                     <ExploreUserCard key={user.id} user={user} onFriendRequestSent={handleFriendRequestSent} />
                 ))}

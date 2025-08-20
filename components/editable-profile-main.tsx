@@ -86,6 +86,15 @@ const getMediaTypeDisplay = (mediaType: UserBook['media_type']) => {
   return readingOptions.find(option => option.value === mediaType) || readingOptions[1]; // Default to E-Reader
 };
 
+// Helper function to sort queue books by position to maintain drag & drop order
+const sortQueueBooks = (books: UserBook[]): UserBook[] => {
+  return books.sort((a, b) => {
+    const positionA = a.position || 0;
+    const positionB = b.position || 0;
+    return positionA - positionB;
+  });
+};
+
 // Define the available shelf types for the dropdown
 const SHELF_OPTIONS = [
   { label: "Move to Reading Queue", value: "queue" },
@@ -560,7 +569,13 @@ export default function EditableProfileMain() {
         // Categorize books based on shelf
         if (profileData.userBooks) {
           const currentlyReading = profileData.userBooks.filter((book: UserBook) => book.shelf === 'currently_reading')
-          const queue = profileData.userBooks.filter((book: UserBook) => book.shelf === 'queue')
+          const queue = profileData.userBooks
+            .filter((book: UserBook) => book.shelf === 'queue')
+            .sort((a, b) => {
+              const positionA = a.position || 0;
+              const positionB = b.position || 0;
+              return positionA - positionB;
+            })
           const history = profileData.userBooks
             .filter((book: UserBook) => book.shelf === 'history')
             .sort((a, b) => new Date(b.added_at).getTime() - new Date(a.added_at).getTime())
@@ -1117,7 +1132,7 @@ export default function EditableProfileMain() {
       });
       if (rollbackResponse.ok) {
         const rollbackBooks = await rollbackResponse.json();
-        setQueueBooks(rollbackBooks);
+        setQueueBooks(sortQueueBooks(rollbackBooks));
       }
     }
   };
@@ -1181,7 +1196,7 @@ export default function EditableProfileMain() {
         });
         if (updatedResponse.ok) {
           const updatedBooks = await updatedResponse.json();
-          setQueueBooks(updatedBooks);
+          setQueueBooks(sortQueueBooks(updatedBooks));
         }
       }
 
@@ -1250,7 +1265,7 @@ export default function EditableProfileMain() {
       });
       if (rollbackResponse.ok) {
         const rollbackBooks = await rollbackResponse.json();
-        setQueueBooks(rollbackBooks);
+        setQueueBooks(sortQueueBooks(rollbackBooks));
       }
     }
   };
@@ -1349,7 +1364,7 @@ export default function EditableProfileMain() {
       });
       if (originalResponse.ok) {
         const originalBooks = await originalResponse.json();
-        setQueueBooks(originalBooks);
+        setQueueBooks(sortQueueBooks(originalBooks));
       }
     }
   };
@@ -1454,7 +1469,7 @@ export default function EditableProfileMain() {
         });
         if (updatedResponse.ok) {
           const updatedBooks = await updatedResponse.json();
-          setQueueBooks(updatedBooks);
+          setQueueBooks(sortQueueBooks(updatedBooks));
         }
       }
 
@@ -1551,6 +1566,58 @@ export default function EditableProfileMain() {
     });
   };
 
+  // Handle adding recommended book to shelf with optimistic update
+  const handleAddRecommendedBookToShelf = useCallback(async (bookId: string, shelf: string, bookData: any) => {
+    if (!session?.supabaseAccessToken) {
+      toast.error('Authentication required');
+      return;
+    }
+
+    try {
+      // Create UserBook object for optimistic update
+      const newUserBook: UserBook = {
+        book_id: bookId,
+        user_id: profile?.id || '',
+        book: bookData,
+        shelf: shelf as UserBook['shelf'],
+        status: shelf === 'currently_reading' ? 'in_progress' : 'in_progress',
+        media_type: 'e_reader',
+        is_favorite: false,
+        comment: null,
+        added_at: new Date().toISOString(),
+        position: null
+      };
+      
+      // Optimistically add to appropriate shelf state
+      switch (shelf) {
+        case 'currently_reading':
+          setCurrentlyReadingBooks(prev => [newUserBook, ...prev]);
+          break;
+        case 'queue':
+          // Add to the end of queue with proper position
+          const maxPosition = Math.max(0, ...queueBooks.map(b => b.position || 0));
+          const updatedBook = { ...newUserBook, position: maxPosition + 1 };
+          setQueueBooks(prev => [...prev, updatedBook]);
+          break;
+        case 'history':
+          setHistoryBooks(prev => [newUserBook, ...prev]);
+          break;
+        default:
+          break;
+      }
+      
+      toast.success(`Book added to ${shelf.replace('_', ' ')}!`);
+      
+      // Return success info for recommend dialog callback
+      return { bookId, shelf, bookData };
+      
+    } catch (err: any) {
+      console.error("Error adding recommended book to shelf:", err);
+      toast.error(`Failed to add book: ${err.message}`);
+      return null;
+    }
+  }, [session?.supabaseAccessToken, profile?.id, queueBooks]);
+
   // Handle recommend dialog close
   const handleRecommendDialogClose = () => {
     setRecommendDialog({
@@ -1559,10 +1626,7 @@ export default function EditableProfileMain() {
     });
   };
 
-  // Handle successful recommendation
-  const handleRecommendSuccess = () => {
-    toast.success('Book recommendation sent successfully!');
-  };
+
 
   // Effect to mark feedback as viewed when dialog opens
   useEffect(() => {
@@ -2311,7 +2375,10 @@ export default function EditableProfileMain() {
             />
           </div>
           <div className="relative z-10 max-h-[60vh] overflow-y-auto">
-            <RecommendationsMain onClose={() => setIsRecommendationsDialogOpen(false)} />
+            <RecommendationsMain 
+              onClose={() => setIsRecommendationsDialogOpen(false)}
+              onAddToShelf={handleAddRecommendedBookToShelf}
+            />
           </div>
         </DialogContent>
       </Dialog>
@@ -2326,7 +2393,7 @@ export default function EditableProfileMain() {
           author: recommendDialog.book.book.author,
           cover_url: recommendDialog.book.book.cover_url
         } : null}
-        onSuccess={handleRecommendSuccess}
+        onSuccess={() => toast.success('Book recommendation sent successfully!')}
       />
 
       {/* Custom Goals Dialog */}
