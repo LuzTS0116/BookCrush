@@ -171,7 +171,7 @@ export function BookSelectionDialog({
                             <>
                               <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin mr-1" />
                               <span className="hidden xs:inline sm:inline">Selecting...</span>
-                              <span className="xs:hidden sm:hidden">...</span>
+                              <span className="xs:hidden sm:hidden"></span>
                             </>
                           ) : (
                             <span className="font-semibold">Select</span>
@@ -214,7 +214,7 @@ export function BookSelectionDialog({
                 Add the book to our shared library and set it as the club's current book!
               </p>
               <div className="flex justify-center">
-                <div className="bg-bookWhite/10 p-4 rounded-lg border border-bookWhite/20">
+                <div>
                   <AddBookDialog
                     open={addBookDialogOpen}
                     onOpenChange={setAddBookDialogOpen}

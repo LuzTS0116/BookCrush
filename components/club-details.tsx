@@ -2494,10 +2494,12 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                       )}
                     </div>
                   </div>
-                  <TruncatedCard 
-                    text={club.current_book.description}
-                    link={`/books/${club.current_book.id}`}
-                  />
+                  {club.current_book.description && (
+                    <TruncatedCard 
+                      text={club.current_book.description}
+                      link={`/books/${club.current_book.id}`}
+                    />
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
