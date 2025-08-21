@@ -1594,20 +1594,20 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                     <CardContent className="space-y-3 px-0 pt-3 pb-2">
                                              {book.clubHistory && book.clubHistory.length > 0 ? (
                          book.clubHistory.map((club: { id: string; name: string; members: number; completedDate: string; status: string }) => (
-                          <div key={club.id} className="p-3 bg-secondary/5 rounded-lg border-l-4 border-gray-300">
-                            <div className="flex flex-wrap justify-between items-start">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
+                          <div key={club.id} className="p-3 bg-secondary/5 rounded-lg">
+                            <div className="flex flex-col justify-between items-start">
+                              <div className="flex-1 w-full">
+                                <div className="flex items-center justify-between gap-2 mb-1">
                                   <h3 className="font-medium text-secondary">{club.name}</h3>
                                   <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                                     club.status === 'completed' 
-                                      ? 'bg-green-100 text-green-700' 
-                                      : 'bg-gray-100 text-gray-700'
+                                      ? 'bg-primary/20 text-primary-dark' 
+                                      : 'bg-secondary/15 text-secondary/70'
                                   }`}>
-                                    {club.status === 'completed' ? '✅ Completed' : '❌ Abandoned'}
+                                    {club.status === 'completed' ? 'finished' : 'unfinished'}
                                   </span>
                                 </div>
-                                <div className="flex flex-row gap-3 text-sm">
+                                <div className="flex flex-row gap-4 text-sm">
                                   <div className="flex items-center gap-1 font-serif text-secondary-light/60">
                                     <User className="h-4 w-4" />
                                     <span>{club.members} members</span>
@@ -1618,13 +1618,13 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                                   </div>
                                 </div>
                               </div>
-                              <Button 
+                              {/* <Button 
                                 variant="outline" 
                                 className="rounded-full bg-primary/20 border-none hover:bg-primary/35 hover:text-secondary"
                                 onClick={() => router.push(`/clubs/${club.id}`)}
                               >
                                 View Club
-                              </Button>
+                              </Button> */}
                             </div>
                           </div>
                         ))
