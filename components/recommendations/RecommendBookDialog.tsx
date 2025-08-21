@@ -298,22 +298,23 @@ export function RecommendBookDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isLoading}
+            className="rounded-full"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSendRecommendations}
             disabled={selectedFriends.length === 0 || isLoading}
-            className="bg-accent hover:bg-accent-variant"
+            className="bg-accent hover:bg-accent-variant rounded-full"
           >
             {isLoading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Sending...
               </>
             ) : (
               <>
-                <Send className="mr-2 h-4 w-4" />
+                <Send className="h-4 w-4" />
                 Send Recommendation{selectedFriends.length > 1 ? 's' : ''}
               </>
             )}
