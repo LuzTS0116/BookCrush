@@ -482,12 +482,12 @@ LoadingSkeleton.displayName = 'LoadingSkeleton'
 
 // ✅ Tab loading component with suspense-like behavior
 const TabLoadingSuspense = React.memo(() => (
-  <div className="flex flex-col items-center justify-center min-h-64 py-12 animate-in fade-in duration-300">
+  <div className="flex flex-col items-center justify-center min-h-64 py-2 animate-in fade-in duration-300">
     <div className="relative">
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
       <div className="absolute inset-0 rounded-full border-2 border-primary/20 animate-pulse" />
     </div>
-    <div className="mt-4 text-center space-y-2 animate-in slide-in-from-bottom-4 duration-500 delay-150">
+    <div className="mt-0 text-center space-y-0 animate-in slide-in-from-bottom-4 duration-500 delay-150">
       <p className="text-lg font-medium text-secondary">Loading content...</p>
       <p className="text-sm text-muted-foreground">Switching to your selected tab</p>
     </div>
@@ -1058,10 +1058,10 @@ export default function BooksTableOptimized() {
             </TabsList>
           </div>
 
-                      {/* Search and Controls Bar */}
-            <div className="flex flex-col gap-4 mb-6">
+            {/* Search and Controls Bar */}
+            <div className="flex flex-col gap-2 mb-0">
               {/* Search Bar */}
-              <div className="flex justify-center">
+              <div className="flex justify-center gap-1.5">
                 <div className="relative w-full max-w-md sm:max-w-lg lg:max-w-xl">
                   <Search className={`absolute left-3 top-4 -translate-y-1/2 h-4 w-4 ${isTabLoading ? 'text-muted-foreground/50' : 'text-secondary'}`} />
                   <Input
@@ -1087,17 +1087,38 @@ export default function BooksTableOptimized() {
                     </div>
                   )}
                 </div>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant={state.viewMode === "card" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => updateState({ viewMode: "card" })}
+                    aria-label="Card view"
+                    disabled={isTabLoading}
+                    className={`px-2 h-8 w-8 ${state.viewMode === "card" ? 'shadow-sm bg-primary-dark text-secondary focus:bg-primary-dark active:bg-primary-dark' : 'bg-secondary-light/50 text-bookWhite border border-bookWhite/30'} ${isTabLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <Grid className="h-8 w-8" />
+                  </Button>
+                  <Button
+                    variant={state.viewMode === "table" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => updateState({ viewMode: "table" })}
+                    aria-label="Table view"
+                    disabled={isTabLoading}
+                    className={`px-2 h-8 w-8 ${state.viewMode === "table" ? 'shadow-sm bg-primary-dark text-secondary focus:bg-primary-dark active:bg-primary-dark' : 'bg-secondary-light/50 text-bookWhite border border-bookWhite/30'} ${isTabLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <List className="h-8 w-8" />
+                  </Button>
+                </div>
               </div>
               
               {/* Controls Row */}
               <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
                 {/* Left side - Filters (Friends Library only) */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   {state.activeTab === 'friends-library' && (
-                    <div className={`flex items-center gap-3 transition-opacity ${isTabLoading ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <div className={`flex items-center gap-2 transition-opacity ${isTabLoading ? 'opacity-50 pointer-events-none' : ''}`}>
                       <div className="flex items-center gap-2">
                         <Filter className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">Filter by:</span>
                       </div>
                       
                       {/* Friend Filter */}
@@ -1109,15 +1130,27 @@ export default function BooksTableOptimized() {
                         <SelectTrigger className="w-36 h-8 text-xs">
                           <SelectValue placeholder="All friends" />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All friends</SelectItem>
+                        <SelectContent className="rounded-xl bg-secondary/90 backdrop-blur-sm border-none shadow-lg">
+                          <SelectItem 
+                            value="all"
+                            className="cursor-pointer rounded-xl px-3 py-2 text-bookWhite/80 focus:bg-accent focus:text-secondary hover:bg-accent/70 hover:text-secondary/70 data-[state=checked]:bg-accent data-[state=checked]:text-secondary [&_svg]:hidden"
+                          >
+                            All friends
+                          </SelectItem>
                           {friendsList.length === 0 ? (
-                            <SelectItem value="no-friends" disabled>
+                            <SelectItem 
+                              value="no-friends" 
+                              disabled
+                            >
                               No friends found
                             </SelectItem>
                           ) : (
                             friendsList.map((friend) => (
-                              <SelectItem key={friend.id} value={friend.id}>
+                              <SelectItem 
+                                key={friend.id}
+                                value={friend.id}
+                                className="cursor-pointer rounded-xl px-3 py-2 text-bookWhite/80 focus:bg-accent focus:text-secondary hover:bg-accent/70 hover:text-secondary/70 data-[state=checked]:bg-accent data-[state=checked]:text-secondary [&_svg]:hidden"
+                              >
                                 {friend.name}
                               </SelectItem>
                             ))
@@ -1134,12 +1167,37 @@ export default function BooksTableOptimized() {
                         <SelectTrigger className="w-36 h-8 text-xs">
                           <SelectValue placeholder="All shelves" />
                         </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All shelves</SelectItem>
-                          <SelectItem value="currently_reading">📖 Currently Reading</SelectItem>
-                          <SelectItem value="queue">📚 In Queue</SelectItem>
-                          <SelectItem value="history">📖 Finished</SelectItem>
-                          <SelectItem value="favorite">❤️ Favorites</SelectItem>
+                        <SelectContent className="rounded-xl bg-secondary/90 backdrop-blur-sm border-none shadow-lg">
+                          <SelectItem 
+                            value="all"
+                            className="cursor-pointer rounded-xl px-3 py-2 text-bookWhite/80 focus:bg-accent focus:text-secondary hover:bg-accent/70 hover:text-secondary/70 data-[state=checked]:bg-accent data-[state=checked]:text-secondary [&_svg]:hidden"
+                          >
+                            All shelves
+                          </SelectItem>
+                          <SelectItem 
+                            value="currently_reading"
+                            className="cursor-pointer rounded-xl px-3 py-2 text-bookWhite/80 focus:bg-accent focus:text-secondary hover:bg-accent/70 hover:text-secondary/70 data-[state=checked]:bg-accent data-[state=checked]:text-secondary [&_svg]:hidden"
+                          >
+                            Currently Reading
+                          </SelectItem>
+                          <SelectItem 
+                            value="queue"
+                            className="cursor-pointer rounded-xl px-3 py-2 text-bookWhite/80 focus:bg-accent focus:text-secondary hover:bg-accent/70 hover:text-secondary/70 data-[state=checked]:bg-accent data-[state=checked]:text-secondary [&_svg]:hidden"
+                          >
+                            In Queue
+                          </SelectItem>
+                          <SelectItem 
+                            value="history"
+                            className="cursor-pointer rounded-xl px-3 py-2 text-bookWhite/80 focus:bg-accent focus:text-secondary hover:bg-accent/70 hover:text-secondary/70 data-[state=checked]:bg-accent data-[state=checked]:text-secondary [&_svg]:hidden"
+                          >
+                            Finished
+                          </SelectItem>
+                          <SelectItem 
+                            value="favorite"
+                            className="cursor-pointer rounded-xl px-3 py-2 text-bookWhite/80 focus:bg-accent focus:text-secondary hover:bg-accent/70 hover:text-secondary/70 data-[state=checked]:bg-accent data-[state=checked]:text-secondary [&_svg]:hidden"
+                          >
+                            Favorites
+                          </SelectItem>
                         </SelectContent>
                       </Select>
 
@@ -1151,7 +1209,7 @@ export default function BooksTableOptimized() {
                           onClick={() => {
                             updateState({ selectedFriend: 'all', selectedShelfStatus: 'all' })
                           }}
-                          className="h-8 text-xs px-3"
+                          className="h-8 text-xs px-3 rounded-full"
                           disabled={isTabLoading}
                         >
                           Clear
@@ -1159,35 +1217,6 @@ export default function BooksTableOptimized() {
                       )}
                     </div>
                   )}
-                </div>
-                
-                {/* Right side - View Controls */}
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-muted-foreground">View:</span>
-                  <div className="flex items-center bg-muted/30 rounded-lg p-1">
-                    <Button
-                      variant={state.viewMode === "card" ? "secondary" : "ghost"}
-                      size="sm"
-                      onClick={() => updateState({ viewMode: "card" })}
-                      aria-label="Card view"
-                      disabled={isTabLoading}
-                      className={`px-3 py-1.5 h-8 ${state.viewMode === "card" ? 'shadow-sm' : ''} ${isTabLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      <Grid className="h-4 w-4 mr-1.5" />
-                      Cards
-                    </Button>
-                    <Button
-                      variant={state.viewMode === "table" ? "secondary" : "ghost"}
-                      size="sm"
-                      onClick={() => updateState({ viewMode: "table" })}
-                      aria-label="Table view"
-                      disabled={isTabLoading}
-                      className={`px-3 py-1.5 h-8 ${state.viewMode === "table" ? 'shadow-sm' : ''} ${isTabLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
-                      <List className="h-4 w-4 mr-1.5" />
-                      Table
-                    </Button>
-                  </div>
                 </div>
               </div>
             </div>
