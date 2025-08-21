@@ -207,7 +207,7 @@ export function RecommendBookDialog({
                     placeholder="Search friends..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 bg-bookWhite/95 text-secondary"
+                    className="pl-10 bg-bookWhite/95 text-secondary placeholder:text-secondary/50"
                   />
                 </div>
 
@@ -281,10 +281,10 @@ export function RecommendBookDialog({
                 placeholder="Tell your friends why you loved this book..."
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                className="min-h-[80px] bg-bookWhite/95 text-secondary resize-none"
+                className="min-h-[80px] bg-bookWhite/95 text-secondary resize-none placeholder:text-secondary/50"
                 maxLength={500}
               />
-              <div className="flex justify-between text-xs text-secondary/50">
+              <div className="flex justify-between text-xs text-bookWhite/50">
                 <span>Share what made this book special to you</span>
                 <span>{note.length}/500</span>
               </div>
