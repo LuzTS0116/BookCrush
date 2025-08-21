@@ -1672,7 +1672,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                               <div key={`${friend.id}-${friend.shelf}`} className="p-3 bg-secondary/5 rounded-lg">
                                 <div className="flex justify-between items-start mb-2">
                                   <div className="flex items-center gap-3">
-                                    <Avatar className="h-12 w-12">
+                                    <Avatar className="h-8 w-8">
                                       <AvatarImage src={friend.avatar || "/placeholder.svg"} alt={friend.name} />
                                       <AvatarFallback>{friend.initials}</AvatarFallback>
                                     </Avatar>
@@ -1680,17 +1680,6 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                                       <p className="font-medium text-base">{friend.name}</p>
                                     </div>
                                   </div>
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm"
-                                    className="rounded-full bg-primary/20 border-none hover:bg-primary/35 hover:text-secondary"
-                                    onClick={() => router.push(`/profile/${friend.id}`)}
-                                  >
-                                    View Profile
-                                  </Button>
-                                </div>
-                                
-                                <div className="flex flex-row justify-between items-center">
                                   <div className="flex flex-wrap gap-2 items-center">
                                     {(shelfDisplay.label === "In Queue") && (
                                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${shelfDisplay.color}`}>
@@ -1711,6 +1700,10 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                                       </span>
                                     )}
                                   </div>
+                                </div>
+                                
+                                <div className="flex flex-row justify-between items-center">
+                                  
                                   
                                   <span className="text-xs text-secondary/60 font-serif">
                                     Added {new Date(friend.added_at).toLocaleDateString('en-US', { 

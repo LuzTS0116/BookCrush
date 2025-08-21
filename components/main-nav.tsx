@@ -181,7 +181,7 @@ export function MainNav() {
                     <AvatarImage 
                       src={avatarUrl} 
                       alt="@user"
-                      className={profileLoading ? "opacity-75" : ""} 
+                      className={profileLoading ? "h-full w-full object-cover opacity-75" : "h-full w-full object-cover"} 
                     />
                     <AvatarFallback className="bg-primary text-primary-foreground">
                       {profileLoading ? "..." : initials}
