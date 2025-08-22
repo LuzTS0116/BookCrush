@@ -965,7 +965,7 @@ console.log(pendingInvitations);
                                                           </AvatarFallback>
                                                       </Avatar>
                                                       <div className="flex-1 min-w-0">
-                                                          <p className="text-sm/4 font-medium break-words">{applicant.userName}</p>
+                                                          <Link href={`/profile/${applicant.id}`}><p className="text-sm/4 font-medium break-words">{applicant.userName}</p></Link>
                                                           {/* <p className="font-serif font-medium text-xs/4 text-secondary/60">Applied {new Date(applicant.appliedAt).toLocaleDateString()}</p> */}
                                                       <p className="font-serif font-normal text-xs/3 text-secondary/60">Applied {formatDate(applicant.appliedAt)}</p>
                                                       </div>

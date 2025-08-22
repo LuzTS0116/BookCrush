@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import Link from "next/link"
 import { Check, X, Calendar, Users, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -114,7 +115,7 @@ export function InvitationResponse({ invitation, onResponse }: InvitationRespons
             </AvatarFallback>
           </Avatar>
           <div>
-            <p className="text-sm font-medium">Invited by {invitation.inviter.display_name}</p>
+            <Link href={`/profile/${invitation.inviter.id}`}><p className="text-sm font-medium">Invited by {invitation.inviter.display_name}</p></Link>
             <p className="text-xs text-muted-foreground">
               {new Date(invitation.created_at).toLocaleDateString()}
             </p>

@@ -1345,7 +1345,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                                     <AvatarFallback>{review.user.initials}</AvatarFallback>
                                   </Avatar>
                                   <div>
-                                    <p className="font-medium text-base/4">{review.user.name}</p>
+                                    <Link href={`/profile/${review.user.id}`}><p className="font-medium text-base/4">{review.user.name}</p></Link>
                                     <div className="flex items-center gap-2">
                                       <p className="text-xs font-serif text-secondary-light/60">{review.date}</p>
                                       {review.updated_at && (

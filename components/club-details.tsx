@@ -112,7 +112,7 @@ const DiscussionItem: React.FC<DiscussionItemProps> = ({
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <p className="font-medium leading-none text-sm">{discussion.user?.display_name || 'Anonymous'}</p>
+              <Link href={`/profile/${discussion.user?.id}`}><p className="font-medium leading-none text-sm">{discussion.user?.display_name || 'Anonymous'}</p></Link>
               {discussion.updated_at && discussion.updated_at !== discussion.created_at && (
                 <span className="text-xs text-muted-foreground italic">(edited)</span>
               )}
@@ -231,11 +231,11 @@ const DiscussionItem: React.FC<DiscussionItemProps> = ({
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">ME</AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                                                                            <Textarea
-                        placeholder="Write a reply..."
-                        value={replyContent[discussion.id] || ''}
-                        onChange={(e) => onReplyContentChange(discussion.id, e.target.value)}
-                      className="min-h-[60px] bg-bookWhite border-secondary-light/30 text-sm"
+                <Textarea
+                    placeholder="Write a reply..."
+                    value={replyContent[discussion.id] || ''}
+                    onChange={(e) => onReplyContentChange(discussion.id, e.target.value)}
+                    className="min-h-[60px] bg-bookWhite border-secondary-light/30 text-sm"
                     disabled={isLoading}
                     autoFocus
                   />
@@ -3411,7 +3411,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="text-sm/4 font-medium">{applicant.userName}</p>
+                        <Link href={`/profile/${applicant.id}`}><p className="text-sm/4 font-medium">{applicant.userName}</p></Link>
                         <p className="text-xs text-secondary font-serif font-normal">Applied {new Date(applicant.appliedAt).toLocaleDateString()}</p>
                       </div>
                     </div>
@@ -3473,9 +3473,11 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="text-sm/4 font-medium">
-                            {invitation.invitee?.display_name || invitation.email}
-                          </p>
+                          <Link href={`/profile/${invitation.invitee?.id}`}>
+                            <p className="text-sm/4 font-medium">
+                              {invitation.invitee?.display_name || invitation.email}
+                            </p>
+                          </Link>
                           <p className="text-xs text-secondary font-serif font-normal">
                             Invited {new Date(invitation.created_at).toLocaleDateString()} • 
                             Expires {new Date(invitation.expires_at).toLocaleDateString()}
@@ -4192,7 +4194,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate text-secondary">{attendee.user.display_name}</p>
+                              <Link href={`/profile/${attendee.user.id}`}><p className="text-sm font-medium truncate text-secondary">{attendee.user.display_name}</p></Link>
                               <div className="flex items-center gap-1">
                                 <span className="text-xs text-secondary">RSVP:</span>
                                 <Badge 
@@ -4321,7 +4323,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
-                        <p className="font-medium text-sm text-secondary">{attendee.user.display_name}</p>
+                        <Link href={`/profile/${attendee.user.id}`}><p className="font-medium text-sm text-secondary">{attendee.user.display_name}</p></Link>
                         <div className="flex items-center gap-1">
                           {/* <Badge 
                             variant="outline" 
