@@ -731,7 +731,7 @@ console.log(pendingInvitations);
                               <CardHeader className="pb-0 px-0 pt-0">
                                 <CardTitle className="text-secondary-light text-sm font-medium flex items-center gap-2">
                                   <Avatar className="h-6 w-6">
-                                    <AvatarImage src={invitation.inviter_avatar || "/placeholder.svg"} alt={invitation.inviter_name} />
+                                    <AvatarImage src={invitation.inviter_avatar || "/placeholder.svg"} alt={invitation.inviter_name} className="h-full w-full object-cover" />
                                     <AvatarFallback className="bg-primary text-primary-foreground text-sm">
                                       {invitation.inviter_name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase()}
                                     </AvatarFallback>
@@ -959,13 +959,13 @@ console.log(pendingInvitations);
                                               <div key={applicant.id} className="flex items-center justify-between p-2 bg-secondary/5 rounded-md">
                                                   <div className="flex items-center gap-3">
                                                       <Avatar className="h-8 w-8">
-                                                          <AvatarImage src={applicant.userAvatar || "/placeholder.svg"} alt={applicant.userName} />
+                                                          <AvatarImage src={applicant.userAvatar || "/placeholder.svg"} alt={applicant.userName} className="h-full w-full object-cover" />
                                                           <AvatarFallback className="bg-blue-500 text-white">
                                                               {applicant.userInitials}
                                                           </AvatarFallback>
                                                       </Avatar>
                                                       <div className="flex-1 min-w-0">
-                                                          <p className="text-sm/4 font-medium break-words">{applicant.userName}</p>
+                                                          <Link href={`/profile/${applicant.id}`}><p className="text-sm/4 font-medium break-words">{applicant.userName}</p></Link>
                                                           {/* <p className="font-serif font-medium text-xs/4 text-secondary/60">Applied {new Date(applicant.appliedAt).toLocaleDateString()}</p> */}
                                                       <p className="font-serif font-normal text-xs/3 text-secondary/60">Applied {formatDate(applicant.appliedAt)}</p>
                                                       </div>

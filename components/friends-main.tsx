@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader2, User } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
@@ -88,6 +89,7 @@ function SentRequestCard({ request, onCancelRequest, isLoading }: SentRequestCar
         <AvatarImage 
           src={request.receiver?.avatar_url || undefined} 
           alt={receiverDisplayName} 
+          className="h-full w-full object-cover"
         />
         <AvatarFallback className="bg-bookWhite text-secondary">
           {receiverDisplayName.charAt(0).toUpperCase()}
@@ -95,7 +97,7 @@ function SentRequestCard({ request, onCancelRequest, isLoading }: SentRequestCar
       </Avatar>
       <div className="flex flex-col w-full">
         <div className="flex flex-col">
-          <CardTitle>{receiverDisplayName}</CardTitle>
+          <Link href={`/profile/${request.receiver?.id}`}><CardTitle>{receiverDisplayName}</CardTitle></Link>
           <p className="text-xs/3 text-secondary font-serif">
             {isLoadingMutual 
               ? "Loading..." 

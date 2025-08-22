@@ -207,7 +207,7 @@ export function RecommendBookDialog({
                     placeholder="Search friends..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 bg-bookWhite/95 text-secondary"
+                    className="pl-10 bg-bookWhite/95 text-secondary placeholder:text-secondary/50"
                   />
                 </div>
 
@@ -244,6 +244,7 @@ export function RecommendBookDialog({
                             <AvatarImage
                               src={friend.avatar_url || undefined}
                               alt={friend.display_name}
+                              className="h-full w-full object-cover"
                             />
                             <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                               {friend.display_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
@@ -281,10 +282,10 @@ export function RecommendBookDialog({
                 placeholder="Tell your friends why you loved this book..."
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                className="min-h-[80px] bg-bookWhite/95 text-secondary resize-none"
+                className="min-h-[80px] bg-bookWhite/95 text-secondary resize-none placeholder:text-secondary/50"
                 maxLength={500}
               />
-              <div className="flex justify-between text-xs text-secondary/50">
+              <div className="flex justify-between text-xs text-bookWhite/50">
                 <span>Share what made this book special to you</span>
                 <span>{note.length}/500</span>
               </div>
@@ -298,22 +299,23 @@ export function RecommendBookDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isLoading}
+            className="rounded-full"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSendRecommendations}
             disabled={selectedFriends.length === 0 || isLoading}
-            className="bg-accent hover:bg-accent-variant"
+            className="bg-accent hover:bg-accent-variant rounded-full"
           >
             {isLoading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Sending...
               </>
             ) : (
               <>
-                <Send className="mr-2 h-4 w-4" />
+                <Send className="h-4 w-4" />
                 Send Recommendation{selectedFriends.length > 1 ? 's' : ''}
               </>
             )}

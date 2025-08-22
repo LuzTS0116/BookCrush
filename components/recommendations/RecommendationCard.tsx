@@ -195,11 +195,11 @@ export function RecommendationCard({
   const getStatusBadge = () => {
     switch (recommendation.status) {
       case 'PENDING':
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">New</Badge>
+        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Pending</Badge>
       case 'READ':
         return <Badge variant="secondary" className="bg-blue-100 text-blue-800">Viewed</Badge>
       case 'ADDED':
-        return <Badge variant="secondary" className="bg-green-100 text-green-800">Added to Shelf</Badge>
+        return <Badge variant="secondary" className="bg-accent-variant/20 text-green-800">Added</Badge>
       case 'DISMISSED':
         return <Badge variant="secondary" className="bg-gray-100 text-gray-800">Dismissed</Badge>
       default:
@@ -364,13 +364,13 @@ export function RecommendationCard({
                 )}
               </Button>
             )}
-
+{/* 
             {type === 'inbox' && recommendation.status === 'ADDED' && (
               <Badge variant="secondary" className="bg-green-100 text-green-800">
                 <Check className="h-3 w-3 mr-1" />
                 Added to your shelf
               </Badge>
-            )}
+            )} */}
           </div>
           
         </div>
