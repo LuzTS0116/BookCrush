@@ -315,11 +315,11 @@ export default function LoginPage() {
             <CardDescription className="text-center font-serif text-bookWhite">Enter your credentials to access your account</CardDescription>
           </CardHeader>
           <CardContent>
-            {error && (
+            {/* {error && (
               <div className="px-2 py-2 text-sm mb-2 text-center text-red-400 bg-bookWhite/10 rounded-md leading-none">
                 {error}
               </div>
-            )}
+            )} */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-bookWhite">Email</Label>
