@@ -31,7 +31,7 @@ function ExploreUserCard({ user, onFriendRequestSent }: ExploreUserCardProps) {
     <div className='h-auto'>
     <Card className="p-2 flex flex-col bg-bookWhite/5 w-full max-w-xs mx-auto">
     <CardHeader className="flex p-0 items-center">
-        <div className="flex items-center justify-center w-20 h-20 rounded-full bg-bookWhite mb-1 overflow-hidden">
+        <div className="flex items-center justify-center w-20 h-20 rounded-full border-2 border-bookWhite bg-bookWhite mb-1 overflow-hidden">
             <Link href={`/profile/${user.id}`}>
               {user.avatar_url ? (
                 <img 
