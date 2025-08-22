@@ -333,7 +333,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
                 <div className="flex flex-row px-4 pt-2 pb-4 -mt-15 items-end">
                     <div className="absolute left-4 bottom-0 flex gap-2 items-end translate-y-1/2">
                         <Avatar className="h-24 w-24 border-4 border-bookWhite rounded-full bg-bookWhite">
-                            <AvatarImage src={profile.avatar_url || "/placeholder.svg?height=96&width=96"} alt={`@${displayName}`} />
+                            <AvatarImage src={profile.avatar_url || "/placeholder.svg?height=96&width=96"} alt={`@${displayName}`} className="h-full w-full object-cover" />
                             <AvatarFallback className="text-2xl bg-primary text-primary-foreground">{avatarFallback}</AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col justify-end pb-2">

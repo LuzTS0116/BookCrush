@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MoreVertical } from 'lucide-react';
+import Link from 'next/link';
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"; // For future "Remove Friend" option
 import { UserProfileMinimal } from '@/types/social';
 import { getMutualFriendsCount } from '@/lib/api-helpers';
@@ -58,6 +59,7 @@ export const FriendCard: React.FC<FriendCardProps> = ({ friend, establishedAt })
         <AvatarImage 
           src={friend.avatar_url || undefined} 
           alt={friendDisplayName} 
+          className="h-full w-full object-cover"
         />
         <AvatarFallback className="bg-bookWhite text-secondary">
           {friendDisplayName.charAt(0).toUpperCase()}
@@ -66,7 +68,7 @@ export const FriendCard: React.FC<FriendCardProps> = ({ friend, establishedAt })
       <div className="flex flex-col w-full">
         <div className="flex flex-wrap justify-between flex-1">
           <div className='flex flex-col'>
-            <CardTitle className="text-sm leading-4">{friendDisplayName}</CardTitle>
+            <Link href={`/profile/${friend.id}`}><CardTitle className="text-sm leading-4">{friendDisplayName}</CardTitle></Link>
             <p className="text-xs/3 text-secondary font-serif">
               {isLoadingMutual 
                 ? "Loading..." 

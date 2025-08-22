@@ -1181,10 +1181,9 @@ export default function DashboardReading() {
                                 ))}
                                 <DropdownMenu.Item
                                   onSelect={() => handleRecommendBook(userBook)}
-                                  className="px-3 py-2 text-xs text-center bg-accent/90 my-2 text-secondary rounded-md cursor-pointer hover:bg-accent-variant hover:text-bookWhite focus:bg-accent-variant focus:outline-none transition-colors flex justify-center items-center gap-2"
+                                  className="px-3 py-2 text-xs text-center bg-accent/90 mb-2 text-secondary rounded-md cursor-pointer hover:bg-accent-variant hover:text-bookWhite focus:bg-accent-variant focus:outline-none transition-colors flex justify-center items-center gap-2"
                                   disabled={currentShelfStatus?.isLoading}
                                 >
-                                  <BookMarked className="h-3 w-3" />
                                   Recommend to Friends
                                 </DropdownMenu.Item>
                                 <DropdownMenu.Item

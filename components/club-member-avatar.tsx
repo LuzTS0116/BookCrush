@@ -31,7 +31,7 @@ export function ClubMemberAvatar({
           <AvatarImage 
             src={avatarUrl} 
             alt={displayName}
-            className={isLoading ? "opacity-75" : ""} 
+            className={isLoading ? "h-full w-full object-cover opacity-75" : ""} 
           />
           <AvatarFallback className="bg-primary text-primary-foreground text-xs">
             {isLoading ? "..." : initials}
@@ -51,7 +51,7 @@ export function ClubMemberAvatar({
       <AvatarImage 
         src={avatarUrl} 
         alt={displayName}
-        className={isLoading ? "opacity-75" : ""} 
+        className={isLoading ? "h-full w-full object-cover opacity-75" : ""} 
       />
       <AvatarFallback className="bg-primary text-primary-foreground text-xs">
         {isLoading ? "..." : initials}
