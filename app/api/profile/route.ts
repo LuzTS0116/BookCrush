@@ -130,7 +130,8 @@ if (!supabase) {
     about,
     favorite_genres = [],
     kindle_email,
-    avatar_url
+    avatar_url,
+    email          // Email from session
   } = payload
 
   // Basic validation for username (display_name)
@@ -160,8 +161,8 @@ if (!supabase) {
   // Note: Need to regenerate Prisma client first: npx prisma generate
   const profile = await prisma.profile.upsert({
     where: { id: user.id },
-    update: { display_name, about, favorite_genres, kindle_email, avatar_url, full_name },
-    create: { id: user.id, display_name, about, favorite_genres, kindle_email, avatar_url, full_name }
+    update: { display_name, about, favorite_genres, kindle_email, avatar_url, full_name, email },
+    create: { id: user.id, display_name, about, favorite_genres, kindle_email, avatar_url, full_name, email }
   })
 
   // Format the profile with proper avatar URL for consistency with GET endpoint

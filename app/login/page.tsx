@@ -8,9 +8,10 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { BookOpen, Mail, Lock } from "lucide-react"
+import { BookOpen, Mail, Lock, CheckCircle, ArrowLeft } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { handleSignIn } from '@/lib/auth';
 import { useEffect } from "react";
 import { useSession, signOut } from 'next-auth/react';
@@ -27,6 +28,8 @@ export default function LoginPage() {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [isClearingSession, setIsClearingSession] = useState(false);
   const [error, setError] = useState("");
+  const [emailNotConfirmed, setEmailNotConfirmed] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState("");
   const supabase = createClient();
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -158,7 +161,27 @@ export default function LoginPage() {
         password,
       });
       
-      if (signInError) throw signInError;
+      if (signInError) {
+
+        
+        // Check if the error is related to email confirmation
+        const errorMessage = signInError.message?.toLowerCase() || '';
+        
+        if (errorMessage.includes('email not confirmed') || 
+            errorMessage.includes('email_not_confirmed') ||
+            errorMessage.includes('confirm your email') ||
+            errorMessage.includes('verification') ||
+            errorMessage.includes('not confirmed') ||
+            signInError.name === 'AuthApiError' ||
+            String(signInError.status) === '400') {
+          setEmailNotConfirmed(true);
+          setPendingEmail(email);
+          setError("");
+          setIsLoading(false);
+          return;
+        }
+        throw signInError;
+      }
       
       // 2. Use NextAuth signIn with the Supabase tokens
       const result = await signIn("credentials", {
@@ -214,6 +237,40 @@ export default function LoginPage() {
       setIsGoogleLoading(false);
       localStorage.removeItem('googleSignInInProgress');
     }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!pendingEmail) return;
+    
+    setIsLoading(true);
+    setError("");
+    
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: pendingEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`
+        }
+      });
+
+      if (error) throw error;
+      
+      setError(""); // Clear any previous errors
+      // Show success message by temporarily using error state with different styling
+      setError("confirmation_sent");
+    } catch (err: any) {
+      console.error('Resend confirmation error:', err);
+      setError(err.message || "Failed to resend confirmation email");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBackToLogin = () => {
+    setEmailNotConfirmed(false);
+    setPendingEmail("");
+    setError("");
   };
 
   // Handle session status changes and validation
@@ -311,16 +368,76 @@ export default function LoginPage() {
 
         <Card className="w-full max-w-md bg-secondary-light/30 backdrop-blur-md border-secondary-light/20">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center text-bookWhite">Welcome back</CardTitle>
-            <CardDescription className="text-center font-serif text-bookWhite">Enter your credentials to access your account</CardDescription>
+            <CardTitle className="text-2xl font-bold text-center text-bookWhite">
+              {emailNotConfirmed ? "Email confirmation required" : "Welcome back"}
+            </CardTitle>
+            <CardDescription className="text-center font-serif text-bookWhite">
+              {emailNotConfirmed 
+                ? "Please check your email and click the confirmation link to activate your account"
+                : "Enter your credentials to access your account"
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            {error && (
+            {error && error !== "confirmation_sent" && (
               <div className="px-2 py-2 text-sm mb-2 text-center text-red-400 bg-bookWhite/10 rounded-md leading-none">
                 {error}
               </div>
             )}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            
+            {error === "confirmation_sent" && (
+              <Alert className="mb-4 bg-green-500/20 border-green-500/30 text-bookWhite">
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Confirmation email sent! Check your inbox and click the link to verify your account.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {emailNotConfirmed ? (
+              // Email confirmation required screen
+              <div className="space-y-4 text-center">
+                <div className="mx-auto w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center">
+                  <Mail className="h-8 w-8 text-amber-400" />
+                </div>
+                
+                <div className="space-y-2">
+                  <p className="text-bookWhite">
+                    We sent a confirmation email to:
+                  </p>
+                  <p className="text-primary font-medium break-all">
+                    {pendingEmail}
+                  </p>
+                </div>
+                
+                <div className="space-y-3">
+                  <Button
+                    onClick={handleResendConfirmation}
+                    disabled={isLoading}
+                    className="w-full bg-primary hover:bg-primary-light"
+                  >
+                    {isLoading ? "Sending..." : "Resend confirmation email"}
+                  </Button>
+                  
+                  <Button
+                    onClick={handleBackToLogin}
+                    variant="outline"
+                    className="w-full text-bookWhite border-bookWhite/20 hover:bg-bookWhite/10"
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to login
+                  </Button>
+                </div>
+                
+                <div className="text-xs text-bookWhite/70 space-y-1">
+                  <p>Check your spam folder if you don't see the email.</p>
+                  <p>The confirmation link will expire in 24 hours.</p>
+                </div>
+              </div>
+            ) : (
+              // Regular login form
+              <>
+              <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-bookWhite">Email</Label>
                 <div className="relative">
@@ -385,15 +502,19 @@ export default function LoginPage() {
                 </>
               )}
             </Button>
+              </>
+            )}
           </CardContent>
-          <CardFooter className="flex justify-center">
-            <p className="text-sm text-muted-foreground">
-              Don&apos;t have an account?{" "}
-              <Link href="/signup" className="text-primary hover:underline">
-                Sign up
-              </Link>
-            </p>
-          </CardFooter>
+          {!emailNotConfirmed && (
+            <CardFooter className="flex justify-center">
+              <p className="text-sm text-muted-foreground">
+                Don&apos;t have an account?{" "}
+                <Link href="/signup" className="text-primary hover:underline">
+                  Sign up
+                </Link>
+              </p>
+            </CardFooter>
+          )}
         </Card>
       </div>
     </div>
