@@ -494,6 +494,18 @@ interface MemberBookStatus {
   has_book: boolean;
 }
 
+// Interface for winning book suggestions
+interface WinningBookSuggestion {
+  id: string;
+  vote_count: number;
+  book: {
+    id: string;
+    title: string;
+    author: string;
+    cover_url: string;
+  };
+}
+
 // Full Club data structure for the detail page - MUST MATCH API RESPONSE EXACTLY
 interface ClubData {
   id: string; // Club ID (UUID)
@@ -517,6 +529,7 @@ interface ClubData {
   voting_starts_at: string | null;
   voting_ends_at: string | null;
   voting_started_by: string | null;
+  winning_book_suggestions?: WinningBookSuggestion[]; // Winning books from expired voting cycle
 }
 
 
@@ -601,10 +614,6 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   const [votingStartsImmediately, setVotingStartsImmediately] = useState(true)
   const [customStartDate, setCustomStartDate] = useState("")
   const [managingVoting, setManagingVoting] = useState(false)
-  
-  // Winning suggestions state
-  const [winningBookSuggestions, setWinningBookSuggestions] = useState<any[]>([])
-  const [loadingWinners, setLoadingWinners] = useState(false)
 
   // Meeting attendance state
   const [loadingAttendance, setLoadingAttendance] = useState<Record<string, boolean>>({})
@@ -695,6 +704,13 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
         throw new Error(`Failed to fetch club data: ${response.statusText}`);
       }
       const data: ClubData = await response.json(); // Cast to ClubData interface
+      console.log('[Frontend] Club data received:', {
+        clubId: data.id,
+        votingActive: data.voting_cycle_active,
+        votingEndsAt: data.voting_ends_at,
+        currentBook: data.current_book?.title,
+        winningBooks: data.winning_book_suggestions?.length || 0
+      });
       setClub(data);
       
     } catch (err: any) {
@@ -711,12 +727,8 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     fetchClubDetails();
   }, [fetchClubDetails]); // Depend on memoized fetch function
 
-  // Check for expired voting cycle when club data changes
-  useEffect(() => {
-    if (club && votingCycleExpired && club.currentUserIsAdmin && session?.supabaseAccessToken) {
-      handleExpiredVotingCycle();
-    }
-  }, [club?.voting_cycle_active, club?.voting_ends_at, club?.currentUserIsAdmin, session?.supabaseAccessToken]);
+  // Note: Expired voting cycle handling is now done on the backend
+  // The club API will automatically include winning_book_suggestions when a voting cycle has expired
 
   // --- Integration for JOIN API (`/app/api/clubs/join`) ---
   const handleJoinClub = async () => {
@@ -1688,10 +1700,9 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
       const result = await response.json()
       setClub(prev => prev ? { ...prev, ...result.club } : null)
       
-      // Set winning suggestions if any
-      if (result.winningBooks && result.winningBooks.length > 0) {
-        setWinningBookSuggestions(result.winningBooks)
-        toast.success(`Voting cycle ended! ${result.winningBooks.length > 1 ? `${result.winningBooks.length} books tied for first place` : 'Winner selected'}`)
+      // Show success message based on results
+      if (result.club.winning_book_suggestions && result.club.winning_book_suggestions.length > 0) {
+        toast.success(`Voting cycle ended! ${result.club.winning_book_suggestions.length > 1 ? `${result.club.winning_book_suggestions.length} books tied for first place` : 'Winner selected'}`)
       } else {
         toast.success('Voting cycle ended successfully!')
       }
@@ -1702,39 +1713,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     }
   }
 
-  // Function to automatically end expired voting cycle
-  const handleExpiredVotingCycle = async () => {
-    if (!club || !votingCycleExpired || !session?.supabaseAccessToken) return
 
-    setLoadingWinners(true)
-    try {
-      const response = await fetch(`/api/clubs/${id}/voting/results`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.supabaseAccessToken}`,
-        }
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to process voting results')
-      }
-
-      const result = await response.json()
-      setClub(prev => prev ? { ...prev, ...result.club } : null)
-      
-      // Set winning suggestions if any
-      if (result.winningBooks && result.winningBooks.length > 0) {
-        setWinningBookSuggestions(result.winningBooks)
-      }
-    } catch (error: any) {
-      console.error('Error processing expired voting cycle:', error)
-      // Don't show toast error for automatic processing
-    } finally {
-      setLoadingWinners(false)
-    }
-  }
 
   // Function to set winning book as current book
   const handleSetWinnerAsCurrentBook = async (bookId: string, bookTitle: string) => {
@@ -1756,9 +1735,14 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
         throw new Error(errorData.error || "Failed to set winning book as current book.")
       }
 
+      const result = await response.json()
       toast.success(`"${bookTitle}" set as current book!`)
-      setWinningBookSuggestions([]) // Clear winners after selection
-      await fetchClubDetails() // Refresh club data
+      
+      // Update club data - the backend should clear winning_book_suggestions
+      setClub(prev => prev ? { ...prev, ...result.club } : null)
+      
+      // Also refresh to ensure we have the latest data
+      await fetchClubDetails()
     } catch (err: any) {
       toast.error(`Error setting book: ${err.message}`)
       console.error("Error setting winning book:", err)
@@ -2547,13 +2531,13 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                   </div>
 
                   {/* Show winning books if available */}
-                  {winningBookSuggestions.length > 0 && (
+                  {club.winning_book_suggestions && club.winning_book_suggestions.length > 0 && (
                     <div className="mb-4">
                       <h4 className="font-medium text-secondary mb-2">
-                        {winningBookSuggestions.length > 1 ? 'Winning Books (Tie)' : 'Winning Book'}
+                        {club.winning_book_suggestions.length > 1 ? 'Winning Books (Tie)' : 'Winning Book'}
                       </h4>
                       <div className="space-y-2">
-                        {winningBookSuggestions.map((suggestion: any) => (
+                        {club.winning_book_suggestions.map((suggestion) => (
                           <div key={suggestion.id} className="flex items-center justify-between p-2 bg-green-50 rounded-md border border-green-200">
                             <div className="flex items-center gap-2">
                               <div className="w-12 h-16 bg-secondary/10 rounded flex items-center justify-center overflow-hidden">
@@ -2594,7 +2578,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                           {formatVotingEndDate(club)}
                         </p>
                       )}
-                      {!club?.voting_cycle_active && winningBookSuggestions.length === 0 && (
+                      {!club?.voting_cycle_active && (!club.winning_book_suggestions || club.winning_book_suggestions.length === 0) && (
                         <p className="text-sm text-secondary/70">
                           Start a voting cycle to let members choose the next book
                         </p>
@@ -2616,9 +2600,12 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                             </>
                           )}
                         </Button>
-                      ) : votingCycleExpired ? (
+                      ) : votingCycleExpired && club.winning_book_suggestions && club.winning_book_suggestions.length > 0 ? (
                         <Button
-                          onClick={() => setWinningBookSuggestions([])}
+                          onClick={() => {
+                            // Clear winning suggestions by updating club state
+                            setClub(prev => prev ? { ...prev, winning_book_suggestions: [] } : null)
+                          }}
                           size="sm"
                           variant="outline"
                           className="rounded-full h-7 text-secondary bg-secondary/10"

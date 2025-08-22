@@ -35,6 +35,7 @@ export async function GET(
     let pendingMemberships: any[] = []; // Initialize as empty, fetch only if admin
     let bookIdForDiscussions: string | null = null;
     let discussions: any[] | null = null;
+    let winningBookSuggestions: any[] = []; // For expired voting cycles
 
     
     // 1. Fetch the main club details
@@ -195,6 +196,8 @@ export async function GET(
       return NextResponse.json({ error: "Club not found" }, { status: 404 });
     }
 
+
+
     // 2. If authenticated, determine current user's membership status and role for THIS club
     if (isAuthenticated && user) {
       const userClubMembership = await prisma.clubMembership.findUnique({
@@ -256,6 +259,72 @@ export async function GET(
       }
     })));
 
+    // Check for winning books that need to be displayed
+    // This includes: 1) Expired voting cycles, 2) Recently ended voting cycles with pending winners
+    const shouldFetchWinningBooks = (
+      // Case 1: Voting cycle is active but expired
+      (club.voting_cycle_active && club.voting_ends_at && new Date(club.voting_ends_at) <= new Date()) ||
+      // Case 2: No current book and there are ACTIVE suggestions (from recently ended voting)
+      (!club.current_book_id && !club.voting_cycle_active)
+    );
+
+    if (shouldFetchWinningBooks) {
+      console.log(`[Club ${id}] Fetching winning books...`);
+      
+      // Fetch winning books from ACTIVE suggestions (these are the winners from voting)
+      const suggestions = await prisma.clubBookSuggestion.findMany({
+        where: {
+          club_id: id,
+          status: 'ACTIVE'
+        },
+        include: {
+          book: {
+            select: {
+              id: true,
+              title: true,
+              author: true,
+              cover_url: true,
+              pages: true,
+              genres: true
+            }
+          },
+          votes: true
+        }
+      });
+
+      console.log(`[Club ${id}] Found ${suggestions.length} ACTIVE suggestions`);
+
+      // Only show as winning books if there are ACTIVE suggestions with votes
+      if (suggestions.length > 0) {
+        // Calculate vote counts
+        const suggestionsWithVotes = suggestions.map(suggestion => ({
+          ...suggestion,
+          vote_count: suggestion.votes.length
+        }));
+
+        // Find the highest vote count
+        const maxVotes = Math.max(...suggestionsWithVotes.map(s => s.vote_count), 0);
+        
+        // Get all suggestions with the highest vote count (in case of tie)
+        if (maxVotes > 0) {
+          winningBookSuggestions = suggestionsWithVotes
+            .filter(s => s.vote_count === maxVotes)
+            .map(suggestion => ({
+              id: suggestion.id,
+              vote_count: suggestion.vote_count,
+              book: {
+                id: suggestion.book.id,
+                title: suggestion.book.title,
+                author: suggestion.book.author,
+                cover_url: suggestion.book.cover_url
+              }
+            }));
+        }
+      }
+    }
+
+    console.log(`[Club ${id}] Final winning books count: ${winningBookSuggestions.length}`);
+
     // 4. Construct the full club details response
     const fullClubDetails = {
       id: club.id,
@@ -286,6 +355,7 @@ export async function GET(
       voting_starts_at: club.voting_starts_at,
       voting_ends_at: club.voting_ends_at,
       voting_started_by: club.voting_started_by,
+      winning_book_suggestions: winningBookSuggestions,
       // --- END STATIC/MOCK DATA ---
     };
 

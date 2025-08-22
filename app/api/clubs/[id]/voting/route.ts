@@ -304,7 +304,21 @@ export async function DELETE(
       return { club: updatedClub, winningBooks };
     });
 
-    return NextResponse.json(result, { status: 200 });
+    return NextResponse.json({
+      club: {
+        ...result.club,
+        winning_book_suggestions: result.winningBooks.map(book => ({
+          id: book.id,
+          vote_count: book.vote_count,
+          book: {
+            id: book.book.id,
+            title: book.book.title,
+            author: book.book.author,
+            cover_url: book.book.cover_url
+          }
+        }))
+      }
+    }, { status: 200 });
 
   } catch (error: any) {
     console.error("Error ending voting cycle:", error);

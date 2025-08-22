@@ -129,7 +129,10 @@ export async function POST(
 
     return NextResponse.json({
       message: 'Book selected as current book successfully',
-      club: result,
+      club: {
+        ...result,
+        winning_book_suggestions: [] // Clear winning suggestions after selection
+      },
       selectedBook: suggestion.book
     });
 
