@@ -3654,15 +3654,14 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                       </div>
                     )}
 
+                    {/* Complete Meeting Button - Only for admins and if meeting is not completed */}
+                    {club.currentUserIsAdmin && meeting.status !== 'COMPLETED' && (
                     <div className="px-3">
                       <div className="bg-bookWhite border-2 border-secondary-light/20 p-2 rounded-lg">
                         <h4 className="text-sm font-medium leading-4 mb-2 uppercase text-center">Admin Section</h4>
-                      {/* Complete Meeting Button - Only for admins and if meeting is not completed */}
-                      {club.currentUserIsAdmin && meeting.status !== 'COMPLETED' && (
                         <>
                           <div>
                             {/* Attendance Summary */}
-
                               {(() => {
                                 const summary = getAttendanceSummary(meeting);
                                 const isAdmin = club?.currentUserIsAdmin;
@@ -3742,19 +3741,20 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                             </Button>
                           </div>
                         </>
-                      )}
-
-                      {/* Meeting Completed Badge */}
-                      {meeting.status === 'COMPLETED' && (
-                        <div className="pt-3 border-t border-border">
-                          <Badge variant="secondary" className="w-full justify-center bg-green-50 text-green-700 border-green-200">
-                            <Check className="h-3 w-3 mr-1" />
-                            Meeting Completed
-                          </Badge>
-                        </div>
-                      )}
+                      
                       </div>
                     </div>
+                    )}
+
+                    {/* Meeting Completed Badge */}
+                    {/* {meeting.status === 'COMPLETED' && (
+                      <div className="pt-3 border-t border-border">
+                        <Badge variant="secondary" className="w-full justify-center bg-green-50 text-green-700 border-green-200">
+                          <Check className="h-3 w-3 mr-1" />
+                          Meeting Completed
+                        </Badge>
+                      </div>
+                    )} */}
                   </div>
                   );
                 })
