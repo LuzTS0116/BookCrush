@@ -253,7 +253,8 @@ export default function ProfileSetupPage() {
           about: bio.trim(),
           favorite_genres: favoriteGenres,
           kindle_email: kindleEmail.trim() || null,
-          avatar_url: avatarUrl
+          avatar_url: avatarUrl,
+          email: session?.user?.email // Add email from session
         })
       })
 
