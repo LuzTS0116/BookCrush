@@ -23,6 +23,8 @@ export default function SignupPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
   const [error, setError] = useState("")
   const [loadingStep, setLoadingStep] = useState("")
+  const [emailSent, setEmailSent] = useState(false)
+  const [signupEmail, setSignupEmail] = useState("")
   const router = useRouter()
   const supabase = createClient()
 
@@ -49,41 +51,44 @@ export default function SignupPage() {
       setLoadingStep("Creating your account...");
       console.log("Starting Supabase signup process...");
       
-      // First sign up with Supabase
+      // Sign up with Supabase with email confirmation
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ 
         email, 
         password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent('/profile-setup')}`
+        }
       });
       
       if (signUpError) throw signUpError;
       
-      setLoadingStep("Signing you in...");
-      
-      // Then explicitly sign in to create the Supabase session
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      
-      if (signInError) throw signInError;
-      
-      setLoadingStep("Setting up your session...");
-      
-      // Use NextAuth sign in with the Supabase tokens
-      const result = await signIn('credentials', {
-        redirect: false,
-        access_token: signInData.session.access_token,
-        refresh_token: signInData.session.refresh_token,
-      });
-      
-      if (result?.error) {
-        throw new Error(result.error);
+      // Check if email confirmation is needed
+      if (signUpData.user && !signUpData.session) {
+        // Email confirmation required
+        setSignupEmail(email);
+        setEmailSent(true);
+        setLoadingStep("");
+        return;
       }
       
-      setLoadingStep("Redirecting...");
-      
-      // Redirect to profile setup page where user will choose username
-      router.push('/profile-setup');
+      // If no email confirmation needed (shouldn't happen in production)
+      if (signUpData.session) {
+        setLoadingStep("Setting up your session...");
+        
+        // Use NextAuth sign in with the Supabase tokens
+        const result = await signIn('credentials', {
+          redirect: false,
+          access_token: signUpData.session.access_token,
+          refresh_token: signUpData.session.refresh_token,
+        });
+        
+        if (result?.error) {
+          throw new Error(result.error);
+        }
+        
+        setLoadingStep("Redirecting...");
+        router.push('/profile-setup');
+      }
     } catch (error: unknown) {
       console.error('Authentication error:', error);
       const errorMessage = error instanceof Error ? error.message : 'An error occurred during signup. Please try again.';
@@ -109,6 +114,35 @@ export default function SignupPage() {
     }
   };
 
+  const handleResendConfirmation = async () => {
+    if (!signupEmail) return;
+    
+    setIsLoading(true);
+    setError("");
+    
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: signupEmail,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent('/profile-setup')}`
+        }
+      });
+      
+      if (error) throw error;
+      
+      // Show success message or update UI
+      setLoadingStep("Confirmation email sent!");
+      setTimeout(() => setLoadingStep(""), 3000);
+    } catch (error: unknown) {
+      console.error('Resend confirmation error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to resend confirmation email.';
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="relative w-full h-auto overflow-hidden px-4">
         <Image 
@@ -130,8 +164,15 @@ export default function SignupPage() {
 
         <Card className="w-full max-w-md bg-secondary-light/30 backdrop-blur-md border-secondary-light/20">
             <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center text-bookWhite">Create an account</CardTitle>
-            <CardDescription className="text-center font-serif text-bookWhite">Enter your details to sign up for BookCrush</CardDescription>
+            <CardTitle className="text-2xl font-bold text-center text-bookWhite">
+              {emailSent ? "Check your email" : "Create an account"}
+            </CardTitle>
+            <CardDescription className="text-center font-serif text-bookWhite">
+              {emailSent 
+                ? `We sent a confirmation link to ${signupEmail}`
+                : "Enter your details to sign up for BookCrush"
+              }
+            </CardDescription>
             </CardHeader>
             <CardContent>
             {error && (
@@ -148,7 +189,59 @@ export default function SignupPage() {
               </Alert>
             )}
             
-            <form onSubmit={handleSubmit} className="space-y-4">
+            {emailSent ? (
+              // Email confirmation sent screen
+              <div className="space-y-4 text-center">
+                <div className="mx-auto w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mb-4">
+                  <Mail className="h-8 w-8 text-primary" />
+                </div>
+                
+                <div className="space-y-2 text-bookWhite">
+                  <p className="text-sm">
+                    Please check your inbox and click the confirmation link to complete your account setup.
+                  </p>
+                  <p className="text-xs text-bookWhite/70">
+                    Didn't receive the email? Check your spam folder or request a new one.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  <Button 
+                    onClick={handleResendConfirmation}
+                    disabled={isLoading}
+                    variant="outline"
+                    className="w-full text-bookWhite border-bookWhite/30 hover:bg-bookWhite/10"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      "Resend confirmation email"
+                    )}
+                  </Button>
+                  
+                  <Button 
+                    onClick={() => {
+                      setEmailSent(false);
+                      setSignupEmail("");
+                      setEmail("");
+                      setPassword("");
+                      setConfirmPassword("");
+                      setError("");
+                    }}
+                    variant="ghost"
+                    className="w-full text-bookWhite/70 hover:text-bookWhite hover:bg-bookWhite/5"
+                  >
+                    Back to signup
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              // Regular signup form
+              <>
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                 <Label htmlFor="email" className="text-bookWhite">Email</Label>
                 <div className="relative">
@@ -214,33 +307,35 @@ export default function SignupPage() {
                     "Sign up"
                   )}
                 </Button>
-            </form>
+              </form>
 
-            <div className="relative my-6">
-                <Separator />
-                <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground">
-                OR CONTINUE WITH
-                </span>
-            </div>
+              <div className="relative my-6">
+                  <Separator />
+                  <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-2 text-xs text-muted-foreground">
+                  OR CONTINUE WITH
+                  </span>
+              </div>
 
-            <Button 
-              variant="outline" 
-              className="w-full text-bookWhite disabled:opacity-50" 
-              onClick={handleGoogleSignIn}
-              disabled={isLoading || isGoogleLoading}
-            >
-              {isGoogleLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in with Google...
-                </>
-              ) : (
-                <>
-                  <Image src="/images/g.webp=s48-fcrop64=1,00000000ffffffff-rw" alt="Google" width={20} height={20} className="mr-2 h-4 w-4" />
-                  Google
-                </>
-              )}
-            </Button>
+              <Button 
+                variant="outline" 
+                className="w-full text-bookWhite disabled:opacity-50" 
+                onClick={handleGoogleSignIn}
+                disabled={isLoading || isGoogleLoading}
+              >
+                {isGoogleLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Signing in with Google...
+                  </>
+                ) : (
+                  <>
+                    <Image src="/images/g.webp=s48-fcrop64=1,00000000ffffffff-rw" alt="Google" width={20} height={20} className="mr-2 h-4 w-4" />
+                    Google
+                  </>
+                )}
+              </Button>
+              </>
+            )}
             </CardContent>
             <CardFooter className="flex justify-center">
             <p className="text-sm text-muted-foreground">

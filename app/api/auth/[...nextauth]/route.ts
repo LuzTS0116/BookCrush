@@ -158,6 +158,11 @@ export const authOptions: NextAuthOptions = {
               throw new Error(userError?.message ?? 'Invalid token');
             }
 
+            // Check if email is confirmed
+            if (!userData.user.email_confirmed_at) {
+              throw new Error('Email not confirmed. Please check your email for the confirmation link.');
+            }
+
             return {
               id: userData.user.id,
               email: userData.user.email,
@@ -168,7 +173,7 @@ export const authOptions: NextAuthOptions = {
             };
           } catch (error) {
             console.error('Token verification error:', error);
-            throw new Error('Invalid token');
+            throw new Error(error instanceof Error ? error.message : 'Invalid token');
           }
         }
 
@@ -182,6 +187,11 @@ export const authOptions: NextAuthOptions = {
 
           if (error || !data.user) {
             throw new Error(error?.message ?? 'Invalid credentials');
+          }
+
+          // Check if email is confirmed
+          if (!data.user.email_confirmed_at) {
+            throw new Error('Email not confirmed. Please check your email for the confirmation link.');
           }
 
           return {
