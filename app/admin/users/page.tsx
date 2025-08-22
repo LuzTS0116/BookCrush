@@ -275,7 +275,7 @@ export default function AdminUsersPage() {
                     <TableCell>
                       <div className="flex items-center space-x-2">
                         <Avatar className="h-8 w-8">
-                          <AvatarImage src={user.avatar_url || undefined} />
+                          <AvatarImage src={user.avatar_url || undefined} className="h-full w-full object-cover" />
                           <AvatarFallback>
                             {user.display_name?.charAt(0).toUpperCase() || 'U'}
                           </AvatarFallback>

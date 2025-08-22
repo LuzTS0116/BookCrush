@@ -692,12 +692,13 @@ export default function PostulateBooksPage({ params }: { params: { id: string } 
                                   <AvatarImage
                                     src={suggestion.suggested_by.avatar_url || "/placeholder.svg"}
                                     alt={suggestion.suggested_by.display_name}
+                                    className="h-full w-full object-cover"
                                   />
                                   <AvatarFallback>{suggestion.suggested_by.display_name.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 <div>
                                   <p className="text-sm">
-                                    <span className="font-medium">{suggestion.suggested_by.display_name}</span> suggested this book
+                                    <Link href={`/profile/${suggestion.suggested_by.id}`}><span className="font-medium">{suggestion.suggested_by.display_name}</span></Link> suggested this book
                                   </p>
                                   <p className="text-xs text-secondary/70 leading-none">"{suggestion.reason}"</p>
                                 </div>

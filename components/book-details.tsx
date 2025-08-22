@@ -1341,7 +1341,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                               <div className="flex items-center justify-between mb-2">
                                 <div className="flex items-center gap-2">
                                   <Avatar className="h-10 w-10">
-                                    <AvatarImage src={review.user.avatar || "/placeholder.svg"} alt={review.user.name} />
+                                    <AvatarImage src={review.user.avatar || "/placeholder.svg"} alt={review.user.name} className="h-full w-full object-cover" />
                                     <AvatarFallback>{review.user.initials}</AvatarFallback>
                                   </Avatar>
                                   <div>

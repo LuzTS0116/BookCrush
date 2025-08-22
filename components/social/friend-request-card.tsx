@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Check, X, Loader2, User, MoreVertical } from 'lucide-react';
 import { acceptFriendRequest, declineFriendRequest, getMutualFriendsCount } from '@/lib/api-helpers';
@@ -89,6 +90,7 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({ request, o
         <AvatarImage 
           src={request.sender?.avatar_url || undefined} 
           alt={senderDisplayName} 
+          className="h-full w-full object-cover"
         />
         <AvatarFallback className="bg-bookWhite text-secondary">
           {senderDisplayName.charAt(0).toUpperCase()}
@@ -96,7 +98,7 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({ request, o
       </Avatar>
       <div className="flex flex-col w-full">
         <div className="flex flex-wrap justify-between flex-1">
-          <CardTitle className="text-sm leading-4">{senderDisplayName}</CardTitle>
+          <Link href={`/profile/${request.sender?.id}`}><CardTitle className="text-sm leading-4">{senderDisplayName}</CardTitle></Link>
           <div className='flex flex-col'>
             
             {/* --- NEW: Add to Shelf Dropdown --- */}

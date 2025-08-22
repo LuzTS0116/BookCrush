@@ -58,6 +58,7 @@ export const FriendCard: React.FC<FriendCardProps> = ({ friend, establishedAt })
         <AvatarImage 
           src={friend.avatar_url || undefined} 
           alt={friendDisplayName} 
+          className="h-full w-full object-cover"
         />
         <AvatarFallback className="bg-bookWhite text-secondary">
           {friendDisplayName.charAt(0).toUpperCase()}

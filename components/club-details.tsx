@@ -103,6 +103,7 @@ const DiscussionItem: React.FC<DiscussionItemProps> = ({
           <AvatarImage
             src={discussion.user?.avatar_url || undefined}
             alt={discussion.user?.display_name || 'User'}
+            className="h-full w-full object-cover"
           />
           <AvatarFallback className="bg-primary text-primary-foreground text-xs">
             {discussion.user?.display_name?.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() || '??'}
@@ -226,7 +227,7 @@ const DiscussionItem: React.FC<DiscussionItemProps> = ({
             <div className="mt-3 space-y-2">
               <div className="flex gap-2">
                 <Avatar className="h-6 w-6 flex-shrink-0">
-                  <AvatarImage src={avatarUrl || "/placeholder.svg"} alt="Your avatar" />
+                  <AvatarImage src={avatarUrl || "/placeholder.svg"} alt="Your avatar" className="h-full w-full object-cover" />
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs">ME</AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
@@ -2961,7 +2962,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                         <form onSubmit={(e) => { e.preventDefault(); handlePostComment(); }} className="flex gap-4">
                           <Avatar className="h-10 w-10">
                             {/* Replace with actual current user avatar logic if available */}
-                            <AvatarImage src={avatarUrl || "placeholder.svg?height=40&width=40"} alt="Your avatar" />
+                            <AvatarImage src={avatarUrl || "placeholder.svg?height=40&width=40"} alt="Your avatar" className="h-full w-full object-cover" />
                             <AvatarFallback className="bg-primary text-primary-foreground">ME</AvatarFallback>
                           </Avatar>
                           <div className="flex-1 space-y-2">
@@ -3224,7 +3225,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                   return (
                     <div key={i} className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={club.memberships[i].user.avatar_url || undefined} alt={club.memberships[i].user.display_name} />
+                        <AvatarImage src={club.memberships[i].user.avatar_url || undefined} alt={club.memberships[i].user.display_name} className="h-full w-full object-cover" />
                         <AvatarFallback
                           className={
                             club.memberships[i].role === 'OWNER' || club.memberships[i].role === 'ADMIN' 
@@ -3327,7 +3328,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                                   <div className="flex items-center gap-3">
                                     <Link href={`/profile/${user.id}`}>
                                       <Avatar className="h-10 w-10">
-                                        <AvatarImage src={user.avatar_url || "/placeholder.svg"} alt={user.display_name} />
+                                        <AvatarImage src={user.avatar_url || "/placeholder.svg"} alt={user.display_name} className="h-full w-full object-cover" />
                                         <AvatarFallback className="bg-primary text-primary-foreground">
                                           {user.initials}
                                         </AvatarFallback>
@@ -3404,7 +3405,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                   <div key={applicant.id} className="flex items-center justify-between p-2 bg-secondary-light/10 rounded-lg">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={applicant.userAvatar || "/placeholder.svg"} alt={applicant.userName} />
+                        <AvatarImage src={applicant.userAvatar || "/placeholder.svg"} alt={applicant.userName} className="h-full w-full object-cover" />
                         <AvatarFallback className="bg-blue-500 text-white">
                           {applicant.userInitials}
                         </AvatarFallback>
@@ -3462,6 +3463,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                           <AvatarImage 
                             src={invitation.invitee?.avatar_url || undefined} 
                             alt={invitation.invitee?.display_name || invitation.email} 
+                            className="h-full w-full object-cover"
                           />
                           <AvatarFallback className="bg-orange-500 text-white">
                             {invitation.invitee?.display_name
@@ -4183,6 +4185,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                               <AvatarImage 
                                 src={attendee.user.avatar_url || "/placeholder.svg"} 
                                 alt={attendee.user.display_name} 
+                                className="h-full w-full object-cover"
                               />
                               <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                                 {attendee.user.display_name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase()}
@@ -4311,6 +4314,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                         <AvatarImage 
                           src={attendee.user.avatar_url || "/placeholder.svg"} 
                           alt={attendee.user.display_name} 
+                          className="h-full w-full object-cover"
                         />
                         <AvatarFallback className="bg-primary text-primary-foreground text-sm">
                           {attendee.user.display_name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase()}

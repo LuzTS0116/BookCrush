@@ -108,7 +108,7 @@ export function InvitationResponse({ invitation, onResponse }: InvitationRespons
         {/* Inviter Information */}
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
-            <AvatarImage src="/placeholder.svg" alt={invitation.inviter.display_name} />
+            <AvatarImage src="/placeholder.svg" alt={invitation.inviter.display_name} className="h-full w-full object-cover" />
             <AvatarFallback className="bg-primary text-primary-foreground text-xs">
               {invitation.inviter.display_name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase()}
             </AvatarFallback>

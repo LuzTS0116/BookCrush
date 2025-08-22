@@ -88,6 +88,7 @@ function SentRequestCard({ request, onCancelRequest, isLoading }: SentRequestCar
         <AvatarImage 
           src={request.receiver?.avatar_url || undefined} 
           alt={receiverDisplayName} 
+          className="h-full w-full object-cover"
         />
         <AvatarFallback className="bg-bookWhite text-secondary">
           {receiverDisplayName.charAt(0).toUpperCase()}
