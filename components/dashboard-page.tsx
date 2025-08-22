@@ -520,7 +520,7 @@ const handleClickShare = async () => {
 
               {/* Overlay with centered Share button */}
               {showOverlay && (
-                <div className="absolute inset-0 bg-black/50 flex items-center rounded-br-3xl justify-center z-10">
+                <div className="absolute inset-0 bg-black/50 flex items-center rounded-lg justify-center z-10">
                   <Button onClick={handleClickShare} className="bg-white p-2 rounded-full shadow-md z-20">
                     {loading ? (
                       <Loader2 className="w-4 h-4 animate-spin text-black" />

@@ -404,7 +404,7 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
   if (compact) {
     return (
       <div className={cardClasses}>
-        <div className={`flex items-center justify-center ${avatarClasses} rounded-full bg-bookWhite shrink-0`}>
+        <div className={`flex items-center justify-center ${avatarClasses} rounded-full shrink-0`}>
           {activity.user?.avatar_url ? (
             <img 
               src={activity.user.avatar_url} 
@@ -427,7 +427,7 @@ function ActivityItemCard({ activity, compact = false }: ActivityItemCardProps) 
 
   return (
     <Card className={cardClasses}>
-      <div className={`flex items-center justify-center ${avatarClasses} rounded-full bg-bookWhite mr-4 shrink-0`}>
+      <div className={`flex items-center justify-center ${avatarClasses} rounded-full mr-4 shrink-0`}>
         {activity.user?.avatar_url ? (
           <img 
             src={activity.user.avatar_url} 

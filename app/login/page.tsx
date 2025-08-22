@@ -379,11 +379,11 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {error && error !== "confirmation_sent" && (
+            {/* {error && error !== "confirmation_sent" && (
               <div className="px-2 py-2 text-sm mb-2 text-center text-red-400 bg-bookWhite/10 rounded-md leading-none">
                 {error}
               </div>
-            )}
+            )} */}
             
             {error === "confirmation_sent" && (
               <Alert className="mb-4 bg-green-500/20 border-green-500/30 text-bookWhite">
