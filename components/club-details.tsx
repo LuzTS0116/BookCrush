@@ -4550,27 +4550,16 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
             height={2871}
             className="absolute inset-0 w-full h-full object-cover rounded-2xl z-[-1]"
           />
-          <DialogHeader className="pt-8">
+          <DialogHeader className="pt-4">
             <DialogTitle className="text-center">Leave Club?</DialogTitle>
-            <DialogDescription className="text-center font-serif leading-5">
+            <DialogDescription className="text-center font-serif leading-4 text-bookWhite/80">
               Are you sure you want to leave "{club?.name}"? 
             </DialogDescription>
+            <p className="font-serif font-light text-sm/4 text-bookWhite/80">This action cannot be undone. You'll lose access to all club discussions, 
+              meetings, and updates. If you want to rejoin later, you'll need to apply again 
+              and wait for approval.</p>
           </DialogHeader>
-          
-          <div className="py-4">
-            <div className="bg-red-50/80 border border-red-200 rounded-lg p-4 mb-4">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-red-800">This action cannot be undone</p>
-                  <p className="text-sm text-red-700 mt-1">
-                    You'll lose access to all club discussions, meetings, and updates. 
-                    If you want to rejoin later, you'll need to apply again and wait for approval.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
+
           
           <DialogFooter className="gap-2">
             <Button 
@@ -4584,7 +4573,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
             <Button
               onClick={handleLeaveClub}
               disabled={loadingAction}
-              className="bg-red-600 hover:bg-red-700 text-white rounded-full flex-1"
+              className="bg-red-800 hover:bg-red-900 text-bookWhite rounded-full flex-1"
             >
               {loadingAction ? (
                 <>
@@ -4592,7 +4581,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                   Leaving...
                 </>
               ) : (
-                "Yes, Leave Club"
+                "Leave Club"
               )}
             </Button>
           </DialogFooter>
