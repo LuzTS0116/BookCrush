@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useCallback } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar } from "@/components/ui/calendar"
@@ -85,6 +86,7 @@ interface ExtendedSession {
 
 export default function CalendarMain() {
   const { data: session } = useSession() as { data: ExtendedSession | null };
+  const searchParams = useSearchParams()
   const [date, setDate] = useState<Date | undefined>(new Date())
   const [meetings, setMeetings] = useState<ClubMeeting[]>([])
   const [userClubs, setUserClubs] = useState<UserClub[]>([])
@@ -246,6 +248,18 @@ export default function CalendarMain() {
       setCreatingMeeting(false);
     }
   };
+
+   // Check for URL parameter to auto-open meeting dialog
+  useEffect(() => {
+    const openMeetings = searchParams.get('openMeetings')
+    if (openMeetings === 'true') {
+      setIsDialogOpen(true)
+      // Remove the parameter from URL without causing a navigation
+      const url = new URL(window.location.href)
+      url.searchParams.delete('openMeetings')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [searchParams])
 
   // Handle opening edit dialog
   const handleEditMeeting = (meeting: ClubMeeting) => {
