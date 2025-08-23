@@ -450,7 +450,7 @@ const handleClickShare = async () => {
                       {/* Book Info */}
                       <Link href={`/books/${latestBook.id}`}>
                       <div className="flex-1 min-w-0">
-                        <div className="text-lg font-bold text-bookBlack leading-tight truncate max-w-40">
+                        <div className="text-lg font-bold text-bookBlack leading-tight truncate max-w-40 md:max-w-96">
                           {latestBook.title}
                         </div>
                         <div className="flex flex-row gap-1.5">
