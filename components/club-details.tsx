@@ -34,7 +34,7 @@ import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu"; // Add Radix
 import { BookSelectionDialog } from '@/components/BookSelectionDialog'
 import { RecommendBookDialog } from './recommendations/RecommendBookDialog' // Add RecommendBookDialog import
 import { AddBookDialog } from '@/components/add-book-dialog'
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { formatRelativeDate } from "@/lib/utils";
 import { useAvatarUrl } from "@/hooks/use-profile"
 import { BookDetails } from "@/types/book"
@@ -689,6 +689,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   //wrap params with React.use() 
   const router = useRouter();
   const {id} = useParams();
+  const pathname = usePathname();
   
 
   const {
@@ -2158,6 +2159,13 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     }
   };
 
+  // scroll to top whenever we land on /calendar
+  useEffect(() => {
+    if (pathname === "/calendar") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [pathname]);
+
 
   // Voting Management Dialog Component
   const VotingManagementDialog = () => (
@@ -3493,7 +3501,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
             <CardHeader className="px-3 pt-3 pb-1 flex flex-row justify-between">
               <CardTitle className="break-words">Club Meetings</CardTitle>
               {club.currentUserIsAdmin && (
-                <Link href="/calendar">
+                <Link href={`/calendar?openMeetings=true`}>
                   <div className="flex flex-row items-center bg-secondary-light/10 rounded-full cursor-pointer text-secondary-light/60 hover:bg-secondary-light/20 hover:text-secondary-light py-1 px-2">
                     <Calendar className="h-4 w-4"/>
                   </div>
@@ -3510,7 +3518,18 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                   {club.currentUserIsAdmin && (
                     <div className="flex flex-col items-center gap-2">
                       <p className="text-secondary-light/30 text-center w-[80vw] leading-4">Go to calendar to set a new meeting date, time and place.</p>
-                      <Button variant="outline" size="sm" className="mt-1 rounded-full text-secondary-light h-8 border-none bg-accent">
+                      <Button 
+                        onClick={() => {
+                          if (pathname === "/calendar") {
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          } else {
+                            router.push("/calendar");
+                          }
+                        }}
+                        variant="outline"
+                        size="sm"
+                        className="mt-1 rounded-full text-secondary-light h-8 border-none bg-accent"
+                      >
                         Go to Calendar
                       </Button>
                   </div>

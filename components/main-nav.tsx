@@ -82,13 +82,13 @@ export function MainNav() {
     {
       href: "/clubs",
       label: "Clubs",
-      icon: Users,
+      icon: Coffee,
       active: pathname === "/clubs",
     },
     {
       href: "/friends",
       label: "Friends",
-      icon: Coffee,
+      icon: Users,
       active: pathname === "/friends",
     },
   ]
