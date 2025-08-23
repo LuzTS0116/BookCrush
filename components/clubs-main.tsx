@@ -1140,39 +1140,37 @@ console.log(pendingInvitations);
                 ) : (
                   filteredDiscoverClubs.map((club) => (
                       <Card key={club.id}>
-                      <CardHeader className="pb-2 text-secondary-light items-start px-3 pt-3">
-                        {/* Left side: Title */}
-                            <div className="flex-1 min-w-0">
-                                <CardTitle className="text-xl/5 break-words text-secondary-light m-0 p-0">
-                                    {club.name}
-                                </CardTitle>
-                            </div>
-                          <CardDescription className="pt-1 font-serif font-medium text-sm/4">{club.description}</CardDescription>
-
-                          {/* Genres */}
-                          {club.genres && club.genres.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {club.genres.slice(0, 3).map((genre) => (
-                                <Badge 
-                                  key={genre} 
-                                  variant="outline" 
-                                  className="bg-accent/20 text-secondary text-xs border-none"
-                                >
-                                  {genre}
-                                </Badge>
-                              ))}
-                              {club.genres.length > 3 && (
-                                <Badge 
-                                  variant="outline" 
-                                  className="bg-accent/20 text-secondary text-xs border-none"
-                                >
-                                  +{club.genres.length - 3} more
-                                </Badge>
-                              )}
-                            </div>
-                          )}
+                      <CardHeader className="pb-0 text-secondary-light items-start px-3 pt-3">
+                        <CardTitle className="text-xl/5 break-words text-secondary-light m-0 p-0">
+                            {club.name}
+                        </CardTitle>
+                        <CardDescription className="pt-1 font-serif font-medium text-sm/4">{club.description}</CardDescription>
                       </CardHeader>
-                      <CardContent className="px-3 py-0">
+                      
+                      <CardContent className="px-3 py-0 mt-1.5">
+                        {/* Genres */}
+                        {club.genres && club.genres.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5 mb-2">
+                            {club.genres.slice(0, 3).map((genre) => (
+                              <Badge 
+                                key={genre} 
+                                variant="outline" 
+                                className="bg-accent/20 text-secondary text-xs border-none"
+                              >
+                                {genre}
+                              </Badge>
+                            ))}
+                            {club.genres.length > 3 && (
+                              <Badge 
+                                variant="outline" 
+                                className="bg-accent/20 text-secondary text-xs border-none"
+                              >
+                                +{club.genres.length - 3} more
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      
                         {club.current_book ? (
                             <div className="col-span-1">
                                 <p className="text-sm font-medium mb-1">Current Book</p>
