@@ -37,6 +37,7 @@ export const FriendCard: React.FC<FriendCardProps> = ({ friend, establishedAt })
       try {
         const mutualData = await getMutualFriendsCount(friend.id, session.supabaseAccessToken);
         setMutualFriendsCount(mutualData.count);
+        console.log('Mutual friends count:', mutualData.mutualFriends);
       } catch (error) {
         console.error('Error loading mutual friends:', error);
         // Keep default count of 0
