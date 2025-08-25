@@ -41,11 +41,11 @@ export default async function ClubsPage() {
     const session = await getServerSession(authOptions);
     accessToken = session?.supabaseAccessToken;
 
-    console.log('[ClubsPage] Session check:', {
-      hasSession: !!session,
-      hasAccessToken: !!accessToken,
-      userId: session?.user?.id
-    });
+    // console.log('[ClubsPage] Session check:', {
+    //   hasSession: !!session,
+    //   hasAccessToken: !!accessToken,
+    //   userId: session?.user?.id
+    // });
 
     if (!accessToken) {
       console.warn("ClubsPage: User not authenticated or access token unavailable for fetching clubs data.");

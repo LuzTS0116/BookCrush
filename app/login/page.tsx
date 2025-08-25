@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import Link from "next/link"
 import Image from "next/image";
 import { Button } from "@/components/ui/button"
@@ -30,10 +30,12 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [emailNotConfirmed, setEmailNotConfirmed] = useState(false);
   const [pendingEmail, setPendingEmail] = useState("");
-  const supabase = createClient();
   const { data: session, status } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // Get the shared Supabase client instance - ensure it's only created once per component
+  const supabase = useMemo(() => createClient(), []);
 
   // Check if we're in the middle of an OAuth callback
   const [isOAuthCallback, setIsOAuthCallback] = useState(false);
@@ -271,7 +273,7 @@ export default function LoginPage() {
       // Show success message by temporarily using error state with different styling
       setError("confirmation_sent");
     } catch (err: any) {
-      console.error('Resend confirmation error:', err);
+      //console.error('Resend confirmation error:', err);
       setError(err.message || "Failed to resend confirmation email");
     } finally {
       setIsLoading(false);
@@ -286,14 +288,14 @@ export default function LoginPage() {
 
   // Handle session status changes and validation
   useEffect(() => {
-    console.log('Session status changed:', status);
+    //console.log('Session status changed:', status);
     
     if (status === "authenticated") {
-      console.log('User authenticated, validating session...');
+      //console.log('User authenticated, validating session...');
       
       // Check if the session has valid Supabase tokens
       if (!session?.supabaseAccessToken) {
-        console.warn('Session exists but missing Supabase tokens, signing out...');
+        //console.warn('Session exists but missing Supabase tokens, signing out...');
         setError("Session expired. Please log in again.");
         signOut({ redirect: false }); // Sign out without redirect
         setIsGoogleLoading(false);
@@ -302,17 +304,17 @@ export default function LoginPage() {
         return;
        }
       
-      console.log('Valid session found, redirecting...');
+      //console.log('Valid session found, redirecting...');
       setIsRedirecting(true);
       setIsGoogleLoading(false);
       localStorage.removeItem('googleSignInInProgress');
       
       // Check profile completion status from session
       if (session.profileComplete === false) {
-        console.log('Profile incomplete, redirecting to profile setup');
+        //console.log('Profile incomplete, redirecting to profile setup');
         router.replace("/profile-setup");
       } else {
-        console.log('Profile complete, redirecting to dashboard');
+        //console.log('Profile complete, redirecting to dashboard');
         router.replace("/dashboard");
       }
       
@@ -323,7 +325,7 @@ export default function LoginPage() {
     }
   }, [status, session, router]);
 
-  console.log(status);
+  //console.log(status);
 
   /* -------------------------------------------------------------------------
    * While NextAuth is still checking or we're in OAuth callback, show loading

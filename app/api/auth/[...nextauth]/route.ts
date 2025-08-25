@@ -216,25 +216,25 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user, account, trigger }) {
-      console.log('[Auth JWT Callback] Starting with:', {
-        hasUser: !!user,
-        hasAccount: !!account,
-        accountProvider: account?.provider,
-        tokenId: token.id,
-        hasSupaInToken: !!token.supa,
-        environment: process.env.NODE_ENV
-      });
+      //console.log('[Auth JWT Callback] Starting with:', {
+        //hasUser: !!user,
+        //hasAccount: !!account,
+        //accountProvider: account?.provider,
+        //tokenId: token.id,
+        //hasSupaInToken: !!token.supa,
+        //environment: process.env.NODE_ENV
+      //});
 
       // Handle credential authentication (including client-side tokens)
       if (user?.supa) {
-        console.log('[Auth JWT Callback] Setting supa tokens from user');
+        //console.log('[Auth JWT Callback] Setting supa tokens from user');
         token.id = user.id;
         token.supa = user.supa;
       }
       
       // Handle Google authentication
       if (account?.provider === 'google' && account.id_token) {
-        console.log('[Auth JWT Callback] Processing Google authentication');
+        //console.log('[Auth JWT Callback] Processing Google authentication');
         
         const { data, error } = await supabaseAdmin.auth
           .signInWithIdToken({
@@ -243,7 +243,7 @@ export const authOptions: NextAuthOptions = {
           });
           
         if (!error && data.session) {
-          console.log('[Auth JWT Callback] Google auth successful, setting tokens');
+          //console.log('[Auth JWT Callback] Google auth successful, setting tokens');
           token.id = data.user!.id;
           token.supa = {
             access_token: data.session.access_token,
@@ -263,7 +263,7 @@ export const authOptions: NextAuthOptions = {
 
             if (!existingProfile) {
               // Create minimal profile with Google data - user still needs to complete setup
-              console.log('[Auth JWT Callback] Creating minimal profile for Google user:', googleUser.id);
+              //console.log('[Auth JWT Callback] Creating minimal profile for Google user:', googleUser.id);
               
               await prisma.profile.create({
                 data: {
@@ -299,7 +299,7 @@ export const authOptions: NextAuthOptions = {
               }
               
               if (Object.keys(updates).length > 0) {
-                console.log('[Auth JWT Callback] Updating profile with Google data for user:', googleUser.id);
+                //console.log('[Auth JWT Callback] Updating profile with Google data for user:', googleUser.id);
                 await prisma.profile.update({
                   where: { id: googleUser.id },
                   data: updates
@@ -326,7 +326,7 @@ export const authOptions: NextAuthOptions = {
         
         if (shouldCheckProfile) {
           try {
-            console.log('[Auth JWT Callback] Checking profile status for user:', token.id);
+            //console.log('[Auth JWT Callback] Checking profile status for user:', token.id);
             const profile = await prisma.profile.findUnique({
               where: { id: token.id as string },
               select: { id: true, display_name: true }
@@ -335,9 +335,9 @@ export const authOptions: NextAuthOptions = {
             const newProfileComplete = !!profile && !!profile.display_name;
             
             // Only log if status actually changed
-            if (token.profileComplete !== newProfileComplete) {
-              console.log('[Auth JWT Callback] Profile status changed from', token.profileComplete, 'to', newProfileComplete);
-            }
+            //if (token.profileComplete !== newProfileComplete) {
+              //console.log('[Auth JWT Callback] Profile status changed from', token.profileComplete, 'to', newProfileComplete);
+            //}
             
             token.profileComplete = newProfileComplete;
           } catch (error) {
@@ -358,7 +358,7 @@ export const authOptions: NextAuthOptions = {
           
           // If token is expired or about to expire (within 30 minutes)
           if (expTimeInSeconds - currentTimeInSeconds < 1800) {
-            console.log('[Auth JWT Callback] Token expiring soon, refreshing...');
+            //console.log('[Auth JWT Callback] Token expiring soon, refreshing...');
             
             const { data, error } = await supabaseAdmin.auth.refreshSession({
               refresh_token: token.supa.refresh_token,
@@ -367,7 +367,7 @@ export const authOptions: NextAuthOptions = {
             if (error) throw error;
             
             if (data.session) {
-              console.log('[Auth JWT Callback] Token refreshed successfully');
+              //console.log('[Auth JWT Callback] Token refreshed successfully');
               token.supa = {
                 access_token: data.session.access_token,
                 refresh_token: data.session.refresh_token,
@@ -383,7 +383,7 @@ export const authOptions: NextAuthOptions = {
 
       // After all processing, do a final check if needed
       if (token.id && token.supa?.access_token && token.profileComplete === undefined) {
-        console.log('[Auth JWT Callback] Final profile status check for user:', token.id);
+        //console.log('[Auth JWT Callback] Final profile status check for user:', token.id);
         
         try {
           // Check if user has completed profile setup
@@ -399,9 +399,9 @@ export const authOptions: NextAuthOptions = {
           if (profile) {
             const hasBasicInfo = !!(profile.display_name && profile.about);
             token.profileComplete = hasBasicInfo;
-            console.log('[Auth JWT Callback] Final profile status:', { hasBasicInfo, displayName: !!profile.display_name, about: !!profile.about });
+            //console.log('[Auth JWT Callback] Final profile status:', { hasBasicInfo, displayName: !!profile.display_name, about: !!profile.about });
           } else {
-            console.log('[Auth JWT Callback] No profile found for user:', token.id);
+            //console.log('[Auth JWT Callback] No profile found for user:', token.id);
             token.profileComplete = false;
           }
         } catch (profileError) {
@@ -409,28 +409,28 @@ export const authOptions: NextAuthOptions = {
           token.profileComplete = false; // Default to false on error
         }
       } else if (!token.id || !token.supa?.access_token) {
-        console.log('[Auth JWT Callback] Missing required data for final check:', {
-          hasId: !!token.id,
-          hasSupaToken: !!token.supa?.access_token
-        });
+        //console.log('[Auth JWT Callback] Missing required data for final check:', {
+          //hasId: !!token.id,
+          //hasSupaToken: !!token.supa?.access_token
+        //});
       }
 
-      console.log('[Auth JWT Callback] Final token state:', {
-        id: token.id,
-        hasSupaToken: !!token.supa?.access_token,
-        profileComplete: token.profileComplete
-      });
+      //console.log('[Auth JWT Callback] Final token state:', {
+        //id: token.id,
+        //hasSupaToken: !!token.supa?.access_token,
+        //profileComplete: token.profileComplete
+      //});
 
       return token;
     },
     
     async session({ session, token }) {
-      console.log('[Auth Session Callback] Creating session with token:', {
-        tokenId: token.id,
-        hasSupaToken: !!token.supa?.access_token,
-        profileComplete: token.profileComplete,
-        userEmail: session.user?.email
-      });
+      //  console.log('[Auth Session Callback] Creating session with token:', {
+        //tokenId: token.id,
+        //hasSupaToken: !!token.supa?.access_token,
+        //profileComplete: token.profileComplete,
+        //userEmail: session.user?.email
+      //});
 
       if (session.user) {
         session.user.id = token.id as string;
@@ -480,11 +480,11 @@ export const authOptions: NextAuthOptions = {
       session.profileComplete = token.profileComplete as boolean | undefined;
       session.googleData = token.googleData as any; // Pass Google data to client
 
-      console.log('[Auth Session Callback] Final session state:', {
-        userId: session.user?.id,
-        hasSupabaseToken: !!session.supabaseAccessToken,
-        profileComplete: session.profileComplete
-      });
+      //console.log('[Auth Session Callback] Final session state:', {
+        //userId: session.user?.id,
+        //hasSupabaseToken: !!session.supabaseAccessToken,
+        //profileComplete: session.profileComplete
+      //});
 
       return session;
     }

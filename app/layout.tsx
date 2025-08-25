@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import AuthSessionProvider from "./_auth/SessionProvider";
 import SupabaseBridge from "./_auth/SupabaseBridge"
+import { SupabaseProvider } from "@/lib/SupabaseContext"
 import { Toaster } from "@/components/ui/sonner"
 import { loadEnvConfig } from '@next/env'
 import { MainNav } from "@/components/main-nav"
@@ -87,35 +88,27 @@ export default async function RootLayout({
     <html lang="en" className={`${chivo.variable} ${quicksand.variable}`} suppressHydrationWarning>
       <body>
         <AuthSessionProvider initialSession={session}>
-          <SupabaseBridge>
-            <GoalsProvider>
-              <ThemeProvider attribute="class" defaultTheme="light">
-                <MainNav />
-                <div className="mb-15">{children}</div>
-                {/* <-- only one Toaster, Sonner will hook into all your toast() calls */}
-                <MobileNav />
-              </ThemeProvider>
-            </GoalsProvider>
-          </SupabaseBridge>
+          <SupabaseProvider>
+            <SupabaseBridge>
+              <GoalsProvider>
+                <ThemeProvider attribute="class" defaultTheme="light">
+                  <MainNav />
+                  <div className="mb-15">{children}</div>
+                  {/* <-- only one Toaster, Sonner will hook into all your toast() calls */}
+                  <MobileNav />
+                </ThemeProvider>
+              </GoalsProvider>
+            </SupabaseBridge>
+          </SupabaseProvider>
         </AuthSessionProvider>
         <Toaster
           position="top-center"
-          containerStyle={{
-            // make the toast container stretch left→right,
-            // then flex‑center its inner toasts
-            left: 0,
-            right: 0,
-            display: 'flex',
-            justifyContent: 'center',
-            // optional offset from top nav
-            top: '1rem',
-          }}
           toastOptions={{
             // show for 3 seconds
             duration: 3000,
-            icon: null,
+            //icon: null,
             // no close button:
-            rich: false,
+            //rich: false,
             // shared styles for every toast
             style: {
               background: '#2e3d6a',
@@ -130,7 +123,7 @@ export default async function RootLayout({
               maxWidth: '420px',
             },
             // gap between toasts
-            gutter: 8,
+            //gutter: 8,
           }}
         />
       </body>

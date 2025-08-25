@@ -791,9 +791,7 @@ export default function BooksTableOptimized() {
         if (!isTabLoading) {
           setError(err.message || "Could not load books.")
         }
-      } else {
-        console.log("Request aborted - likely due to tab change or new search")
-      }
+      } 
     } finally {
       if (!isTabLoading) {
         setIsLoading(false)

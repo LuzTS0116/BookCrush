@@ -16,10 +16,10 @@ export async function sendFriendRequest(receiverId: string): Promise<FriendReque
   return res.json();
 }
 
-export async function acceptFriendRequest(requestId: string): Promise<Friendship> {
+export async function acceptFriendRequest(requestId: string, accessToken: string): Promise<Friendship> {
   const res = await fetch('/api/friends/accept', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify({ requestId }),
   });
   if (!res.ok) {
@@ -29,10 +29,10 @@ export async function acceptFriendRequest(requestId: string): Promise<Friendship
   return res.json();
 }
 
-export async function declineFriendRequest(requestId: string): Promise<FriendRequest> {
+export async function declineFriendRequest(requestId: string, accessToken: string): Promise<FriendRequest> {
   const res = await fetch('/api/friends/decline', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify({ requestId }),
   });
   if (!res.ok) {

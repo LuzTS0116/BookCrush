@@ -1,4 +1,4 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { getClientComponentClient } from './supabaseClient'
 
 /**
  * Get public URL for a file stored in Supabase storage
@@ -10,7 +10,7 @@ export function getSupabasePublicUrl(bucketName: string, filePath: string | null
   if (!filePath) return null
   
   try {
-    const supabase = createClientComponentClient()
+    const supabase = getClientComponentClient()
     const { data } = supabase.storage
       .from(bucketName)
       .getPublicUrl(filePath)
