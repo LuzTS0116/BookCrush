@@ -40,7 +40,7 @@ export const AddFriendButton: React.FC<AddFriendButtonProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const friendRequest = await sendFriendRequest(targetUser.id);
+      const friendRequest = await sendFriendRequest(targetUser.id, session?.supabaseAccessToken || '');
       setRequestId(friendRequest.id);
       setStatus('PENDING_SENT');
       if (onFriendRequestSent) {

@@ -73,7 +73,8 @@ export async function GET(
         month: 'long', 
         day: 'numeric' 
       }),
-      updated_at: review.updated_at ? review.updated_at.toISOString() : null
+      updated_at: review.updated_at ? review.updated_at.toISOString() : null,
+      created_at: review.created_at.toISOString() || null
     })))
 
     return NextResponse.json(formattedReviews, { status: 200 })
@@ -143,7 +144,6 @@ export async function POST(
         update: {
           content,
           rating: rating as ReactionType,
-          updated_at: new Date()
         },
         create: {
           user_id: userId,

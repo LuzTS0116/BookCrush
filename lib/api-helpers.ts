@@ -3,10 +3,10 @@
 import { FriendRequest, Friendship, UserProfileMinimal, ExplorableUser } from '@/types/social'; // Adjust path as needed
 
 // --- Friend Request API Calls ---
-export async function sendFriendRequest(receiverId: string): Promise<FriendRequest> {
+export async function sendFriendRequest(receiverId: string, accessToken: string): Promise<FriendRequest> {
   const res = await fetch('/api/friends/request', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
     body: JSON.stringify({ receiverId }),
   });
   if (!res.ok) {
