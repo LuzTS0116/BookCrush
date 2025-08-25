@@ -210,14 +210,15 @@ export default function AdminBooksPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete book');
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Failed to delete book');
       }
 
       toast.success('Book deleted successfully');
       fetchBooks();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting book:', error);
-      toast.error('Failed to delete book');
+      toast.error(error.message || 'Failed to delete book');
     }
   };
 

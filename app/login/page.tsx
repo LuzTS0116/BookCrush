@@ -162,18 +162,15 @@ export default function LoginPage() {
       });
       
       if (signInError) {
-
-        
-        // Check if the error is related to email confirmation
+        // Check if the error is specifically related to email confirmation
         const errorMessage = signInError.message?.toLowerCase() || '';
         
+        // Only trigger email confirmation flow for explicit email confirmation errors
         if (errorMessage.includes('email not confirmed') || 
             errorMessage.includes('email_not_confirmed') ||
             errorMessage.includes('confirm your email') ||
-            errorMessage.includes('verification') ||
-            errorMessage.includes('not confirmed') ||
-            signInError.name === 'AuthApiError' ||
-            String(signInError.status) === '400') {
+            errorMessage.includes('please confirm your email') ||
+            errorMessage.includes('email confirmation required')) {
           setEmailNotConfirmed(true);
           setPendingEmail(email);
           setError("");
@@ -217,7 +214,21 @@ export default function LoginPage() {
       
     } catch (err: any) {
       console.error("Login error:", err);
-      setError(err.message || "Failed to sign in");
+      
+      // Provide more specific error messages for common scenarios
+      let errorMessage = err.message || "Failed to sign in";
+      
+      if (errorMessage.toLowerCase().includes('invalid login credentials') || 
+          errorMessage.toLowerCase().includes('invalid credentials')) {
+        errorMessage = "Invalid email or password. Please check your credentials and try again.";
+      } else if (errorMessage.toLowerCase().includes('user not found') ||
+                 errorMessage.toLowerCase().includes('no user found')) {
+        errorMessage = "No account found with this email address.";
+      } else if (errorMessage.toLowerCase().includes('too many requests')) {
+        errorMessage = "Too many login attempts. Please wait a few minutes before trying again.";
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -379,11 +390,11 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* {error && error !== "confirmation_sent" && (
+            {error && error !== "confirmation_sent" && (
               <div className="px-2 py-2 text-sm mb-2 text-center text-red-400 bg-bookWhite/10 rounded-md leading-none">
                 {error}
               </div>
-            )} */}
+            )}
             
             {error === "confirmation_sent" && (
               <Alert className="mb-4 bg-green-500/20 border-green-500/30 text-bookWhite">
