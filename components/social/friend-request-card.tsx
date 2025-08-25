@@ -6,10 +6,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Check, X, Loader2, User, MoreVertical } from 'lucide-react';
+import { Check, X, Loader2, User } from 'lucide-react';
 import { acceptFriendRequest, declineFriendRequest, getMutualFriendsCount } from '@/lib/api-helpers';
 import { FriendRequest } from '@/types/social'; // Adjust path
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu"; // Radix DropdownMenu
 import { formatDate } from '@/lib/utils';
 import { useSession } from 'next-auth/react';
 
@@ -52,7 +51,7 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({ request, o
     setIsLoading(true);
     setError(null);
     try {
-      await acceptFriendRequest(request.id);
+      await acceptFriendRequest(request.id, session?.supabaseAccessToken || '');
       setIsHandled(true);
       onActionComplete(request.id, 'accepted');
     } catch (err: any) {
@@ -67,7 +66,7 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({ request, o
     setIsLoading(true);
     setError(null);
     try {
-      await declineFriendRequest(request.id);
+      await declineFriendRequest(request.id, session?.supabaseAccessToken || '');
       setIsHandled(true);
       onActionComplete(request.id, 'declined');
     } catch (err: any) {
@@ -98,75 +97,45 @@ export const FriendRequestCard: React.FC<FriendRequestCardProps> = ({ request, o
       </Avatar>
       <div className="flex flex-col w-full">
         <div className="flex flex-wrap justify-between flex-1">
-          <Link href={`/profile/${request.sender?.id}`}><CardTitle className="text-sm leading-4">{senderDisplayName}</CardTitle></Link>
-          <div className='flex flex-col'>
-            
-            {/* --- NEW: Add to Shelf Dropdown --- */}
-            <div className="relative inline-block">
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger asChild>
-                  <Button
-                    onClick={handleDecline} 
-                    disabled={isLoading} 
-                    size="sm" 
-                    variant="outline" 
-                    className="text-xs flex items-end px-0 rounded-full h-auto gap-1 bg-transparent border-none"
-                  >
-                    <MoreVertical className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </DropdownMenu.Trigger>
-
-                <DropdownMenu.Portal>
-                  <DropdownMenu.Content
-                    className="w-auto rounded-xl bg-transparent shadow-xl px-1 mr-6 animate-in fade-in zoom-in-95 data-[side=bottom]:slide-in-from-top-1"
-                    sideOffset={5}
-                  >
-                      <DropdownMenu.Item
-                        key="ignore"
-                        onClick={handleDecline}
-                        className="px-3 py-2 text-xs text-center bg-secondary/90 my-2 rounded-md cursor-pointer hover:bg-primary hover:text-secondary focus:bg-gray-100 focus:outline-none transition-colors"
-                      >
-                        ignorar
-                      </DropdownMenu.Item>
-                  </DropdownMenu.Content>
-                </DropdownMenu.Portal>
-              </DropdownMenu.Root>
-            </div>
+          <Link href={`/profile/${request.sender?.id}`}>
+            <CardTitle className="text-sm leading-4">{senderDisplayName}</CardTitle>
+          </Link>
+        </div>
+        <p className="text-xs/3 text-secondary font-serif">
+          {isLoadingMutual 
+            ? 'Loading...' 
+            : `${mutualFriendsCount} mutual friend${mutualFriendsCount !== 1 ? 's' : ''}`
+          }
+        </p>
+        <div className='flex justify-between w-full items-end'>
+          <p className="text-xs/3 text-secondary/50 font-serif italic pb-1">
+            request received {formatDate(request.sentAt, { format: 'long' })}
+          </p>
+          <div className='flex gap-2'>
+            <Button 
+              onClick={handleAccept} 
+              disabled={isLoading} 
+              size="sm" 
+              variant="default"
+              className="rounded-full h-7 w-7 p-0 bg-accent-variant/80 hover:bg-accent-variant text-destructive-foreground"
+              title="Accept friend request"
+            >
+              {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+            </Button>
+            <Button 
+              onClick={handleDecline} 
+              disabled={isLoading} 
+              size="sm" 
+              variant="default"
+              className="rounded-full h-7 w-7 p-0 bg-red-800/70 text-destructive-foreground hover:bg-red-800"
+              title="Decline friend request"
+            >
+              {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+            </Button>
           </div>
         </div>
-          <p className="text-xs/3 text-secondary font-serif">
-            {isLoadingMutual 
-              ? 'Loading...' 
-              : `${mutualFriendsCount} mutual friend${mutualFriendsCount !== 1 ? 's' : ''}`
-            }
-          </p>
-          <div className='flex justify-between w-full items-end'>
-            <p className="text-xs/3 text-secondary/50 font-serif italic pb-1">request received {formatDate(request.sentAt, { format: 'long' })}</p>
-            <div className=''>
-              <Button onClick={handleAccept} disabled={isLoading} size="sm" variant="outline" className="rounded-full text-bookWhite bg-accent-variant/75 hover:bg-accent-variant focus:bg-accent-variant font-serif border-none h-5 font-normal px-2">
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Accept" }
-              </Button>
-            </div>
-          </div>
+        {error && <p className="text-red-500 text-xs mt-1 text-center">{error}</p>}
       </div>
     </Card>
-    
-    // <Card className="flex items-center p-4">
-    //   <div className="flex-1">
-    //     <CardTitle className="text-lg">{senderDisplayName}</CardTitle>
-    //     <CardDescription className="text-sm">
-    //       Friend request sent by {senderDisplayName}
-    //     </CardDescription>
-    //     {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
-    //   </div>
-    //   <div className="flex space-x-2 ml-4">
-    //     <Button onClick={handleAccept} disabled={isLoading} size="sm" variant="outline" className="bg-green-500 text-white hover:bg-green-600">
-    //       {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-    //     </Button>
-    //     <Button onClick={handleDecline} disabled={isLoading} size="sm" variant="outline" className="bg-red-500 text-white hover:bg-red-600">
-    //       {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-    //     </Button>
-    //   </div>
-    // </Card>
   );
 };

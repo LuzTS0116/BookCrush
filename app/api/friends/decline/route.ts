@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { PrismaClient } from '@prisma/client'
+import { createServerClientWithToken } from '@/lib/supabaseClient';
 import { prisma } from '@/lib/prisma';
-import {  FriendRequestStatus  } from '@prisma/client'; // Import Prisma enum
+import { FriendRequestStatus } from '@prisma/client'; // Import Prisma enum
 
 
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    // Get the authorization header from the request
+    const authHeader = req.headers.get('authorization');
+    const accessToken = authHeader?.replace('Bearer ', '');
+    
+    if (!accessToken) {
+      return NextResponse.json({ error: "Authorization header required" }, { status: 401 });
+    }
+    
+    const supabase = createServerClientWithToken(accessToken);
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

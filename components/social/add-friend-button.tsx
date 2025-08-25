@@ -40,7 +40,7 @@ export const AddFriendButton: React.FC<AddFriendButtonProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const friendRequest = await sendFriendRequest(targetUser.id);
+      const friendRequest = await sendFriendRequest(targetUser.id, session?.supabaseAccessToken || '');
       setRequestId(friendRequest.id);
       setStatus('PENDING_SENT');
       if (onFriendRequestSent) {
@@ -86,7 +86,7 @@ export const AddFriendButton: React.FC<AddFriendButtonProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      await acceptFriendRequest(pendingRequestId);
+      await acceptFriendRequest(pendingRequestId, session?.supabaseAccessToken || '');
       setStatus('FRIENDS');
       toast.success(`You are now friends with ${targetUser.display_name}!`);
       if (onFriendRequestSent) {
@@ -109,7 +109,7 @@ export const AddFriendButton: React.FC<AddFriendButtonProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      await declineFriendRequest(pendingRequestId);
+      await declineFriendRequest(pendingRequestId, session?.supabaseAccessToken || '');
       setStatus('NOT_FRIENDS');
       toast.success(`Friend request from ${targetUser.display_name} declined.`);
       if (onFriendRequestSent) {

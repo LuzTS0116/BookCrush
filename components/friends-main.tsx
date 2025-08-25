@@ -179,7 +179,7 @@ export default function FriendsMain() {
       }).filter(Boolean) as Friendship[]; // Filter out any nulls if friendUser was not found
 
       setFriends(transformedFriends);
-      console.log(transformedFriends);
+      //console.log(transformedFriends);
 
       // --- Fetch Friend Requests ---
       const fetchedReceived = (await getFriendsAndRequests('received', session.supabaseAccessToken)) as FriendRequest[];

@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useRouter } from 'next/navigation'
 import { signIn } from 'next-auth/react'
-import { createClient } from '@/lib/supabaseClient';
+import { useSupabase } from '@/lib/SupabaseContext';
 
 export default function SignupPage() {
   const [email, setEmail] = useState("")
@@ -26,7 +26,7 @@ export default function SignupPage() {
   const [emailSent, setEmailSent] = useState(false)
   const [signupEmail, setSignupEmail] = useState("")
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useSupabase()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

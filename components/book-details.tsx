@@ -47,6 +47,7 @@ interface BookReview {
   text: string;
   date: string;
   updated_at?: string;
+  created_at?: string;
 }
 
 interface BookReactions {
@@ -210,6 +211,9 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
   const [editReviewRating, setEditReviewRating] = useState<"HEART" | "THUMBS_UP" | "THUMBS_DOWN" | null>(null);
   const [isUpdatingReview, setIsUpdatingReview] = useState(false);
   const [isDeletingReview, setIsDeletingReview] = useState<Record<string, boolean>>({});
+  
+  // Add state for tracking user's existing review
+  const [userExistingReview, setUserExistingReview] = useState<BookReview | null>(null);
 
   // State for recommend book dialog
   const [recommendDialog, setRecommendDialog] = useState<{
@@ -258,7 +262,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
       
       if (response.ok) {
         const files = await response.json();
-        console.log(files)
+        //console.log(files)
         setBookFiles(files);
       } else {
         console.error('Failed to fetch book files');
@@ -300,7 +304,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
       if (response.ok) {
         const friendsData = await response.json();
         setFriendsShelves(friendsData);
-        console.log(friendsData)
+        //console.log(friendsData)
       } else {
         const errorData = await response.json();
         setFriendsError(errorData.error || 'Failed to fetch friends shelves');
@@ -361,7 +365,13 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
         if (reviewsResponse.ok) {
           const reviewsData = await reviewsResponse.json()
           setReviews(reviewsData)
-          console.log(reviewsData)
+          //console.log(reviewsData)
+          
+          // Check if current user has an existing review
+          if (session?.user?.id) {
+            const existingReview = reviewsData.find((review: BookReview) => review.user.id === session.user.id);
+            setUserExistingReview(existingReview || null);
+          }
         } else {
           console.error('Failed to fetch reviews')
         }
@@ -382,7 +392,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
     }
 
     fetchReviewsAndReactions()
-  }, [id])
+  }, [id, session?.user?.id])
 
   // Show loading state
   if (isLoadingBook) {
@@ -477,6 +487,12 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
       return
     }
 
+    // Check if user already has a review
+    if (userExistingReview) {
+      toast.error('You already have a review for this book. Please edit or delete your existing review.')
+      return
+    }
+
     try {
       setIsSubmittingReview(true)
 
@@ -497,20 +513,18 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
         // Add the new review to the top of the list
         setReviews(prev => [result.review, ...prev])
         
-        // Update the reaction count in the main display only if this is a new review
-        // Check if user already had a review (this would be an update vs new review)
-        const existingReviewIndex = reviews.findIndex(review => review.user.id === result.review.user.id)
-        if (existingReviewIndex === -1) {
-          // This is a new review, update reaction count
-          setReactions(prev => ({
-            ...prev,
-            [userRating]: prev[userRating] + 1
-          }))
-        }
+        // Update the reaction count
+        setReactions(prev => ({
+          ...prev,
+          [userRating]: prev[userRating] + 1
+        }))
+        
+        // Set the user's existing review
+        setUserExistingReview(result.review)
         
         // Reset the form
         setReviewText("")
-        // Keep the rating selected for potential future reviews
+        setUserRating(null)
         
         toast.success('Review posted successfully!')
       } else {
@@ -565,16 +579,19 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
         const result = await response.json();
         
         // Update the review in the local state
+        const updatedReview = {
+          ...reviews.find(review => review.id === reviewId)!,
+          text: result.review.text || editReviewText,
+          rating: result.review.rating || editReviewRating,
+          updated_at: result.review.updated_at || new Date().toISOString()
+        };
+        
         setReviews(prev => prev.map(review => 
-          review.id === reviewId 
-            ? { 
-                ...review, 
-                text: result.review.text || editReviewText,
-                rating: result.review.rating || editReviewRating,
-                updated_at: result.review.updated_at || new Date().toISOString()
-              }
-            : review
+          review.id === reviewId ? updatedReview : review
         ));
+        
+        // Update the user's existing review
+        setUserExistingReview(updatedReview);
         
         // Reset edit state
         handleCancelEditReview();
@@ -1348,7 +1365,7 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                                     <Link href={`/profile/${review.user.id}`}><p className="font-medium text-base/4">{review.user.name}</p></Link>
                                     <div className="flex items-center gap-2">
                                       <p className="text-xs font-serif text-secondary-light/60">{review.date}</p>
-                                      {review.updated_at && (
+                                      {review.updated_at && new Date(review.updated_at) > new Date(review.created_at || '') && (
                                         <span className="text-xs font-serif text-secondary-light/40 italic">
                                           (edited)
                                         </span>
@@ -1478,64 +1495,80 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
 
                     <Separator />
 
-                    <div>
-                      <h3 className="text-lg font-medium mb-0">Write a Review</h3>
-                      <p className="text-xs text-muted-foreground mb-3">Share your detailed thoughts about this book</p>
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-4 mb-0">
-                          <p className="text-sm font-medium">Rate this book:</p>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleRating("HEART")}
-                              className={`p-2 rounded-full transition-colors ${userRating === "HEART" ? "bg-primary/30" : "hover:bg-muted"}`}
+                                        <div>
+                      {!session?.user?.id ? (
+                        // User not logged in
+                        <div className="text-center py-6 text-muted-foreground">
+                          <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">Please log in to write a review</p>
+                        </div>
+                      ) : userExistingReview ? (
+                        // User already has a review - show simple message
+                        <div className="text-center py-4 text-muted-foreground">
+                          <p className="text-sm">You have already reviewed this book</p>
+                        </div>
+                      ) : (
+                        // User doesn't have a review - show review form
+                        <div className="space-y-4">
+                          <h3 className="text-lg font-medium mb-0">Write a Review</h3>
+                          <p className="text-xs text-muted-foreground mb-3">Share your detailed thoughts about this book</p>
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-4 mb-0">
+                              <p className="text-sm font-medium">Rate this book:</p>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleRating("HEART")}
+                                  className={`p-2 rounded-full transition-colors ${userRating === "HEART" ? "bg-primary/30" : "hover:bg-muted"}`}
+                                  disabled={isSubmittingReview}
+                                >
+                                  <Heart
+                                    className={`h-5 w-5 ${userRating === "HEART" ? "text-primary-dark fill-primary-dark" : "text-muted-foreground"}`}
+                                  />
+                                </button>
+                                <button
+                                  onClick={() => handleRating("THUMBS_UP")}
+                                  className={`p-2 rounded-full transition-colors ${userRating === "THUMBS_UP" ? "bg-accent-variant/30" : "hover:bg-muted"}`}
+                                  disabled={isSubmittingReview}
+                                >
+                                  <ThumbsUp
+                                    className={`h-5 w-5 ${userRating === "THUMBS_UP" ? "text-accent-variant" : "text-muted-foreground"}`}
+                                  />
+                                </button>
+                                <button
+                                  onClick={() => handleRating("THUMBS_DOWN")}
+                                  className={`p-2 rounded-full transition-colors ${userRating === "THUMBS_DOWN" ? "bg-accent/25" : "hover:bg-muted"}`}
+                                  disabled={isSubmittingReview}
+                                >
+                                  <ThumbsDown
+                                    className={`h-5 w-5 ${userRating === "THUMBS_DOWN" ? "text-accent" : "text-muted-foreground"}`}
+                                  />
+                                </button>
+                              </div>
+                            </div>
+                            <Textarea
+                              placeholder="Share your thoughts on this book..."
+                              value={reviewText}
+                              onChange={(e) => setReviewText(e.target.value)}
+                              className="min-h-[120px] bg-secondary/5 text-secondary border-none p-2 placeholder:text-secondary/35 sans-serif text-sm"
                               disabled={isSubmittingReview}
-                            >
-                              <Heart
-                                className={`h-5 w-5 ${userRating === "HEART" ? "text-primary-dark fill-primary-dark" : "text-muted-foreground"}`}
-                              />
-                            </button>
-                            <button
-                              onClick={() => handleRating("THUMBS_UP")}
-                              className={`p-2 rounded-full transition-colors ${userRating === "THUMBS_UP" ? "bg-accent-variant/30" : "hover:bg-muted"}`}
-                              disabled={isSubmittingReview}
-                            >
-                              <ThumbsUp
-                                className={`h-5 w-5 ${userRating === "THUMBS_UP" ? "text-accent-variant" : "text-muted-foreground"}`}
-                              />
-                            </button>
-                            <button
-                              onClick={() => handleRating("THUMBS_DOWN")}
-                              className={`p-2 rounded-full transition-colors ${userRating === "THUMBS_DOWN" ? "bg-accent/25" : "hover:bg-muted"}`}
-                              disabled={isSubmittingReview}
-                            >
-                              <ThumbsDown
-                                className={`h-5 w-5 ${userRating === "THUMBS_DOWN" ? "text-accent" : "text-muted-foreground"}`}
-                              />
-                            </button>
+                            />
+                            <div className="flex justify-end">
+                              <Button
+                                onClick={handleSubmitReview}
+                                disabled={!reviewText.trim() || !userRating || isSubmittingReview}
+                                className="bg-primary/75 hover:bg-primary rounded-full text-secondary"
+                              >
+                                {isSubmittingReview ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <MessageSquare className="mr-2 h-4 w-4" />
+                                )}
+                                {isSubmittingReview ? 'Posting Review...' : 'Post Review'}
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                        <Textarea
-                          placeholder="Share your thoughts on this book..."
-                          value={reviewText}
-                          onChange={(e) => setReviewText(e.target.value)}
-                          className="min-h-[120px] bg-secondary/5 text-secondary border-none p-2 placeholder:text-secondary/35 sans-serif text-sm"
-                          disabled={isSubmittingReview}
-                        />
-                        <div className="flex justify-end">
-                        <Button
-                          onClick={handleSubmitReview}
-                          disabled={!reviewText.trim() || !userRating || isSubmittingReview}
-                          className="bg-primary/75 hover:bg-primary rounded-full text-secondary"
-                        >
-                          {isSubmittingReview ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          ) : (
-                            <MessageSquare className="mr-2 h-4 w-4" />
-                          )}
-                          {isSubmittingReview ? 'Posting Review...' : 'Post Review'}
-                        </Button>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

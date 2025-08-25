@@ -150,7 +150,7 @@ export default function ProfileDetailsView({ params }: { params: { id: string } 
       
       const profileData: ProfileData = await response.json();
       setProfile(profileData);
-      console.log(profileData);
+      //console.log(profileData);
       
       // Only categorize books if user is a friend (has access to book data)
       if (profileData.isFriend && profileData.userBooks) {

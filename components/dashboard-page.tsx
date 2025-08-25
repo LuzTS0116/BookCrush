@@ -250,9 +250,9 @@ export default function DashboardPage({
 
   // Set the goal completion callback
   useEffect(() => {
-    console.log('[Dashboard] Setting goal completion callback');
-    console.log('[Dashboard] setGoalCompletedCallback function exists:', !!setGoalCompletedCallback);
-    console.log('[Dashboard] handleGoalCompleted function:', handleGoalCompleted);
+    //console.log('[Dashboard] Setting goal completion callback');
+    //console.log('[Dashboard] setGoalCompletedCallback function exists:', !!setGoalCompletedCallback);
+    //console.log('[Dashboard] handleGoalCompleted function:', handleGoalCompleted);
     setGoalCompletedCallback(handleGoalCompleted);
   }, [setGoalCompletedCallback, handleGoalCompleted]);
 

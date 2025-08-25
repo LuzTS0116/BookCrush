@@ -64,6 +64,17 @@ export async function GET(req: NextRequest) {
         owner_id: true,
         memberCount: true,
         genres: true,
+        current_book: {
+          select: {
+            id: true,
+            title: true,
+            author: true,
+            cover_url: true,
+            pages: true,
+            reading_time: true,
+            genres: true,
+          }
+        },
         // Add memberships for real member avatars
         memberships: {
           where: {
@@ -102,6 +113,7 @@ export async function GET(req: NextRequest) {
         memberCount: club.memberCount,
         membershipStatus: null,
         genres: club.genres,
+        current_book: club.current_book,
         // Include members data for avatars with synchronous processing
         members: club.memberships.map(member => ({
           id: member.user.id,
@@ -144,6 +156,7 @@ export async function GET(req: NextRequest) {
             ownerId: club.owner_id,
             memberCount: club.memberCount,
             genres: club.genres,
+            current_book: club.current_book,
             membershipStatus: userStatus || null,
             // Include members data for avatars with synchronous processing
             members: club.memberships.map(member => ({
