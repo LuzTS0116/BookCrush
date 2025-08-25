@@ -171,12 +171,13 @@ export default function ClubsMain({
   // Effect to update local state when props change (e.g., after router.refresh())
   useEffect(() => {
     setMyClubs(initialMyClubs);
-    console.log("initialMyClubs", initialMyClubs)
+    //console.log("initialMyClubs", initialMyClubs)
     
   }, [initialMyClubs]);
 //console.log(initialMyClubs)
   useEffect(() => {
     setDiscoverClubs(initialDiscoverClubs);
+    //console.log("initialDiscoverClubs", initialDiscoverClubs)
   }, [initialDiscoverClubs]);
 
   useEffect(() => {
@@ -207,7 +208,7 @@ export default function ClubsMain({
       }
 
       const result = await response.json();
-      console.log("Club created successfully:", result);
+      //console.log("Club created successfully:", result);
       toast.success(`Club "${result.name}" created successfully!`);
 
       setNewClubName("");
@@ -226,7 +227,7 @@ export default function ClubsMain({
       setLoadingAction(false);
     }
   };
-console.log(pendingInvitations);
+//console.log(pendingInvitations);
   const handleJoinClub = async (clubId: string) => {
     const baseUrl = getBaseUrl();
     setLoadingAction(true);
@@ -245,7 +246,7 @@ console.log(pendingInvitations);
       }
 
       const result = await response.json();
-      console.log("Join successful:", result);
+      //console.log("Join successful:", result);
       // Find club name from the current discoverClubs state for the toast message
       const clubName = discoverClubs.find(c => c.id === clubId)?.name || 'the club';
       toast.success(`Successfully applied to join "${clubName}"! Your request is pending approval.`);
@@ -278,7 +279,7 @@ console.log(pendingInvitations);
       }
 
       const result = await response.json();
-      console.log("Approval successful:", result);
+      //console.log("Approval successful:", result);
       toast.success(`Successfully approved ${applicantName}'s membership!`);
 
       router.refresh(); // Refresh server-side data
@@ -310,7 +311,7 @@ console.log(pendingInvitations);
     }
 
     const result = await response.json();
-    console.log("Denial successful:", result);
+    //console.log("Denial successful:", result);
     toast.success(`Denied ${applicantName}'s membership request.`);
 
     router.refresh(); // Refresh the list to reflect change
@@ -341,7 +342,7 @@ console.log(pendingInvitations);
       }
 
       const result = await response.json();
-      console.log("Invitation accepted:", result);
+      //console.log("Invitation accepted:", result);
       toast.success(`Successfully joined "${clubName}"!`);
       
       router.refresh(); // Refresh server-side data
@@ -372,7 +373,7 @@ console.log(pendingInvitations);
       }
 
       const result = await response.json();
-      console.log("Invitation declined:", result);
+      //console.log("Invitation declined:", result);
       toast.success(`Declined invitation to "${clubName}".`);
       
       router.refresh(); // Refresh server-side data

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { PrismaClient, ActivityType, ActivityTargetEntityType  } from '@prisma/client';
 import {  FriendRequestStatus  } from '@prisma/client'; // Import Prisma enum
 import { checkRateLimit, logSecurityEvent } from '@/lib/security-utils';
 import { prisma } from '@/lib/prisma';
+import { createServerClientWithToken } from '@/lib/supabaseClient';
+
 
 
 
@@ -12,15 +12,22 @@ export async function POST(req: NextRequest) {
   let user: any = null; // Declare user variable in broader scope
   
   try {
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    const { data: { user: authUser } } = await supabase.auth.getUser();
+    //use bearer token isntead of cookies
+    const authHeader = req.headers.get('authorization');
+    const accessToken = authHeader?.replace('Bearer ', '');
+    
+    if (!accessToken) {
+      return NextResponse.json({ error: "Authorization header required" }, { status: 401 });
+    }
+    
+    const supabase = createServerClientWithToken(accessToken);
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!authUser) {
+    if (!user) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    user = authUser; // Assign to broader scope variable
+    
 
     // Rate limiting check
     const rateLimitCheck = checkRateLimit(user.id, 'friend_request');

@@ -142,7 +142,7 @@ model FriendRequest {
   sender   Profile @relation("SentRequests", fields: [senderId], references: [id])
   receiver Profile @relation("ReceivedRequests", fields: [receiverId], references: [id])
 
-  @@unique([senderId, receiverId])
+  // No unique constraint - allow multiple requests for audit purposes
   @@map("friend_requests")
   @@schema("public")
 }

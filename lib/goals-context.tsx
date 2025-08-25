@@ -47,26 +47,26 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
 
   // Add safety wrapper for the callback
   const safeGoalCompletedCallback = useCallback((goal: CustomGoal) => {
-    console.log('[GoalsContext] safeGoalCompletedCallback called with goal:', goal?.name);
-    console.log('[GoalsContext] Callback registered:', !!goalCompletedCallback);
+    //console.log('[GoalsContext] safeGoalCompletedCallback called with goal:', goal?.name);
+    //console.log('[GoalsContext] Callback registered:', !!goalCompletedCallback);
     
     if (!goalCompletedCallback) {
-      console.log('[GoalsContext] ❌ No callback registered, skipping goal completion notification');
+      //console.log('[GoalsContext] ❌ No callback registered, skipping goal completion notification');
       return;
     }
     
     if (!goal || !goal.id) {
-      console.error('[GoalsContext] ❌ Attempted to call completion callback with invalid goal data:', goal);
+      //console.error('[GoalsContext] ❌ Attempted to call completion callback with invalid goal data:', goal);
       return;
     }
     
-    console.log('[GoalsContext] ✅ Safely calling goal completion callback for:', goal.name);
-    console.log('[GoalsContext] Goal being passed to callback:', JSON.stringify(goal, null, 2));
+    //console.log('[GoalsContext] ✅ Safely calling goal completion callback for:', goal.name);
+    //console.log('[GoalsContext] Goal being passed to callback:', JSON.stringify(goal, null, 2));
     goalCompletedCallback(goal);
   }, [goalCompletedCallback]);
 
-  console.log('[GoalsProvider] Provider mounted with session status:', status);
-  console.log('[GoalsProvider] Current goals count:', goals.length);
+  //console.log('[GoalsProvider] Provider mounted with session status:', status);
+  //console.log('[GoalsProvider] Current goals count:', goals.length);
 
   const fetchGoals = async () => {
     if (status !== 'authenticated' || !session?.supabaseAccessToken) {
@@ -99,7 +99,7 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
         goal.is_completed && currentActiveGoalIds.includes(goal.id)
       );
       
-      console.log('[GoalsContext] Found newly completed goals:', completedGoals.length);
+      //console.log('[GoalsContext] Found newly completed goals:', completedGoals.length);
       
       // Notify about newly completed goals
       completedGoals.forEach((goal: CustomGoal) => {
@@ -151,7 +151,7 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
         
         // If goal is completed for the first time, trigger the callback immediately
         if (isCompleted && !goal.is_completed) {
-          console.log('[GoalsContext] Goal completed optimistically:', updatedGoal.name);
+          //console.log('[GoalsContext] Goal completed optimistically:', updatedGoal.name);
           // Trigger callback immediately for optimistic updates
           setTimeout(() => safeGoalCompletedCallback(updatedGoal), 50);
         }
@@ -165,8 +165,8 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
   };
 
   const rollbackOptimisticUpdate = () => {
-    console.log('[GoalsContext] Rolling back optimistic update');
-    console.log('[GoalsContext] Reverting to original goals:', originalGoals);
+    //console.log('[GoalsContext] Rolling back optimistic update');
+    //console.log('[GoalsContext] Reverting to original goals:', originalGoals);
     setGoals(originalGoals);
   };
 
@@ -177,7 +177,7 @@ export function GoalsProvider({ children }: { children: ReactNode }) {
 
   // Wrapper function for setting the callback
   const setGoalCompletedCallbackWrapper = (callback: (goal: CustomGoal) => void) => {
-    console.log('[GoalsContext] Setting goal completion callback wrapper');
+    //console.log('[GoalsContext] Setting goal completion callback wrapper');
     setGoalCompletedCallback(() => callback);
   };
 

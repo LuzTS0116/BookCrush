@@ -10,7 +10,7 @@ import { Lock, Eye, EyeOff, CheckCircle } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { toast } from "sonner"
 import { useRouter, useSearchParams } from "next/navigation"
-import { createClient } from '@/lib/supabaseClient'
+import { useSupabase } from '@/lib/SupabaseContext'
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("")
@@ -23,7 +23,7 @@ export default function ResetPasswordPage() {
   
   const router = useRouter()
   const searchParams = useSearchParams()
-  const supabase = createClient()
+  const supabase = useSupabase()
 
   // Password validation
   const isPasswordValid = password.length >= 8

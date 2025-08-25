@@ -578,7 +578,7 @@ export function ActivityFeed({ compact = false, maxItems, showHeader = false, on
 
   const displayedActivities = maxItems ? activityFeed.slice(0, maxItems) : activityFeed;
 
-  console.log('displayedActivities', displayedActivities)
+  //console.log('displayedActivities', displayedActivities)
 
   if (displayedActivities.length === 0) {
     return (
