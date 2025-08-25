@@ -177,6 +177,7 @@ export default function ClubsMain({
 //console.log(initialMyClubs)
   useEffect(() => {
     setDiscoverClubs(initialDiscoverClubs);
+    console.log("initialDiscoverClubs", initialDiscoverClubs)
   }, [initialDiscoverClubs]);
 
   useEffect(() => {
