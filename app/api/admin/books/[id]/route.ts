@@ -158,6 +158,11 @@ export async function DELETE(
             reviews: true,
             club_meetings: true,
             ClubDiscussion: true,
+            file: true,
+            current_in_clubs: true,
+            club_history: true,
+            book_reactions: true,
+            recommendations: true,
           },
         },
       },
@@ -172,18 +177,81 @@ export async function DELETE(
     const hasReviews = existingBook._count.reviews > 0;
     const hasMeetings = existingBook._count.club_meetings > 0;
     const hasDiscussions = existingBook._count.ClubDiscussion > 0;
+    const hasFiles = existingBook._count.file > 0;
+    const isCurrentInClubs = existingBook._count.current_in_clubs > 0;
+    const hasClubHistory = existingBook._count.club_history > 0;
+    const hasReactions = existingBook._count.book_reactions > 0;
+    const hasRecommendations = existingBook._count.recommendations > 0;
 
-    if (hasUserBooks || hasReviews || hasMeetings || hasDiscussions) {
+    console.log('Book deletion check for:', id, {
+      userBooks: existingBook._count.UserBook,
+      reviews: existingBook._count.reviews,
+      meetings: existingBook._count.club_meetings,
+      discussions: existingBook._count.ClubDiscussion,
+      files: existingBook._count.file,
+      currentInClubs: existingBook._count.current_in_clubs,
+      clubHistory: existingBook._count.club_history,
+      reactions: existingBook._count.book_reactions,
+      recommendations: existingBook._count.recommendations
+    });
+
+    if (hasUserBooks || hasReviews || hasMeetings || hasDiscussions || hasFiles || 
+        isCurrentInClubs || hasClubHistory || hasReactions || hasRecommendations) {
+      const reasons = [];
+      if (hasUserBooks) reasons.push(`${existingBook._count.UserBook} user books`);
+      if (hasReviews) reasons.push(`${existingBook._count.reviews} reviews`);
+      if (hasMeetings) reasons.push(`${existingBook._count.club_meetings} meetings`);
+      if (hasDiscussions) reasons.push(`${existingBook._count.ClubDiscussion} discussions`);
+      if (hasFiles) reasons.push(`${existingBook._count.file} files`);
+      if (isCurrentInClubs) reasons.push(`current book in ${existingBook._count.current_in_clubs} clubs`);
+      if (hasClubHistory) reasons.push(`${existingBook._count.club_history} club history records`);
+      if (hasReactions) reasons.push(`${existingBook._count.book_reactions} reactions`);
+      if (hasRecommendations) reasons.push(`${existingBook._count.recommendations} recommendations`);
+      
+      const errorMessage = `Cannot delete book: it has associated data (${reasons.join(', ')}). Consider archiving instead.`;
+      
+      console.error('Book deletion prevented:', {
+        bookId: id,
+        errorMessage,
+        reasons,
+        counts: {
+          userBooks: existingBook._count.UserBook,
+          reviews: existingBook._count.reviews,
+          meetings: existingBook._count.club_meetings,
+          discussions: existingBook._count.ClubDiscussion,
+          files: existingBook._count.file,
+          currentInClubs: existingBook._count.current_in_clubs,
+          clubHistory: existingBook._count.club_history,
+          reactions: existingBook._count.book_reactions,
+          recommendations: existingBook._count.recommendations
+        }
+      });
+      
       return NextResponse.json({ 
-        error: 'Cannot delete book: it has associated user data (shelved books, reviews, meetings, or discussions). Consider archiving instead.' 
+        error: errorMessage,
+        message: errorMessage, // Some frontends look for 'message' instead of 'error'
+        details: {
+          userBooks: existingBook._count.UserBook,
+          reviews: existingBook._count.reviews,
+          meetings: existingBook._count.club_meetings,
+          discussions: existingBook._count.ClubDiscussion,
+          files: existingBook._count.file,
+          currentInClubs: existingBook._count.current_in_clubs,
+          clubHistory: existingBook._count.club_history,
+          reactions: existingBook._count.book_reactions,
+          recommendations: existingBook._count.recommendations
+        },
+        reasons: reasons
       }, { status: 400 });
     }
 
     // Delete book (this will cascade delete related records due to schema constraints)
+    console.log('Proceeding with book deletion for:', id);
     await prisma.book.delete({
       where: { id: id }
     });
 
+    console.log('Book deleted successfully:', id);
     return NextResponse.json({ message: 'Book deleted successfully' }, { status: 200 });
 
   } catch (error: any) {

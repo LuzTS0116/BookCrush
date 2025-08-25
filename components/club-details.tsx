@@ -513,6 +513,7 @@ interface ClubData {
   description: string;
   memberCount: number; // Using memberCount from your schema suggestion
   ownerId: string; // The ID of the club owner
+  genres: string[]; // Club genres
 
   // Current user's specific relationship to *this* club (these come from backend)
   currentUserMembershipStatus: 'ACTIVE' | 'PENDING' | 'REJECTED' | 'LEFT' | null;
@@ -545,6 +546,40 @@ const ADDITIONAL_ACTIONS = [
   { label: "Recommend to Friends", value: "recommend", icon: BookMarked },
 ];
 
+// Define available genres for clubs
+const GENRES = [
+  "Biography",
+  "Children's",
+  "Classics",
+  "Comedy",
+  "Contemporary Fiction",
+  "Dark Romance",
+  "Fantasy",
+  "Fiction",
+  "Graphic Novels",
+  "Healing Fiction",
+  "Historical Fiction",
+  "Horror",
+  "Literary Fiction",
+  "Manga",
+  "Memoir",
+  "Mystery",
+  "New Adult",
+  "Non-Fiction",
+  "Poetry",
+  "Psychological Thriller",
+  "Romance",
+  "Romcoms",
+  "Romantasy",
+  "Science Fiction",
+  "Self-Help",
+  "Short Stories",
+  "Spirituality",
+  "Thriller",
+  "True Crime",
+  "Young Adult"
+];
+
 export default function ClubDetailsView({ params }: { params: { id: string } }) {
   const { data: session, status } = useSession();
   const [comment, setComment] = useState("");
@@ -575,6 +610,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   const [editingClub, setEditingClub] = useState(false)
   const [editingClubName, setEditingClubName] = useState("")
   const [editingClubDescription, setEditingClubDescription] = useState("")
+  const [editingClubGenres, setEditingClubGenres] = useState<string[]>([])
   const [savingClubChanges, setSavingClubChanges] = useState(false)
   
   // Complete book state
@@ -1108,15 +1144,18 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   // Club editing functions
   const handleStartClubEdit = () => {
     if (!club) return
+    console.log('Starting club edit with genres:', club.genres)
     setEditingClub(true)
     setEditingClubName(club.name)
     setEditingClubDescription(club.description)
+    setEditingClubGenres(club.genres || [])
   }
 
   const handleCancelClubEdit = () => {
     setEditingClub(false)
     setEditingClubName("")
     setEditingClubDescription("")
+    setEditingClubGenres([])
   }
 
   const handleSaveClubChanges = async () => {
@@ -1135,6 +1174,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
         body: JSON.stringify({
           name: editingClubName.trim(),
           description: editingClubDescription.trim(),
+          genres: editingClubGenres,
         }),
       })
 
@@ -1152,6 +1192,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
       setEditingClub(false)
       setEditingClubName("")
       setEditingClubDescription("")
+      setEditingClubGenres([])
 
     } catch (err: any) {
       toast.error(`Error updating club: ${err.message}`)
@@ -1159,6 +1200,17 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     } finally {
       setSavingClubChanges(false)
     }
+  }
+
+  // Genre management functions
+  const addGenre = (genre: string) => {
+    if (genre && !editingClubGenres.includes(genre)) {
+      setEditingClubGenres(prev => [...prev, genre])
+    }
+  }
+
+  const removeGenre = (genre: string) => {
+    setEditingClubGenres(prev => prev.filter(g => g !== genre))
   }
 
   // --- NEW: Function to handle posting a comment ---
@@ -2324,6 +2376,23 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                 <div className="flex-1 min-w-0">
                   {editingClub ? (
                     <div className="space-y-2">
+                      {/* Current genres summary */}
+                      {club.genres && club.genres.length > 0 && (
+                        <div className="mb-3 p-2 bg-secondary/5 rounded-md">
+                          <p className="text-xs text-secondary/60 mb-1">Current genres:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {club.genres.map((genre) => (
+                              <span
+                                key={genre}
+                                className="bg-accent/30 text-secondary/70 text-xs font-medium px-2 py-1 rounded-full"
+                              >
+                                {genre}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
                       <Input
                         value={editingClubName}
                         onChange={(e) => setEditingClubName(e.target.value)}
@@ -2338,6 +2407,57 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                         placeholder="Club description"
                         disabled={savingClubChanges}
                       />
+                      
+                      {/* Genre editing section */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-secondary">
+                          Genres ({editingClubGenres.length} selected)
+                        </label>
+                        
+                        
+                        {/* Selected genres */}
+                        <div className="flex flex-wrap gap-1">
+                          {editingClubGenres.length > 0 ? (
+                            editingClubGenres.map((genre) => (
+                              <span
+                                key={genre}
+                                className="bg-primary/20 text-secondary text-xs font-medium px-2 py-1 rounded-full flex items-center gap-1"
+                              >
+                                {genre}
+                                <button
+                                  type="button"
+                                  onClick={() => removeGenre(genre)}
+                                  className="text-secondary/60 hover:text-secondary ml-1"
+                                  disabled={savingClubChanges}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </span>
+                            ))
+                          ) : (
+                            <p className="text-sm text-secondary/60 italic">No genres selected</p>
+                          )}
+                        </div>
+                        
+                        {/* Genre selector */}
+                        {GENRES.filter(genre => !editingClubGenres.includes(genre)).length > 0 ? (
+                          <Select onValueChange={addGenre} disabled={savingClubChanges}>
+                            <SelectTrigger className="bg-bookWhite/80 border-secondary/30">
+                              <SelectValue placeholder="Add a genre" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {GENRES.filter(genre => !editingClubGenres.includes(genre)).map((genre) => (
+                                <SelectItem key={genre} value={genre}>
+                                  {genre}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <p className="text-sm text-secondary/50 italic">All available genres have been added</p>
+                        )}
+                      </div>
+                      
                       <div className="flex gap-2 justify-end">
                         <Button
                           size="sm"
@@ -2378,7 +2498,29 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
                 
               </div>
               {!editingClub && (
-                <p className="text-secondary font-serif font-normal leading-4 my-1">{club.description}</p>
+                <>
+                  <p className="text-secondary font-serif font-normal leading-4 my-1">{club.description}</p>
+                  {/* Debug info - remove in production */}
+                  {process.env.NODE_ENV === 'development' && (
+                    <p className="text-xs text-secondary/50 mt-1">
+                      Debug: Club genres: {club.genres ? `${club.genres.length} genres: [${club.genres.join(', ')}]` : 'No genres field'}
+                    </p>
+                  )}
+                  {club.genres && club.genres.length > 0 ? (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {club.genres.map((genre) => (
+                        <span
+                          key={genre}
+                          className="bg-accent/30 text-secondary/70 text-xs font-medium px-2 py-1 rounded-full"
+                        >
+                          {genre}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-secondary/40 italic mt-2">No genres set for this club</p>
+                  )}
+                </>
               )}
             </div>
           </div>

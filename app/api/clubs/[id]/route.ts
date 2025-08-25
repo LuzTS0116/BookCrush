@@ -38,7 +38,7 @@ export async function GET(
     let winningBookSuggestions: any[] = []; // For expired voting cycles
 
     
-    // 1. Fetch the main club details
+        // 1. Fetch the main club details
     const club = await prisma.club.findUnique({
       where: { id: id },
       include: {
@@ -330,6 +330,7 @@ export async function GET(
       id: club.id,
       name: club.name,
       description: club.description,
+      genres: club.genres || [],
       memberCount: club.memberCount,
       owner_id: club.owner_id, // Club owner's ID
       memberships: formattedMemberships,
@@ -410,7 +411,7 @@ export async function PUT(
     }
 
     // Parse request body
-    const { name, description } = await request.json();
+    const { name, description, genres } = await request.json();
 
     // Validate input
     if (!name || !description) {
@@ -425,18 +426,25 @@ export async function PUT(
       return NextResponse.json({ error: "Club description must be at least 10 characters long" }, { status: 400 });
     }
 
+    // Validate genres if provided
+    if (genres && !Array.isArray(genres)) {
+      return NextResponse.json({ error: "Genres must be an array" }, { status: 400 });
+    }
+
     // Update the club
     const updatedClub = await prisma.club.update({
       where: { id },
       data: {
         name: name.trim(),
         description: description.trim(),
+        genres: genres || [],
         updated_at: new Date(),
       },
       select: {
         id: true,
         name: true,
         description: true,
+        genres: true,
         updated_at: true,
       },
     });
