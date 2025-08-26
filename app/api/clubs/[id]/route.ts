@@ -7,6 +7,11 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import {  ClubRole, ClubMembershipStatus  } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { getAvatarPublicUrlServer } from '@/lib/supabase-server-utils';
+import { createServerClientWithToken } from '@/lib/supabaseClient';
+// import { createClient } from '@supabase/supabase-js';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+
 
 
 
@@ -14,17 +19,37 @@ export async function GET(
   request: Request,
    { params }: { params: Promise<{ id: string }> }
 ) {
+  const session = await getServerSession(authOptions)
+  const supabase =  createServerClientWithToken(session?.supabaseAccessToken);
 
    const {id} = await params; 
+
+   if (!supabase) {
+    return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+  }
   
   try {
+
+     // Bearer token authentication (consistent with other APIs)
+     const authHeader = request.headers.get('Authorization');
+     if (!authHeader || !authHeader.startsWith('Bearer ')) {
+       console.error('[Clubs GET] Missing or invalid Authorization header');
+       return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
+     }
+ 
+     const token = authHeader.split(' ')[1];
+     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+ 
+     if (userError || !user) {
+       console.error('[Clubs GET] Auth error:', userError);
+       return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
+     }
 
     if (!id) {
       return NextResponse.json({ error: "Club ID is required" }, { status: 400 });
     }
 
-    const supabase = createRouteHandlerClient({ cookies });
-    const { data: { user } } = await supabase.auth.getUser();
+   
 
     // Although authentication is not strictly required to *view* a public club,
     // it's required to determine the user's specific membership status and admin rights.
@@ -374,18 +399,25 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  
   
   try {
+    const { id } = await params;
+    const session = await getServerSession(authOptions)
+    const supabase =  createServerClientWithToken(session?.supabaseAccessToken);
+
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
+    }
+
     if (!id) {
       return NextResponse.json({ error: "Club ID is required" }, { status: 400 });
     }
 
-    const supabase = createRouteHandlerClient({ cookies });
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      return NextResponse.json({ error: `Authentication required ${JSON.stringify(cookies())}` }, { status: 401 });
     }
 
     // Check if the user is an admin or owner of this club

@@ -736,7 +736,11 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
   const fetchClubDetails = useCallback(async () => {
     setLoadingClub(true);
     try {
-      const response = await fetch(`/api/clubs/${id}`); // Call your new API endpoint
+      const response = await fetch(`/api/clubs/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${session?.supabaseAccessToken}`
+        }
+      }); // Call your new API endpoint
       if (!response.ok) {
         throw new Error(`Failed to fetch club data: ${response.statusText}`);
       }
@@ -1170,6 +1174,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          
         },
         body: JSON.stringify({
           name: editingClubName.trim(),

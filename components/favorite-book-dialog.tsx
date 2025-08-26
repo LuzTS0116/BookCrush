@@ -56,6 +56,7 @@ export function FavoriteBookDialog({
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.supabaseAccessToken}`,
         },
+        credentials: 'include',
         body: JSON.stringify({ bookId }),
       });
       
