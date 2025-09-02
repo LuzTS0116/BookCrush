@@ -1,73 +1,32 @@
-// 'use client'
-
-// import { useSession } from 'next-auth/react'
-// import { useEffect } from 'react'
-// import { useSupabase } from '@/lib/SupabaseContext'
-
-// export default function SupabaseBridge(
-// { children }: { children: React.ReactNode }
-// ) {
-// const { data: session } = useSession()
-// const supabase = useSupabase()
-
-// /* 2. keep the Supabase session in-sync with the Next-Auth session */
-// useEffect(() => {
-// if (session?.supabaseAccessToken) {
-//   supabase.auth.setSession({
-//     access_token : session.supabaseAccessToken,
-//     refresh_token: session.supabaseRefreshToken ?? '',
-//   })
-// } else {
-//   supabase.auth.signOut()
-// }
-
-// }, [session, supabase])
-
-// return <>{children}</>
-// }
-
-
-
-
-// FIX COOKIES ISSUE
-
 'use client'
 
 import { useSession } from 'next-auth/react'
 import { useEffect, useRef } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser'
 
+export default function SupabaseBridge({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession()
+  const supabase = getSupabaseBrowserClient()
 
-export default function SupabaseBridge(
-{ children }: { children: React.ReactNode }
-) {
-const { data: session } = useSession()
+  // Track last applied tokens to avoid redundant setSession calls
+  const lastTokensRef = useRef<{ at?: string; rt?: string }>({})
 
-/* 1. create the client only once – and only in the browser */
-const supabaseRef = useRef<SupabaseClient>()
+  useEffect(() => {
+    if (status !== 'authenticated') {
+      // IMPORTANT: do not auto signOut here. Only sign out on explicit user action.
+      return
+    }
 
-if (typeof window !== 'undefined' && !supabaseRef.current) {
-supabaseRef.current = createClientComponentClient({})
-}
+    const at = session?.supabaseAccessToken
+    const rt = session?.supabaseRefreshToken
+    if (!at || !rt) return
 
+    if (lastTokensRef.current.at === at && lastTokensRef.current.rt === rt) return
+    lastTokensRef.current = { at, rt }
 
-/* 2. keep the Supabase session in-sync with the Next-Auth session */
-useEffect(() => {
-const supabase = supabaseRef.current
-if (!supabase) return // still SSR
+    supabase.auth.setSession({ access_token: at, refresh_token: rt })
+      .catch((e) => console.warn('[SupabaseBridge] setSession failed', e))
+  }, [status, session?.supabaseAccessToken, session?.supabaseRefreshToken, supabase])
 
-if (session?.supabaseAccessToken) {
-  supabase.auth.setSession({
-    access_token : session.supabaseAccessToken,
-    refresh_token: session.supabaseRefreshToken ?? '',
-  })
-} else {
-  supabase.auth.signOut()
-}
-
-}, [session])
-
-
-return <>{children}</>
+  return <>{children}</>
 }

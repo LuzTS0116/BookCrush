@@ -88,7 +88,12 @@ export const AddBookDialog: React.FC<AddBookDialogProps> = ({ open, onOpenChange
   }, [open, selectedBook, initialSearchQuery]);
 
   const fetchSuggestions = async (query: string) => {
-    const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&_spellcheck_count=0&limit=10&fields=key,cover_i,title,subtitle,author_name,name&mode=everything`);
+    const res = await fetch(`https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&_spellcheck_count=0&limit=10&fields=key,cover_i,title,subtitle,author_name,name&mode=everything`,
+  {
+    headers: {
+      "User-Agent": "BookCrush/0.1.8 (admin@bookcrush.club)"
+  },
+  });
     const data = await res.json();
     setSuggestions(data.docs);
   };
@@ -105,7 +110,11 @@ const handleSelect = async (suggestion: BookSuggestion) => {
   let alternate_titles: string[] = [];
 
   try {
-    const res = await fetch(`https://openlibrary.org${workKey}.json`);
+    const res = await fetch(`https://openlibrary.org${workKey}.json`,{
+      headers: {
+        "User-Agent": "BookCrush/0.1.8 (admin@bookcrush.club)"
+      },
+    });
     const data = await res.json();
 
     subjects = data.subjects || [];
@@ -137,7 +146,11 @@ const handleSelect = async (suggestion: BookSuggestion) => {
 
     // ⭐ Fetch ratings
     try {
-        const ratingRes = await fetch(`https://openlibrary.org${workKey}/ratings.json`);
+        const ratingRes = await fetch(`https://openlibrary.org${workKey}/ratings.json`,{
+          headers: {
+            "User-Agent": "BookCrush/0.1.8 (admin@bookcrush.club)"
+          },
+        });
         const ratingData = await ratingRes.json();
 
         if (ratingData.summary?.average) {
@@ -147,7 +160,11 @@ const handleSelect = async (suggestion: BookSuggestion) => {
         console.warn("No rating available for", workKey);
     }
 
-    const editionRes = await fetch(`https://openlibrary.org${workKey}/editions.json?limit=50`);
+    const editionRes = await fetch(`https://openlibrary.org${workKey}/editions.json?limit=50`,{
+      headers: {
+        "User-Agent": "BookCrush/0.1.8 (admin@bookcrush.club)"
+      },
+    });
     const editionData = await editionRes.json();
     const editions = editionData.entries || [];
 
@@ -187,7 +204,11 @@ const handleSelect = async (suggestion: BookSuggestion) => {
 
     if (preferredEdition) {
       if (preferredEdition.covers?.length) {
-        cover_url = `https://covers.openlibrary.org/b/id/${preferredEdition.covers[0]}-L.jpg`;
+        cover_url = `https://covers.openlibrary.org/b/id/${preferredEdition.covers[0]}-L.jpg`,{
+          headers: {
+            "User-Agent": "BookCrush/0.1.8 (admin@bookcrush.club)"
+          },
+        };
       }
       if (preferredEdition.number_of_pages) {
         pages = preferredEdition.number_of_pages;

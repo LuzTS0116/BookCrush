@@ -52,6 +52,7 @@ export default async function ClubsPage() {
     }
 
     // Fetch data concurrently
+    
     const [myClubsResult, discoverClubsResult, pendingInvitationsResult] = await Promise.allSettled([
       getMyClubs(accessToken),
       getDiscoverClubs(accessToken),
