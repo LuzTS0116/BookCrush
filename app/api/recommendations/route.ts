@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { prisma } from '@/lib/prisma';
 import { checkRecommendationAchievements } from './achievement-integration';
+import { sendPushNotification } from '@/lib/push-notifications';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -364,17 +365,13 @@ export async function POST(request: NextRequest) {
           select: { display_name: true }
         });
 
-        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/push/send`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            recipientId: toUserId,
-            bookTitle: book.title,
-            senderName: senderProfile?.display_name || 'A friend'
-          })
-        });
+        const pushResult = await sendPushNotification(
+          toUserId,
+          book.title,
+          senderProfile?.display_name || 'A friend'
+        );
+        
+        console.log('Push notification result:', pushResult);
       } catch (pushError) {
         console.error('Error sending push notification:', pushError);
         // Don't fail the recommendation creation if push notification fails

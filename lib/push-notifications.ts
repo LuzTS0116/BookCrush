@@ -1,34 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/utils/supabase/server'
 import { prisma } from '@/lib/prisma'
 import webpush from 'web-push'
 
-// Configure web-push with your VAPID keys
+// Configure web-push with VAPID keys
 webpush.setVapidDetails(
   `mailto:${process.env.VAPID_EMAIL}`,
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
   process.env.VAPID_PRIVATE_KEY!
 )
 
-export async function POST(request: NextRequest) {
+export async function sendPushNotification(
+  recipientId: string,
+  bookTitle: string,
+  senderName: string
+) {
   try {
-    const supabase = await createClient()
+    console.log('Sending push notification to user:', recipientId)
     
-    // Get user from auth using cookies
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-    }
-
-    const { recipientId, bookTitle, senderName } = await request.json()
-
-    if (!recipientId || !bookTitle || !senderName) {
-      return NextResponse.json({ 
-        error: 'Recipient ID, book title, and sender name are required' 
-      }, { status: 400 })
-    }
-
     // Get the recipient's push subscriptions for recommendations
     const subscriptions = await prisma.pushSubscription.findMany({
       where: {
@@ -38,10 +25,11 @@ export async function POST(request: NextRequest) {
     })
 
     if (subscriptions.length === 0) {
-      return NextResponse.json({ 
-        success: true, 
-        message: 'No push subscriptions found for recipient' 
-      })
+      console.log('No push subscriptions found for recipient:', recipientId)
+      return {
+        success: true,
+        message: 'No push subscriptions found for recipient'
+      }
     }
 
     // Prepare the notification payload
@@ -108,17 +96,19 @@ export async function POST(request: NextRequest) {
 
     const failed = results.length - successful
 
-    return NextResponse.json({ 
-      success: true, 
+    console.log(`Push notifications sent: ${successful} successful, ${failed} failed`)
+
+    return {
+      success: true,
       message: `Push notifications sent: ${successful} successful, ${failed} failed`,
       results: results.map(r => r.status === 'fulfilled' ? r.value : r.reason)
-    })
+    }
 
   } catch (error) {
     console.error('Error sending push notifications:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' }, 
-      { status: 500 }
-    )
+    return {
+      success: false,
+      error: 'Internal server error'
+    }
   }
 }
