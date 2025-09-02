@@ -181,9 +181,12 @@ const globalPublicRoutes = [
   { path: '/offline', exact: true },
   { path: '/manifest.webmanifest', exact: true },
   { path: '/sw.js', exact: true },
+  { path: '/sw-custom.js', exact: true },
   { path: '/workbox-', exact: false },
+  { path: '/fallback-', exact: false },
   { path: '/icons', exact: false },
   { path: '/apple-touch-icon.png', exact: true },
+  { path: '/sw-register.js', exact: true },
 ];
 
 function withCopiedCookies(from: NextResponse, to: NextResponse) {
@@ -298,10 +301,12 @@ export async function middleware(request: NextRequest) {
 // }
 
 // add images formats to the matcher
-
+// add sw-register.js to the matcher
+// add fallback-.. files to the matcher
 export const config = {
   matcher: [
   '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw\.js|workbox-.\.js|icons/|apple-touch-icon\.png|robots\.txt|sitemap\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  '/sw-register.js',
   ],
   };
 

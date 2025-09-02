@@ -35,6 +35,13 @@ export function useRecommendationNotifications() {
   useEffect(() => {
     const checkPushSupport = () => {
       const isSupported = 'serviceWorker' in navigator && 'PushManager' in window
+      const isDev = process.env.NODE_ENV === 'development'
+      
+      // In development, we might not have a service worker registered
+      if (isDev) {
+        console.log('Development mode detected - push notifications may be limited')
+      }
+      
       setPushState(prev => ({ ...prev, isSupported }))
     }
     
@@ -101,6 +108,12 @@ export function useRecommendationNotifications() {
     // Check if VAPID key is available
     if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) {
       throw new Error('VAPID public key not configured')
+    }
+
+    // Check if we're in development mode
+    const isDev = process.env.NODE_ENV === 'development'
+    if (isDev) {
+      console.warn('Push notifications in development mode may not work properly')
     }
 
     setPushState(prev => ({ ...prev, isSubscribing: true }))

@@ -39,12 +39,17 @@ const nextConfig = {
   },
 }
 
+const isDev = process.env.NODE_ENV === 'development';
+
 export default withPWA({
-  dest: 'public', // emits /sw.js
-  disable: process.env.NODE_ENV === 'development',
-  register: false, // auto-register SW
-  skipWaiting: true, // take control immediately
-  fallbacks: { document: '/offline ' }, // offline HTML fallback
+  dest: 'public',
+  disable: isDev, // Explicitly disable in development
+  register: !isDev, // Only auto-register in production
+  skipWaiting: true,
+  buildExcludes: [/app-build-manifest.json$/],
+  fallbacks: { document: '/offline' },
   runtimeCaching,
-  sw: '/sw-custom.js', // Use our custom service worker
-  })(nextConfig);
+  //sw: '/sw.js',
+  // IMPORTANT: pass Workbox options directly, not under "workboxOptions"
+  importScripts: isDev ? [] : ['/sw-custom.js'], // Only import custom SW in production
+  })(nextConfig)

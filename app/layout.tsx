@@ -146,7 +146,7 @@ export default async function RootLayout({
             //gutter: 8,
           }}
         />
-        <script src="/sw-register.js" />
+        
       </body>
     </html>
   )
