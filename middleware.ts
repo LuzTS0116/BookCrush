@@ -175,7 +175,15 @@ const globalPublicRoutes = [
   { path: '/api/user-books', exact: false }, // All user-books API routes
   { path: '/api/files', exact: false }, // All files API routes
   { path: '/api/profile/presign', exact: true },
-  { path: '/api/auth/forgot-password', exact: true }, // All forgot password API routes
+  { path: '/api/auth/forgot-password', exact: true },
+  
+  //PWA routes
+  { path: '/offline', exact: true },
+  { path: '/manifest.webmanifest', exact: true },
+  { path: '/sw.js', exact: true },
+  { path: '/workbox-', exact: false },
+  { path: '/icons', exact: false },
+  { path: '/apple-touch-icon.png', exact: true },
 ];
 
 function withCopiedCookies(from: NextResponse, to: NextResponse) {
@@ -190,7 +198,7 @@ export async function middleware(request: NextRequest) {
   );
 
   if (isGloballyPublic) {
-    //console.log('✅ Public route, allowing access');
+    console.log('✅ Public route, allowing access');
     return NextResponse.next();
   }
   
@@ -283,10 +291,17 @@ export async function middleware(request: NextRequest) {
   return refreshed
 }
 
+// export const config = {
+//   matcher: [
+//     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+//   ],
+// }
+
+// add images formats to the matcher
+
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw\.js|workbox-.\.js|icons/|apple-touch-icon\.png|robots\.txt|sitemap\.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
-}
-
+  };
 

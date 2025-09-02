@@ -13,9 +13,17 @@ import { loadEnvConfig } from '@next/env'
 import { MainNav } from "@/components/main-nav"
 import { MobileNav } from "@/components/mobile-nav"
 import { GoalsProvider } from "@/lib/goals-context"
+import {Viewport } from "next"
 
 const projectDir = process.cwd()
 loadEnvConfig(projectDir)
+
+
+export const viewport: Viewport = {
+  themeColor: '#cab1c6',
+}
+
+
 
 const chivo = Chivo ({
   variable: "--font-sans",
@@ -73,6 +81,18 @@ export const metadata: Metadata = {
       noimageindex: false,
     },
   },
+  //PWA metadata
+icons: {
+icon: '/icons/icon-192x192.png',
+apple: '/icons/apple-touch-icon.png',
+shortcut: 'icon3.png',
+},
+appleWebApp: {
+capable: true,
+statusBarStyle: 'default',
+title: 'BookCrush',
+},
+
 };
 
 export default async function RootLayout({
@@ -126,6 +146,7 @@ export default async function RootLayout({
             //gutter: 8,
           }}
         />
+        <script src="/sw-register.js" />
       </body>
     </html>
   )

@@ -357,6 +357,29 @@ export async function POST(request: NextRequest) {
       // Check for achievements after sending new recommendation
       await checkRecommendationAchievements(user.id, toUserId, bookId);
 
+      // Send push notification to recipient
+      try {
+        const senderProfile = await prisma.profile.findUnique({
+          where: { id: user.id },
+          select: { display_name: true }
+        });
+
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/push/send`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            recipientId: toUserId,
+            bookTitle: book.title,
+            senderName: senderProfile?.display_name || 'A friend'
+          })
+        });
+      } catch (pushError) {
+        console.error('Error sending push notification:', pushError);
+        // Don't fail the recommendation creation if push notification fails
+      }
+
       return NextResponse.json({ 
         recommendation: newRec,
         message: 'Recommendation sent successfully'
