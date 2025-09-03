@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma, PrismaClient } from '@prisma/client';
 import {createClient} from '@/utils/supabase/server'
-import { cookies } from 'next/headers'
 import { formatProfileWithAvatarUrlServer } from '@/lib/supabase-server-utils'
 import { prisma } from '@/lib/prisma';
 

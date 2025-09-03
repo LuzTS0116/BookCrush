@@ -7,10 +7,8 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import {  ClubRole, ClubMembershipStatus  } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { getAvatarPublicUrlServer } from '@/lib/supabase-server-utils';
-import { createServerClientWithToken } from '@/lib/supabaseClient';
-// import { createClient } from '@supabase/supabase-js';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import {createClient} from '@/utils/supabase/server'
+
 
 
 
@@ -19,8 +17,8 @@ export async function GET(
   request: Request,
    { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getServerSession(authOptions)
-  const supabase =  createServerClientWithToken(session?.supabaseAccessToken);
+  
+  const supabase =  await createClient();
 
    const {id} = await params; 
 
@@ -30,15 +28,9 @@ export async function GET(
   
   try {
 
-     // Bearer token authentication (consistent with other APIs)
-     const authHeader = request.headers.get('Authorization');
-     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-       console.error('[Clubs GET] Missing or invalid Authorization header');
-       return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
-     }
- 
-     const token = authHeader.split(' ')[1];
-     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    
+     
+     const { data: { user }, error: userError } = await supabase.auth.getUser();
  
      if (userError || !user) {
        console.error('[Clubs GET] Auth error:', userError);
@@ -403,8 +395,8 @@ export async function PUT(
   
   try {
     const { id } = await params;
-    const session = await getServerSession(authOptions)
-    const supabase =  createServerClientWithToken(session?.supabaseAccessToken);
+    
+    const supabase =  await createClient();
 
     if (!supabase) {
       return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/utils/supabase/server';
+
 import { prisma } from '@/lib/prisma';
 import { FriendRequestStatus } from '@prisma/client';
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = await createClient();
+  
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

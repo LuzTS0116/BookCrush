@@ -166,10 +166,19 @@ export function MainNav() {
                 </>
               )}
               <DropdownMenuItem className="flex justify-end px-0 hover:bg-transparent focus:bg-transparent">
+                
+                <Link href="/settings" className="rounded-sm bg-gray-600 text-bookWhite hover:bg-gray-500 p-2" onClick={() => setDropdownOpen(false)}>
+                                  
+                Settings</Link>
+              
+            </DropdownMenuItem>
+              <DropdownMenuItem className="flex justify-end px-0 hover:bg-transparent focus:bg-transparent">
                 <Button onClick={handleSignOut} className="rounded-sm bg-gray-600 text-bookWhite hover:bg-gray-500">
                   Sign out
                 </Button>
-              </DropdownMenuItem>
+                </DropdownMenuItem>
+                
+
             </DropdownMenuContent>
           </DropdownMenu>
 
