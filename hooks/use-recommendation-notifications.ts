@@ -55,7 +55,15 @@ export function useRecommendationNotifications() {
 
       try {
         console.log('Checking for existing service worker registration...');
-        const registration = await navigator.serviceWorker.ready
+        
+        // Wait for service worker to be ready with timeout
+        const registration = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Service worker timeout')), 5000)
+          )
+        ]) as ServiceWorkerRegistration;
+        
         console.log('Service worker ready:', registration);
         
         const subscription = await registration.pushManager.getSubscription()
@@ -71,6 +79,15 @@ export function useRecommendationNotifications() {
         // On Vercel, sometimes the service worker might not be ready immediately
         if (error instanceof Error && error.message.includes('No service worker')) {
           console.log('Service worker not ready yet, will retry...');
+        }
+        if (error instanceof Error && error.message.includes('timeout')) {
+          console.log('Service worker registration timeout, will retry...');
+          // Retry after a delay
+          setTimeout(() => {
+            if (pushState.isSupported && session?.supabaseAccessToken) {
+              checkSubscription();
+            }
+          }, 2000);
         }
       }
     }

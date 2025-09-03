@@ -2,14 +2,14 @@
 if ('serviceWorker' in navigator) {
   console.log('Service worker supported, checking environment...');
   
-  // Only register service worker in production or when explicitly enabled
-  const shouldRegister = process.env.NODE_ENV === 'production' || 
-                        process.env.NEXT_PUBLIC_ENABLE_SW === 'true';
+  // Force registration in production (Vercel sets NODE_ENV to production)
+  const shouldRegister = true; // Always try to register on Vercel
   
   if (shouldRegister) {
     console.log('Registering service worker...');
-    window.addEventListener('load', function() {
-      // Try to register the service worker
+    
+    // Register immediately and also on load
+    const registerSW = () => {
       navigator.serviceWorker.register('/sw.js', {
         scope: '/'
       })
@@ -32,7 +32,16 @@ if ('serviceWorker' in navigator) {
           console.log('Service worker registration failed:', error);
           console.error('Error details:', error.message);
         });
-    });
+    };
+    
+    // Try to register immediately
+    registerSW();
+    
+    // Also register on load as backup
+    window.addEventListener('load', registerSW);
+    
+    // And register on DOMContentLoaded as another backup
+    document.addEventListener('DOMContentLoaded', registerSW);
   } else {
     console.log('Service worker disabled in development mode');
   }

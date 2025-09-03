@@ -43,16 +43,16 @@ const isDev = process.env.NODE_ENV === 'development';
 
 export default withPWA({
   dest: 'public',
-  disable: isDev, // Explicitly disable in development
-  register: !isDev, // Only auto-register in production
+  disable: false, // Always enable PWA on Vercel
+  register: true, // Always auto-register
   skipWaiting: true,
   buildExcludes: [/app-build-manifest.json$/],
   fallbacks: { document: '/offline' },
   runtimeCaching,
   //sw: '/sw.js',
   // IMPORTANT: pass Workbox options directly, not under "workboxOptions"
-  importScripts: isDev ? [] : ['/sw-custom.js'], // Only import custom SW in production
+  importScripts: ['/sw-custom.js'], // Always import custom SW
   // Vercel-specific options
   reloadOnOnline: false,
-  sw: isDev ? undefined : '/sw.js', // Explicitly set SW path for production
+  sw: '/sw.js', // Always set SW path
   })(nextConfig)
