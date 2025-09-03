@@ -4,25 +4,75 @@
 // Handle push notifications
 self.addEventListener('push', function(event) {
     console.log('Push event received:', event);
+    console.log('Event data:', event.data);
     
     if (event.data) {
-      const data = event.data.json();
-      console.log('Push data:', data);
+      try {
+        // Try to parse as JSON first
+        const data = event.data.json();
+        console.log('Push data (JSON):', data);
+        
+        const options = {
+          body: data.body,
+          icon: data.icon || '', // Don't set fallback icon
+          badge: data.badge || '', // Don't set fallback badge
+          data: data.data || {},
+          actions: data.actions || [],
+          requireInteraction: false,
+          silent: false,
+          tag: data.tag || 'default',
+          vibrate: [200, 100, 200]
+        };
+    
+        event.waitUntil(
+          self.registration.showNotification(data.title, options)
+        );
+      } catch (error) {
+        // If JSON parsing fails, try to get text content
+        console.log('JSON parsing failed, trying text:', error);
+        
+        let messageText = 'New notification';
+        try {
+          messageText = event.data.text();
+          console.log('Push data (plain text):', messageText);
+        } catch (textError) {
+          console.log('Text parsing also failed:', textError);
+        }
+        
+        const options = {
+          body: messageText,
+          icon: '/icons/icon-192x192.png', // No icon for plain text notifications
+          badge: '', // No badge for plain text notifications
+          data: {},
+          actions: [],
+          requireInteraction: false,
+          silent: false,
+          tag: 'default',
+          vibrate: [200, 100, 200]
+        };
+    
+        event.waitUntil(
+          self.registration.showNotification('New Notification', options)
+        );
+      }
+    } else {
+      // No data, show a default notification
+      console.log('No push data, showing default notification');
       
       const options = {
-        body: data.body,
-        icon: data.icon || '/icons/icon-192x192.png',
-        badge: data.badge || '/icons/icon-192x192.png',
-        data: data.data || {},
-        actions: data.actions || [],
+        body: 'You have a new notification',
+        icon: '/icons/icon-192x192.png', // No icon for default notifications
+        badge: '', // No badge for default notifications
+        data: {},
+        actions: [],
         requireInteraction: false,
         silent: false,
-        tag: data.tag || 'default',
+        tag: 'default',
         vibrate: [200, 100, 200]
       };
   
       event.waitUntil(
-        self.registration.showNotification(data.title, options)
+        self.registration.showNotification('New Notification', options)
       );
     }
   });

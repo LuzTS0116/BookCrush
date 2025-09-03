@@ -12,6 +12,9 @@ function debugServiceWorker() {
   
   console.log('Service Worker supported');
   
+  // Check notification permission
+  console.log('Notification permission:', Notification.permission);
+  
   // Check if service worker file exists
   fetch('/sw.js')
     .then(response => {
@@ -39,6 +42,18 @@ function debugServiceWorker() {
             installing: registration.installing,
             waiting: registration.waiting
           });
+          
+          // Test notification display
+          if (registration.active && Notification.permission === 'granted') {
+            console.log('Testing notification display...');
+            registration.showNotification('Debug Test', {
+              body: 'This is a test notification from debug script',
+              icon: '/icons/icon-192x192.png',
+              badge: '/icons/icon-192x192.png',
+              tag: 'debug-test',
+              requireInteraction: true
+            });
+          }
         });
       } else {
         console.log('No service worker registrations found');

@@ -13,6 +13,7 @@ import { loadEnvConfig } from '@next/env'
 import { MainNav } from "@/components/main-nav"
 import { MobileNav } from "@/components/mobile-nav"
 import { GoalsProvider } from "@/lib/goals-context"
+import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
 import {Viewport } from "next"
 
 const projectDir = process.cwd()
@@ -112,6 +113,8 @@ export default async function RootLayout({
             <SupabaseBridge>
               <GoalsProvider>
                 <ThemeProvider attribute="class" defaultTheme="light">
+                  {/* PWA Install Prompt commented out for now */}
+                  {/*<PWAInstallPrompt />*/}
                   <MainNav />
                   <div className="mb-15">{children}</div>
                   {/* <-- only one Toaster, Sonner will hook into all your toast() calls */}

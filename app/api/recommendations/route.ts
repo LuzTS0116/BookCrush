@@ -360,10 +360,15 @@ export async function POST(request: NextRequest) {
 
       // Send push notification to recipient
       try {
+        console.log('=== RECOMMENDATION PUSH DEBUG ===')
+        console.log('Attempting to send push notification to:', toUserId)
+        
         const senderProfile = await prisma.profile.findUnique({
           where: { id: user.id },
           select: { display_name: true }
         });
+
+        console.log('Sender profile:', senderProfile)
 
         const pushResult = await sendPushNotification(
           toUserId,

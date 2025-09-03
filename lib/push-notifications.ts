@@ -14,7 +14,15 @@ export async function sendPushNotification(
   senderName: string
 ) {
   try {
+    console.log('=== PUSH NOTIFICATION DEBUG ===')
     console.log('Sending push notification to user:', recipientId)
+    console.log('Book title:', bookTitle)
+    console.log('Sender name:', senderName)
+    
+    // Check VAPID configuration
+    console.log('VAPID Email:', process.env.VAPID_EMAIL)
+    console.log('VAPID Public Key exists:', !!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY)
+    console.log('VAPID Private Key exists:', !!process.env.VAPID_PRIVATE_KEY)
     
     // Get the recipient's push subscriptions for recommendations
     const subscriptions = await prisma.pushSubscription.findMany({
@@ -22,6 +30,15 @@ export async function sendPushNotification(
         userId: recipientId,
         type: 'recommendation'
       }
+    })
+
+    console.log('Found subscriptions:', subscriptions.length)
+    subscriptions.forEach((sub, index) => {
+      console.log(`Subscription ${index}:`, {
+        id: sub.id,
+        endpoint: sub.endpoint.substring(0, 50) + '...',
+        hasKeys: !!(sub.p256dh && sub.auth)
+      })
     })
 
     if (subscriptions.length === 0) {
@@ -37,9 +54,9 @@ export async function sendPushNotification(
       title: 'New Book Recommendation! 📚',
       body: `${senderName} recommended "${bookTitle}" to you`,
       icon: '/icons/icon-192x192.png',
-      badge: '/icons/icon-192x192.png',
+      badge: '', // Remove badge (right-side icon)
       data: {
-        url: '/books', // URL to navigate to when notification is clicked
+        url: '/profile?openRecommendations=true', // URL to navigate to when notification is clicked
         type: 'recommendation',
         bookTitle,
         senderName
@@ -47,7 +64,7 @@ export async function sendPushNotification(
       actions: [
         {
           action: 'view',
-          title: 'View Recommendation'
+          title: 'View'
         },
         {
           action: 'dismiss',
@@ -78,7 +95,8 @@ export async function sendPushNotification(
           console.error('Error sending push notification:', error)
           
           // If subscription is invalid, remove it
-          if (error.statusCode === 410) {
+          const pushError = error as any
+          if (pushError.statusCode === 410) {
             await prisma.pushSubscription.delete({
               where: { id: subscription.id }
             })
