@@ -1,118 +1,9 @@
-// // app/api/auth/[...nextauth]/route.ts
-// import NextAuth, { NextAuthOptions } from 'next-auth';
-// import GoogleProvider from 'next-auth/providers/google';
-// import Credentials from 'next-auth/providers/credentials'
-// import { supabaseAdmin } from '@/lib/supabase'
-
-// /* ──────────────────────────────────────────────────────────────────────────
-//    1. Environment-variable guards (optional but recommended)
-//    ────────────────────────────────────────────────────────────────────────── */
-// const {
-//   GOOGLE_CLIENT_ID,
-//   GOOGLE_CLIENT_SECRET,
-//   NEXTAUTH_SECRET,
-// } = process.env;
-
-// if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !NEXTAUTH_SECRET) {
-//   throw new Error(
-//     'Missing required environment variables for NextAuth: ' +
-//       'GOOGLE_CLIENT_ID | GOOGLE_CLIENT_SECRET | NEXTAUTH_SECRET',
-//   );
-// }
-
-// /* ──────────────────────────────────────────────────────────────────────────
-//    2. NextAuth configuration with full type safety
-//    ────────────────────────────────────────────────────────────────────────── */
-// export const authOptions: NextAuthOptions = {
-//   providers: [
-//     GoogleProvider({
-//       clientId: GOOGLE_CLIENT_ID,
-//       clientSecret: GOOGLE_CLIENT_SECRET,
-//     }),
-//     Credentials({
-//   name: 'credentials',
-//   credentials: {
-//     email:    { type: 'text' },
-//     password: { type: 'password' },
-//   },
-//   async authorize (creds) {
-//     // Ask Supabase to verify the password
-//     if (!creds){
-//       throw new Error('No Credentials provided')
-//     }
-//     const { data, error } = await supabaseAdmin.auth
-//       .signInWithPassword({ email: creds.email, password: creds.password })
-
-//     if (error || !data.user) throw new Error(error?.message ?? 'Invalid')
-
-//     // Return the object that will be put into the JWT
-//     return {
-//       id:    data.user.id,
-//       email: data.user.email,
-//       supa:  {     // we will store the whole Supabase session
-//         access_token:  data.session!.access_token,
-//         refresh_token: data.session!.refresh_token,
-//       }
-//     }
-//   }
-// })
-//  // …add any other NextAuth options you need here
-//   ],
-//   secret: NEXTAUTH_SECRET,
-//   session: { strategy: 'jwt' },
-//   /* put the Supabase tokens into the Next-Auth JWT ↓ */
-// callbacks: {
-// async jwt ({ token, user, account }) {
-// // 1. e-mail / password → user is defined
-// if (user?.supa) {
-// token.id = user.id
-// token.supa = user.supa
-// }
-//  // 2. Google → we receive an id_token, exchange it with Supabase
-//   if (account?.provider === 'google' && account.id_token) {
-//     const { data, error } = await supabaseAdmin.auth
-//       .signInWithIdToken({
-//         provider: 'google',
-//         token: account.id_token,
-//       })
-//     if (!error && data.session) {
-//       token.id   = data.user!.id
-//       token.supa = {
-//         access_token:  data.session.access_token,
-//         refresh_token: data.session.refresh_token,
-//       }
-//     }
-//   }
-
-//   return token
-// },
-
-// /* hand the Supabase data to the React Session object ↓ */
-// async session ({ session, token }) {
-//   session.user.id             = token.id as string
-//   // make Supabase tokens available on the client / server components
-//   session.supabaseAccessToken = token.supa?.access_token as string | undefined
-//   session.supabaseRefreshToken= token.supa?.refresh_token as string | undefined
-//   return session
-// }
-// }
- 
-// };
-
-// /* ──────────────────────────────────────────────────────────────────────────
-//    3. Route handlers (Edge-compatible for the new App Router)
-//    ────────────────────────────────────────────────────────────────────────── */
-// const handler = NextAuth(authOptions);
-
-// export { handler as GET, handler as POST };
-
-// app/api/auth/[...nextauth]/route.ts
-
 import NextAuth, { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import Credentials from 'next-auth/providers/credentials';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { prisma } from '@/lib/prisma';
+import { decodeJwt } from 'jose';
 
 const {
   GOOGLE_CLIENT_ID,
@@ -348,38 +239,34 @@ export const authOptions: NextAuthOptions = {
         }
       }
       
-      // Refresh token logic (optional but recommended)
-      if (token.supa?.access_token) {
-        try {
-          // Check if the token is expired or about to expire
-          const { exp } = JSON.parse(atob(token.supa.access_token.split('.')[1]));
-          const expTimeInSeconds = exp;
-          const currentTimeInSeconds = Math.floor(Date.now() / 1000);
-          
-          // If token is expired or about to expire (within 30 minutes)
-          if (expTimeInSeconds - currentTimeInSeconds < 1800) {
-            //console.log('[Auth JWT Callback] Token expiring soon, refreshing...');
-            
-            const { data, error } = await supabaseAdmin.auth.refreshSession({
-              refresh_token: token.supa.refresh_token,
-            });
-            
-            if (error) throw error;
-            
-            if (data.session) {
-              //console.log('[Auth JWT Callback] Token refreshed successfully');
-              token.supa = {
-                access_token: data.session.access_token,
-                refresh_token: data.session.refresh_token,
-              };
-            }
-          }
-        } catch (error) {
-          console.error('[Auth JWT Callback] Failed to refresh token:', error);
-          // Token refresh failed, clear the token
-          delete token.supa;
+      // Refresh logic
+if (token.supa?.access_token && token.supa?.refresh_token) {
+  try {
+    const { exp } = decodeJwt(token.supa.access_token) as { exp?: number }
+    const now = Math.floor(Date.now() / 1000)
+    const secondsLeft = (exp ?? 0) - now
+    console.log('[NextAuth jwt] Supabase access token expiry:', exp, 'seconds left:', secondsLeft);
+    // refresh if expired or within 5 minutes of expiry
+    if (!exp || secondsLeft < 300) {
+      console.log('[NextAuth jwt] Supabase refresh attempted:', token.supa.refresh_token);
+      const { data, error } = await supabaseAdmin.auth.refreshSession({
+        refresh_token: token.supa.refresh_token,
+      })
+      if (error) throw error
+      if (data.session) {
+        console.log('[NextAuth jwt] Supabase refresh successful:', data.session);
+        token.supa = {
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token, // IMPORTANT: store the rotated refresh token
         }
       }
+    }
+  } catch (e) {
+    console.error('[NextAuth jwt] Supabase refresh failed:', e)
+    // If refresh fails, drop tokens so downstream can handle re-auth
+    delete token.supa
+  }
+}
 
       // After all processing, do a final check if needed
       if (token.id && token.supa?.access_token && token.profileComplete === undefined) {

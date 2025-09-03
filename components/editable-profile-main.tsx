@@ -610,11 +610,19 @@ export default function EditableProfileMain() {
   // Check for URL parameter to auto-open custom goals dialog
   useEffect(() => {
     const openGoals = searchParams.get('openGoals')
+    const openRecommendations = searchParams.get('openRecommendations')
     if (openGoals === 'true') {
       setIsCustomGoalsDialogOpen(true)
       // Remove the parameter from URL without causing a navigation
       const url = new URL(window.location.href)
       url.searchParams.delete('openGoals')
+      window.history.replaceState({}, '', url.toString())
+    }
+    if (openRecommendations === 'true') {
+      setIsRecommendationsDialogOpen(true)
+      // Remove the parameter from URL without causing a navigation
+      const url = new URL(window.location.href)
+      url.searchParams.delete('openRecommendations')
       window.history.replaceState({}, '', url.toString())
     }
   }, [searchParams])

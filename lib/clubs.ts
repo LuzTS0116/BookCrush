@@ -4,6 +4,8 @@
 
 // import { cookies } from 'next/headers'; // REMOVE: Cannot be used here
 // import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'; // REMOVE: Client initialized in Server Component
+import { withAuthCookies } from './http';
+
 
 // Types
 interface ClubMembershipRequest {
@@ -104,10 +106,19 @@ const getBaseUrl = () => {
 // but might still be used by getDiscoverClubs if it remains cookie-based or public
 const getCookieBasedRequestOptions = () => {
   return {
-    cache: 'no-store' as RequestCache,
-    credentials: 'include' as RequestCredentials, // For cookie-based auth
+    cache: 'no-store' as RequestCache, // For cookie-based auth
     headers: {
       'Content-Type': 'application/json',
+    }
+  };
+};
+
+const getTokenBasedRequestOptions = (accessToken: string | undefined) => {
+  return {
+    cache: 'no-store' as RequestCache,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
     }
   };
 };
@@ -120,30 +131,10 @@ const getCookieBasedRequestOptions = () => {
 export async function getMyClubs(accessToken: string | undefined): Promise<Club[]> {
   const baseUrl = getBaseUrl();
 
-  // console.log('[getMyClubs] Starting with:', {
-  //   hasAccessToken: !!accessToken,
-  //   tokenLength: accessToken?.length || 0,
-  //   baseUrl,
-  //   tokenPrefix: accessToken?.substring(0, 20) + '...' || 'none'
-  // });
-
-  if (!accessToken) {
-    console.warn("getMyClubs: No access token provided.");
-    // Or throw new Error("User not authenticated or access token is unavailable.");
-    return []; // Return empty or throw, based on how page.tsx handles this
-  }
-
-  const tokenRequestOptions = {
-    cache: 'no-store' as RequestCache,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    }
-  };
   
   try {
     //console.log('[getMyClubs] Making request to:', `${baseUrl}/api/clubs/my-clubs`);
-    const response = await fetch(`${baseUrl}/api/clubs/my-clubs`, tokenRequestOptions);
+    const response = await fetch(`${baseUrl}/api/clubs/my-clubs`, getTokenBasedRequestOptions(accessToken));
     
     // console.log('[getMyClubs] Response received:', {
     //   status: response.status,
@@ -167,7 +158,7 @@ export async function getMyClubs(accessToken: string | undefined): Promise<Club[
       if (club.admin) { 
         try {
           // Assuming /api/clubs/[club.id]/pending-memberships is also secured with Bearer token
-          const pendingRes = await fetch(`${baseUrl}/api/clubs/${club.id}/pending-memberships`, tokenRequestOptions);
+          const pendingRes = await fetch(`${baseUrl}/api/clubs/${club.id}/pending-memberships`, getTokenBasedRequestOptions(accessToken));
           
           if (!pendingRes.ok) {
             console.error(`Failed to fetch pending memberships for club ${club.id}: ${pendingRes.statusText}`);
@@ -195,26 +186,16 @@ export async function getMyClubs(accessToken: string | undefined): Promise<Club[
  * Fetches clubs the current user is NOT a member of
  * If this requires auth and is called server-side, it should also be updated.
  */
-export async function getDiscoverClubs(accessToken?: string | undefined): Promise<Club[]> { // Also accept token if needed
+export async function getDiscoverClubs(accessToken: string | undefined): Promise<Club[]> { // Also accept token if needed
   const baseUrl = getBaseUrl();
   
-  let options: RequestInit;
-  if (accessToken) { // If token provided, use it
-      options = {
-          cache: 'no-store' as RequestCache,
-          headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${accessToken}`,
-          }
-      };
-  } else { // Fallback to cookie-based or public if no token
-      options = getCookieBasedRequestOptions(); 
-  }
+ 
   
   try {
-    const response = await fetch(`${baseUrl}/api/clubs/discover`, options);
+    const response = await fetch(`${baseUrl}/api/clubs/discover`, getTokenBasedRequestOptions(accessToken));
     
     if (!response.ok) {
+      console.log(response)
       const errorText = await response.text().catch(() => 'No error text available');
       throw new Error(`Failed to fetch discoverable clubs. Status: ${response.status}. Details: ${errorText}`);
     }
@@ -234,21 +215,10 @@ export async function getDiscoverClubs(accessToken?: string | undefined): Promis
 export async function getPendingInvitations(accessToken: string | undefined): Promise<ClubInvitation[]> {
   const baseUrl = getBaseUrl();
 
-  if (!accessToken) {
-    console.warn("getPendingInvitations: No access token provided.");
-    return []; // Return empty array if not authenticated
-  }
 
-  const tokenRequestOptions = {
-    cache: 'no-store' as RequestCache,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
-    }
-  };
   
   try {
-    const response = await fetch(`${baseUrl}/api/invitations/pending`, tokenRequestOptions);
+    const response = await fetch(`${baseUrl}/api/invitations/pending`, getTokenBasedRequestOptions(accessToken));
     
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'No error text available');

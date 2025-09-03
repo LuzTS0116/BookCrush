@@ -1,59 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server';
-// import { cookies } from 'next/headers'; // No longer directly using cookies here
-// import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'; // Using standard client
-import { createClient } from '@supabase/supabase-js'; // Standard Supabase client
-import { PrismaClient } from '@prisma/client'
+import { createClient } from '@/utils/supabase/server';
 import { prisma } from '@/lib/prisma';
 import {  ClubMembershipStatus, ClubRole  } from '@prisma/client'; // ClubRole might not be needed here
+import { processAvatarUrl } from '@/utils/supabase/processAvatar';
 
 
 
-// Initialize Supabase client - credentials should be in environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Supabase URL or Anon Key is missing. Check environment variables for /api/clubs/discover.");
-}
-const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
-
-// Optimized avatar URL processing function - SYNCHRONOUS, NO ASYNC CALLS
-function processAvatarUrl(avatarPath: string | null | undefined): string | null {
-  if (!avatarPath) return null;
-  
-  // If already a full URL (Google avatars, etc.), return as-is
-  if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
-    return avatarPath;
-  }
-  
-  // Convert relative path to public URL synchronously
-  if (supabase) {
-    const { data } = supabase.storage.from('profiles').getPublicUrl(avatarPath);
-    return data.publicUrl;
-  }
-  
-  return null;
-}
 
 export async function GET(req: NextRequest) {
+  const supabase = await createClient();
+
   if (!supabase) {
+    console.error('[API my-clubs] Supabase client not initialized');
     return NextResponse.json({ error: "Supabase client not initialized. Check server configuration." }, { status: 500 });
   }
-
   try {
+       
     const authHeader = req.headers.get('Authorization');
-    let user = null;
-
-    // Optional authentication - improved error handling
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      const { data: { user: authenticatedUser }, error: userError } = await supabase.auth.getUser(token);
-      if (!userError) {
-        user = authenticatedUser;
-      } else {
-        console.warn("Token validation error for discover clubs:", userError.message);
-      }
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('[API books POST] Missing or invalid Authorization header');
+      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
     }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      console.error('[API books POST] Auth error:', userError);
+      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
+    }
+
+   
 
     // Revert to original working query structure but with optimized processing
     const allClubs = await prisma.club.findMany({
@@ -118,7 +96,7 @@ export async function GET(req: NextRequest) {
         members: club.memberships.map(member => ({
           id: member.user.id,
           display_name: member.user.display_name,
-          avatar_url: processAvatarUrl(member.user.avatar_url), // Synchronous!
+          avatar_url: processAvatarUrl(member.user.avatar_url, supabase), // Synchronous!
           role: member.role,
           joined_at: member.joined_at,
         })),
@@ -162,7 +140,7 @@ export async function GET(req: NextRequest) {
             members: club.memberships.map(member => ({
               id: member.user.id,
               display_name: member.user.display_name,
-              avatar_url: processAvatarUrl(member.user.avatar_url), // Synchronous!
+              avatar_url: processAvatarUrl(member.user.avatar_url, supabase), // Synchronous!
               role: member.role,
               joined_at: member.joined_at,
             })),

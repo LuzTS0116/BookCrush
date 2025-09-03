@@ -72,6 +72,9 @@ model Profile {
   // Custom Goals
   customGoals CustomGoal[] @relation("UserCustomGoals")
 
+  // Push notification subscriptions
+  pushSubscriptions PushSubscription[] @relation("UserPushSubscriptions")
+
   @@map("profiles")
   @@schema("public")
 }
@@ -826,5 +829,26 @@ model AchievementProgress {
   @@unique([user_id, achievement_id])
   @@index([user_id])
   @@map("achievement_progress")
+  @@schema("public")
+}
+
+// Push notification subscriptions
+model PushSubscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  type      String   // Type of notification (e.g., 'recommendation', 'club', 'achievement')
+  endpoint  String   @db.Text
+  p256dh    String   @db.Text
+  auth      String   @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  
+  // Relations
+  user Profile @relation("UserPushSubscriptions", fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, type]) // One subscription per user per type
+  @@index([userId])
+  @@index([type])
+  @@map("push_subscriptions")
   @@schema("public")
 }

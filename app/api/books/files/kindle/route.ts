@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/utils/supabase/server';
 import sgMail from '@sendgrid/mail';
 import { prisma } from '@/lib/prisma';
 
@@ -15,8 +14,7 @@ if (process.env.SENDGRID_API_KEY) {
 export async function POST(req: NextRequest) {
   try {
     // Initialize Supabase client with cookies
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = await createClient();
     
     // Verify user authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser();

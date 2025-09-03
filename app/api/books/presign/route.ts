@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/utils/supabase/server';
 import { randomUUID } from 'crypto';
 
 export async function POST(req: NextRequest) {
@@ -17,8 +16,8 @@ export async function POST(req: NextRequest) {
     }
     
     // Initialize Supabase client with cookies
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = await createClient();
+
     
     // Validate user authentication
     const { data: { session }, error: authError } = await supabase.auth.getSession();

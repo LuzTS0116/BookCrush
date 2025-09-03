@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/utils/supabase/server';
 import { PrismaClient } from '@prisma/client'
 import {  ReactionTargetType, ReactionType  } from '@prisma/client';
 import { checkRateLimit, logSecurityEvent } from '@/lib/security-utils';
@@ -12,8 +11,7 @@ export async function POST(req: NextRequest) {
   let user: any = null; // Declare user variable in broader scope
   
   try {
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = await createClient();
     const { data: { user: authUser } } = await supabase.auth.getUser();
 
     if (!authUser) {

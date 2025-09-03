@@ -2320,7 +2320,7 @@ export default function ClubDetailsView({ params }: { params: { id: string } }) 
     );
   }
 
-  console.log(club);
+  
   // --- Main Render Section ---
   return (
     <div className='space-y-3 px-2 mb-16 md:container'>

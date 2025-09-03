@@ -40,7 +40,9 @@ export async function fetchBookFromOL(
   url.searchParams.append('limit', '1');
   
 
-  const res = await fetch(url.href, { cache: 'no-store' });
+  const res = await fetch(url.href, { cache: 'no-store', headers: {
+    "User-Agent": "BookCrush/0.1.8 (admin@bookcrush.club)"
+  }, });
   if (!res.ok) {
     console.error('OpenLibrary error', res.statusText);
     return null;
@@ -49,7 +51,9 @@ export async function fetchBookFromOL(
   const { docs = [] } = (await res.json()) as { docs: OpenLibraryDoc[] };
   if (!docs.length) return null;
 
-  const works_res = await fetch(`https://openlibrary.org${docs[0].key}.json`, { cache: 'no-store' });
+  const works_res = await fetch(`https://openlibrary.org${docs[0].key}.json`, { cache: 'no-store', headers: {
+    "User-Agent": "BookCrush/0.1.8 (admin@bookcrush.club)"
+  }, });
   if (!works_res.ok) {
     console.error('OpenLibrary Works error', works_res.statusText);
     return null;

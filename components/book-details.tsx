@@ -960,18 +960,19 @@ export default function BookDetailsView({ params }: { params: { id: string } }) 
                 </div>
 
                 <div className="flex flex-wrap gap-1 mt-2 mb-2">
-                  {book.genre.map((g) => (
+                 
+                  {book.genre && book.genre.length > 0 && book.genre.map((g) => (
                     <Badge key={g} variant="secondary" className="bg-primary/50 text-secondary/50 font-medium font-serif">
                       {g}
                     </Badge>
                   ))}
                 </div> 
-                {book.pages && (
+                
+                {book.pages > 10 && (
                   <div className="flex-1">
                     <span className="font-medium font-serif text-xs/3 text-secondary-light bg-secondary/5 rounded-full px-2 py-0.5">{book.pages} pages • {book.reading_time}</span>
                   </div>
                 )}
-
                 <div className="mt-2">
                   {/* Quick Reaction Section */}
                   {/* <div className="flex flex-col items-start gap-2">

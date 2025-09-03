@@ -102,9 +102,10 @@ export async function getMutualFriendsCount(
   const response = await fetch(`/api/friends/mutual?friendId=${friendId}`, {
     method: 'GET',
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
+      // 'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
     },
+    credentials: 'include',
   });
 
   if (!response.ok) {
