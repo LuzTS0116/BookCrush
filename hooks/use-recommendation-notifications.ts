@@ -54,8 +54,12 @@ export function useRecommendationNotifications() {
       if (!pushState.isSupported || !session?.supabaseAccessToken) return
 
       try {
+        console.log('Checking for existing service worker registration...');
         const registration = await navigator.serviceWorker.ready
+        console.log('Service worker ready:', registration);
+        
         const subscription = await registration.pushManager.getSubscription()
+        console.log('Existing subscription:', subscription);
         
         setPushState(prev => ({
           ...prev,
@@ -64,6 +68,10 @@ export function useRecommendationNotifications() {
         }))
       } catch (error) {
         console.error('Error checking push subscription:', error)
+        // On Vercel, sometimes the service worker might not be ready immediately
+        if (error instanceof Error && error.message.includes('No service worker')) {
+          console.log('Service worker not ready yet, will retry...');
+        }
       }
     }
 

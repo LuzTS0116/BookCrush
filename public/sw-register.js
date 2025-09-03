@@ -9,14 +9,28 @@ if ('serviceWorker' in navigator) {
   if (shouldRegister) {
     console.log('Registering service worker...');
     window.addEventListener('load', function() {
-      navigator.serviceWorker.register('/sw.js')
+      // Try to register the service worker
+      navigator.serviceWorker.register('/sw.js', {
+        scope: '/'
+      })
         .then(function(registration) {
           console.log('Service worker registration successful:', registration);
           console.log('Service worker scope:', registration.scope);
           console.log('Service worker state:', registration.active ? 'active' : 'installing');
+          
+          // Check if service worker is actually active
+          if (registration.active) {
+            console.log('Service worker is active and ready');
+          } else {
+            console.log('Service worker is installing...');
+            registration.addEventListener('activate', function() {
+              console.log('Service worker activated');
+            });
+          }
         })
         .catch(function(error) {
           console.log('Service worker registration failed:', error);
+          console.error('Error details:', error.message);
         });
     });
   } else {

@@ -52,4 +52,7 @@ export default withPWA({
   //sw: '/sw.js',
   // IMPORTANT: pass Workbox options directly, not under "workboxOptions"
   importScripts: isDev ? [] : ['/sw-custom.js'], // Only import custom SW in production
+  // Vercel-specific options
+  reloadOnOnline: false,
+  sw: isDev ? undefined : '/sw.js', // Explicitly set SW path for production
   })(nextConfig)
