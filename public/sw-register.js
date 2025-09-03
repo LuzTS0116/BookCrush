@@ -1,4 +1,6 @@
 // Service worker registration script
+console.log('=== SW Register Script Loading ===');
+
 if ('serviceWorker' in navigator) {
   console.log('Service worker supported, checking environment...');
   
@@ -10,6 +12,7 @@ if ('serviceWorker' in navigator) {
     
     // Register immediately and also on load
     const registerSW = () => {
+      console.log('Attempting to register service worker...');
       navigator.serviceWorker.register('/sw.js', {
         scope: '/'
       })

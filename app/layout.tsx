@@ -147,6 +147,9 @@ export default async function RootLayout({
           }}
         />
         
+        {/* Service Worker Registration */}
+        <script src="/sw-register.js" />
+        
       </body>
     </html>
   )
