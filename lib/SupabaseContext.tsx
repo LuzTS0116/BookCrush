@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useMemo } from 'react'
-import { createClient } from './supabaseClient'
+import { getSupabaseBrowserClient } from './supabase-browser'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 interface SupabaseContextType {
@@ -12,7 +12,7 @@ const SupabaseContext = createContext<SupabaseContextType | undefined>(undefined
 
 export function SupabaseProvider({ children }: { children: React.ReactNode }) {
   // Create a single Supabase client instance that will be shared across all components
-  const supabase = useMemo(() => createClient(), [])
+  const supabase = useMemo(() => getSupabaseBrowserClient(), [])
 
   const value = useMemo(() => ({ supabase }), [supabase])
 

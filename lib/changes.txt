@@ -1,0 +1,219 @@
+Great — here’s exactly what to change to implement A (Supabase owns refresh) and B (idempotent, non-destructive bridge), based on your bridge and middleware.
+
+What’s wrong in your current bridge
+
+It calls supabase.auth.signOut() whenever the NextAuth session is missing. That revokes the current refresh token and can trigger “refresh_token_not_found” elsewhere.
+It may create more than one client in dev/StrictMode or when mounted more than once.
+It re-calls setSession on every render even if tokens didn’t change.
+Fix the bridge (B)
+
+Create one browser client per tab (module singleton).
+Only setSession when tokens actually change.
+Do NOT auto signOut; only sign out explicitly on user logout.
+Updated SupabaseBridge
+Create a module-level client factory and use it:
+
+lib/supabase-browser.ts
+'use client'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+let client: SupabaseClient | null = null
+
+export function getSupabaseBrowserClient() {
+if (!client) {
+client = createClientComponentClient({
+// Optional: helps suppress multi-client warnings in dev
+// options: { auth: { multiTab: false } },
+})
+}
+return client
+}
+
+Then update your bridge:
+
+'use client'
+
+import { useSession } from 'next-auth/react'
+import { useEffect, useRef } from 'react'
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser'
+
+export default function SupabaseBridge({ children }: { children: React.ReactNode }) {
+const { data: session, status } = useSession()
+const supabase = getSupabaseBrowserClient()
+
+// Track last applied tokens to avoid redundant setSession calls
+const lastTokensRef = useRef<{ at?: string; rt?: string }>({})
+
+useEffect(() => {
+if (status !== 'authenticated') {
+// IMPORTANT: do not auto signOut here. Only sign out on explicit user action.
+return
+}
+
+text
+const at = session?.supabaseAccessToken
+const rt = session?.supabaseRefreshToken
+if (!at || !rt) return
+
+if (lastTokensRef.current.at === at && lastTokensRef.current.rt === rt) return
+lastTokensRef.current = { at, rt }
+
+supabase.auth.setSession({ access_token: at, refresh_token: rt })
+  .catch((e) => console.warn('[SupabaseBridge] setSession failed', e))
+}, [status, session?.supabaseAccessToken, session?.supabaseRefreshToken, supabase])
+
+return <>{children}</>
+}
+
+Notes:
+
+Remove any other createClientComponentClient(...) or raw @supabase/supabase-js createClient(...) in the browser. Everything should use getSupabaseBrowserClient() or a context that wraps it.
+Keep signOut only in your explicit logout button/handler.
+Fix the middleware (A)
+
+Add Supabase middleware client and call getSession() on every request (public or private). This keeps HttpOnly cookies refreshed server-side.
+Return the same response instance you passed to createMiddlewareClient so refreshed cookies are included.
+Updated middleware
+import { NextResponse, type NextRequest } from 'next/server'
+import { getToken } from 'next-auth/jwt'
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
+
+const globalPublicRoutes = [
+{ path: '/', exact: true },
+{ path: '/login', exact: false },
+{ path: '/signup', exact: false },
+{ path: '/auth', exact: false },
+{ path: '/api/auth', exact: false },
+{ path: '/profile-setup', exact: false },
+{ path: '/api/user/profile-status', exact: true },
+{ path: '/_next', exact: false },
+{ path: '/images', exact: false },
+{ path: '/favicon.ico', exact: true },
+{ path: '/api/profile', exact: true },
+{ path: '/api/profile/check-username', exact: true },
+{ path: '/forgot-password', exact: true },
+
+// API routes that handle their own Bearer token auth
+{ path: '/api/clubs', exact: false },
+{ path: '/api/invitations', exact: false },
+{ path: '/api/meetings', exact: false },
+{ path: '/api/books', exact: false },
+{ path: '/api/social', exact: false },
+{ path: '/api/friends', exact: false },
+{ path: '/api/shelf', exact: false },
+{ path: '/api/reactions', exact: false },
+{ path: '/api/quotes', exact: false },
+{ path: '/api/discussions', exact: false },
+{ path: '/api/user-books', exact: false },
+{ path: '/api/files', exact: false },
+{ path: '/api/profile/presign', exact: true },
+{ path: '/api/auth/forgot-password', exact: true },
+]
+
+export async function middleware(request: NextRequest) {
+const { pathname } = request.nextUrl
+
+// Create a response up front and pass it to Supabase middleware
+const res = NextResponse.next()
+const supabase = createMiddlewareClient({ req: request, res })
+
+// Single source of truth for refreshing Supabase cookies
+await supabase.auth.getSession()
+
+const token = await getToken({
+req: request,
+secret: process.env.NEXTAUTH_SECRET,
+secureCookie: process.env.NODE_ENV === 'production',
+})
+
+const isGloballyPublic = globalPublicRoutes.some(route =>
+route.exact ? pathname === route.path : pathname.startsWith(route.path)
+)
+
+if (isGloballyPublic) {
+return res
+}
+
+if (!token) {
+const loginUrl = new URL('/login', request.url)
+loginUrl.searchParams.set('redirectedFrom', pathname)
+return NextResponse.redirect(loginUrl)
+}
+
+if (!token.id) {
+const loginUrl = new URL('/login', request.url)
+loginUrl.searchParams.set('error', 'missing_user_id')
+return NextResponse.redirect(loginUrl)
+}
+
+if (!token.supa?.access_token) {
+const loginUrl = new URL('/login', request.url)
+loginUrl.searchParams.set('error', 'invalid_session')
+loginUrl.searchParams.set('clearSession', 'true')
+return NextResponse.redirect(loginUrl)
+}
+
+const profileCompleteBypassed =
+request.cookies.get('profile-complete-bypass')?.value === 'true'
+
+if (token.profileComplete === false && !profileCompleteBypassed) {
+const redirectUrl = new URL('/profile-setup', request.url)
+redirectUrl.searchParams.set('redirectedFrom', pathname)
+return NextResponse.redirect(redirectUrl)
+}
+
+if (profileCompleteBypassed && token.profileComplete === true) {
+// Use the same res to carry cookie mutation
+res.cookies.delete('profile-complete-bypass')
+return res
+}
+
+if (token.profileComplete === undefined && !profileCompleteBypassed) {
+try {
+const profileResponse = await fetch(
+${request.nextUrl.origin}/api/user/profile-status,
+{
+headers: {
+Authorization: Bearer ${token.supa.access_token},
+'Content-Type': 'application/json',
+},
+}
+)
+
+text
+  if (profileResponse.ok) {
+    const { profileComplete } = await profileResponse.json()
+    if (!profileComplete) {
+      const redirectUrl = new URL('/profile-setup', request.url)
+      redirectUrl.searchParams.set('redirectedFrom', pathname)
+      return NextResponse.redirect(redirectUrl)
+    }
+  }
+} catch {
+  // allow through on error
+}
+}
+
+return res
+}
+
+export const config = {
+matcher: [
+'/((?!_next/static|_next/image|favicon.ico|.\.(?:svg|png|jpg|jpeg|gif|webp)$).)',
+],
+}
+
+Important follow-ups
+
+Remove token refresh in your NextAuth jwt callback. Do not call supabaseAdmin.auth.refreshSession there. Let the middleware and browser client handle refresh; this avoids token-rotation races that cause refresh_token_not_found.
+Ensure server-side Supabase usage is per-request:
+Route handlers: createRouteHandlerClient({ cookies })
+Never singleton a server supabase client.
+Ensure only one browser Supabase client exists in the app. Replace any other instantiations with getSupabaseBrowserClient() or expose it via a React context provider.
+Optional: in development, React Strict Mode double-mount can still log multi-client warnings. Setting options: { auth: { multiTab: false } } when creating the browser client usually suppresses those without affecting cookies.
+With these changes:
+
+Supabase owns refresh via middleware and the single browser client.
+The bridge is idempotent and won’t revoke tokens implicitly.
+Your API routes keep working off HttpOnly cookies, and the “refresh_token_not_found” error should disappear.

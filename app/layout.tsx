@@ -13,9 +13,18 @@ import { loadEnvConfig } from '@next/env'
 import { MainNav } from "@/components/main-nav"
 import { MobileNav } from "@/components/mobile-nav"
 import { GoalsProvider } from "@/lib/goals-context"
+import { PWAInstallPrompt } from "@/components/pwa-install-prompt"
+import {Viewport } from "next"
 
 const projectDir = process.cwd()
 loadEnvConfig(projectDir)
+
+
+export const viewport: Viewport = {
+  themeColor: '#cab1c6',
+}
+
+
 
 const chivo = Chivo ({
   variable: "--font-sans",
@@ -73,6 +82,18 @@ export const metadata: Metadata = {
       noimageindex: false,
     },
   },
+  //PWA metadata
+icons: {
+icon: '/icons/icon-192x192.png',
+apple: '/icons/apple-touch-icon.png',
+shortcut: 'icon3.png',
+},
+appleWebApp: {
+capable: true,
+statusBarStyle: 'default',
+title: 'BookCrush',
+},
+
 };
 
 export default async function RootLayout({
@@ -92,6 +113,8 @@ export default async function RootLayout({
             <SupabaseBridge>
               <GoalsProvider>
                 <ThemeProvider attribute="class" defaultTheme="light">
+                  {/* PWA Install Prompt commented out for now */}
+                  {/*<PWAInstallPrompt />*/}
                   <MainNav />
                   <div className="mb-15">{children}</div>
                   {/* <-- only one Toaster, Sonner will hook into all your toast() calls */}
@@ -126,6 +149,10 @@ export default async function RootLayout({
             //gutter: 8,
           }}
         />
+        
+        {/* Service Worker Registration */}
+        <script src="/sw-register.js" />
+        
       </body>
     </html>
   )

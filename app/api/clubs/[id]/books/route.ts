@@ -1,4 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
@@ -32,7 +32,7 @@ export async function GET(
   //react.use in params.id
   const { id } = await params
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = await createClient()
 
     const { data: books, error } = await supabase
       .from('club_books')
@@ -77,7 +77,7 @@ export async function POST(
   //react.use in params.id
   const { id } = await params
   try {
-    const supabase = createRouteHandlerClient({ cookies })
+    const supabase = await createClient()
     
     // Parse body
     const body = await request.json()
@@ -143,8 +143,8 @@ export async function PATCH(
  
   try {
 
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    
+    const supabase = await createClient();
     
     // Parse body
     const body = await request.json()

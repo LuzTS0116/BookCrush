@@ -19,6 +19,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 // import { createClient } from "@/lib/supabaseClient";
 import { createClient } from '@/lib/supabaseClient';
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -35,8 +37,8 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   
   // Get the shared Supabase client instance - ensure it's only created once per component
-  const supabase = useMemo(() => createClient(), []);
-
+  // const supabase = useMemo(() => createClient(), []);
+  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   // Check if we're in the middle of an OAuth callback
   const [isOAuthCallback, setIsOAuthCallback] = useState(false);
   

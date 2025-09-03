@@ -170,7 +170,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/utils/supabase/server';
 import { PrismaClient, ActivityType, ActivityTargetEntityType } from '@prisma/client' ;
 import {  ClubRole, ClubMembershipStatus, club_book_status  } from '@prisma/client';
 import { z } from 'zod';
@@ -247,9 +247,7 @@ export async function PUT(
       return NextResponse.json({ error: "Club ID is required" }, { status: 400 });
     }
 
-    // Use cookies() directly with createRouteHandlerClient
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -396,9 +394,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Club ID is required" }, { status: 400 });
     }
 
-    // Use cookies() directly with createRouteHandlerClient
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

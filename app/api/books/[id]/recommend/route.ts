@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { prisma } from '@/lib/prisma';
+import { sendPushNotification } from '@/lib/push-notifications';
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -141,6 +142,32 @@ export async function POST(
             recommendation: newRec,
             action: 'created'
           });
+        }
+
+        // Send push notification for new recommendations only
+        if (!existingRec) {
+          try {
+            console.log('=== RECOMMENDATION PUSH DEBUG ===')
+            console.log('Attempting to send push notification to:', friendId)
+            
+            const senderProfile = await prisma.profile.findUnique({
+              where: { id: user.id },
+              select: { display_name: true }
+            });
+
+            console.log('Sender profile:', senderProfile)
+
+            const pushResult = await sendPushNotification(
+              friendId,
+              book.title,
+              senderProfile?.display_name || 'A friend'
+            );
+            
+            console.log('Push notification result:', pushResult);
+          } catch (pushError) {
+            console.error('Error sending push notification:', pushError);
+            // Don't fail the recommendation creation if push notification fails
+          }
         }
 
         // Create activity log for sender

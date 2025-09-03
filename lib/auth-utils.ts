@@ -5,12 +5,12 @@ import { prisma } from './prisma';
 export async function getAuthenticatedUser() {
   const session = await getServerSession(authOptions);
   
-  if (!session?.user?.email) {
+  if (!session?.user?.id) {
     throw new Error('Authentication required');
   }
 
   const user = await prisma.profile.findUnique({
-    where: { email: session.user.email },
+    where: { id: session.user.id },
     select: { 
       id: true, 
       email: true, 

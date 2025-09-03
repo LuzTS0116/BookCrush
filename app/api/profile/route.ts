@@ -1,48 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma, PrismaClient } from '@prisma/client';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import {createClient} from '@/utils/supabase/server'
 import { formatProfileWithAvatarUrlServer } from '@/lib/supabase-server-utils'
 import { prisma } from '@/lib/prisma';
-import { createClient } from '@supabase/supabase-js';
-
-// Initialize Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Supabase URL or Anon Key is missing for books API.");
-}
-
-const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 export async function GET(request: NextRequest) {
+  const supabase = await createClient()
 
-  if (!supabase) {
-    return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
-  }
-
- 
-
-  
   try {
-    // Bearer token authentication (consistent with other APIs)
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.error('[API profile GET] Missing or invalid Authorization header');
-      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-
+    // Try to get user from cookies first
+    let { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    
     if (userError || !user) {
-      console.error('[API profile GET] Auth error:', userError);
-      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
-    }
-
-
-
+          console.error('[API profile GET] Auth failed:', userError);
+          return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+      } 
+    
 
     const profile = await prisma.profile.findUnique({
       where: { id: user.id },
@@ -91,122 +65,103 @@ export async function GET(request: NextRequest) {
       { error: 'Failed to fetch profile', details: error.message || 'An unexpected error occurred.' },
       { status: 500 }
     );
-  } finally {
-    
   }
 }
 
+export async function POST(req: NextRequest) {
+  const supabase = await createClient()
 
-
-export async function POST(req:NextRequest){
-
-
-if (!supabase) {
-    return NextResponse.json({ error: "Supabase client not initialized" }, { status: 500 });
-  }
-
- 
-
-  
   try {
-    // Bearer token authentication (consistent with other APIs)
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.error('[API Profile POST] Missing or invalid Authorization header');
-      return NextResponse.json({ error: "Authorization header with Bearer token is required" }, { status: 401 });
-    }
-
-    const token = authHeader.split(' ')[1];
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    // Try to get user from cookies first
+    let { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      console.error('[API Profile POST] Auth error:', userError);
-      return NextResponse.json({ error: userError?.message || "Authentication required" }, { status: 401 });
-    }
-  const payload = await req.json()
-  const {
-    display_name, // This is now the username
-    full_name,    // Optional real name
-    about,
-    favorite_genres = [],
-    kindle_email,
-    avatar_url,
-    email          // Email from session
-  } = payload
+      console.error('[API profile GET] Auth failed:', userError);
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  } 
 
-  // Basic validation for username (display_name)
-  if (!display_name || typeof display_name !== 'string' || display_name.trim() === '') {
-    return NextResponse.json(
-      { error: 'Validation failed', details: 'Username is required and must be a non-empty string.' },
-      { status: 400 }
-    );
-  }
+    const payload = await req.json()
+    const {
+      display_name, // This is now the username
+      full_name,    // Optional real name
+      about,
+      favorite_genres = [],
+      kindle_email,
+      avatar_url,
+      email          // Email from session
+    } = payload
 
-  // Username format validation
-  if (display_name.length < 3) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: 'Username must be at least 3 characters long.' },
-      { status: 400 }
-    );
-  }
-
-  if (!/^[a-zA-Z0-9_.-]+$/.test(display_name)) {
-    return NextResponse.json(
-      { error: 'Validation failed', details: 'Username can only contain letters, numbers, dots, hyphens, and underscores.' },
-      { status: 400 }
-    );
-  }
-
-  // upsert avoids "duplicate key" if user hits the endpoint twice
-  // Note: Need to regenerate Prisma client first: npx prisma generate
-  const profile = await prisma.profile.upsert({
-    where: { id: user.id },
-    update: { display_name, about, favorite_genres, kindle_email, avatar_url, full_name, email },
-    create: { id: user.id, display_name, about, favorite_genres, kindle_email, avatar_url, full_name, email }
-  })
-
-  // Format the profile with proper avatar URL for consistency with GET endpoint
-  const formattedProfile = await formatProfileWithAvatarUrlServer(supabase!, profile)
-
-  // Set a temporary cookie to bypass middleware profile check for smooth redirect
-  const response = NextResponse.json(formattedProfile, { status: 201 });
-  response.cookies.set('profile-complete-bypass', 'true', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 60 // 1 minute - enough time for the redirect to happen
-  });
-
-  return response;
-} catch (error: any) {
-  console.error('[API /profile POST] Error:', error); // Log the full error server-side
-
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    // Prisma-specific errors
-    let details = `Prisma error code: ${error.code}`;
-    if (error.meta && error.meta.target) {
-      details += `, Target: ${error.meta.target}`;
-    }
-    // Add more specific messages based on error.code if needed
-    // e.g., P2002 for unique constraint violation
-    return NextResponse.json(
-      { error: 'Database operation failed', details }, 
-      { status: 409 } // Conflict or Bad Request depending on the error
-    );
-  } else if (error.name === 'SyntaxError') {
-      // Error parsing JSON payload
+    // Basic validation for username (display_name)
+    if (!display_name || typeof display_name !== 'string' || display_name.trim() === '') {
       return NextResponse.json(
-          { error: 'Invalid request payload', details: 'Failed to parse JSON body.' }, 
-          { status: 400 }
+        { error: 'Validation failed', details: 'Username is required and must be a non-empty string.' },
+        { status: 400 }
       );
-  } else {
-    // Generic error
-    return NextResponse.json(
-      { error: 'Failed to save profile', details: error.message || 'An unexpected error occurred.' }, 
-      { status: 500 }
-    );
+    }
+
+    // Username format validation
+    if (display_name.length < 3) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: 'Username must be at least 3 characters long.' },
+        { status: 400 }
+      );
+    }
+
+    if (!/^[a-zA-Z0-9_.-]+$/.test(display_name)) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: 'Username can only contain letters, numbers, dots, hyphens, and underscores.' },
+        { status: 400 }
+      );
+    }
+
+    // upsert avoids "duplicate key" if user hits the endpoint twice
+    // Note: Need to regenerate Prisma client first: npx prisma generate
+    const profile = await prisma.profile.upsert({
+      where: { id: user.id },
+      update: { display_name, about, favorite_genres, kindle_email, avatar_url, full_name, email },
+      create: { id: user.id, display_name, about, favorite_genres, kindle_email, avatar_url, full_name, email }
+    })
+
+    // Format the profile with proper avatar URL for consistency with GET endpoint
+    const formattedProfile = await formatProfileWithAvatarUrlServer(supabase, profile)
+
+    // Set a temporary cookie to bypass middleware profile check for smooth redirect
+    const response = NextResponse.json(formattedProfile, { status: 201 });
+    response.cookies.set('profile-complete-bypass', 'true', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 // 1 minute - enough time for the redirect to happen
+    });
+
+    return response;
+  } catch (error: any) {
+    console.error('[API /profile POST] Error:', error); // Log the full error server-side
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      // Prisma-specific errors
+      let details = `Prisma error code: ${error.code}`;
+      if (error.meta && error.meta.target) {
+        details += `, Target: ${error.meta.target}`;
+      }
+      // Add more specific messages based on error.code if needed
+      // e.g., P2002 for unique constraint violation
+      return NextResponse.json(
+        { error: 'Database operation failed', details }, 
+        { status: 409 } // Conflict or Bad Request depending on the error
+      );
+    } else if (error.name === 'SyntaxError') {
+        // Error parsing JSON payload
+        return NextResponse.json(
+            { error: 'Invalid request payload', details: 'Failed to parse JSON body.' }, 
+            { status: 400 }
+        );
+    } else {
+      // Generic error
+      return NextResponse.json(
+        { error: 'Failed to save profile', details: error.message || 'An unexpected error occurred.' }, 
+        { status: 500 }
+      );
+    }
   }
-} finally {
-  
-}
 }
